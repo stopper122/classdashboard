@@ -218,9 +218,18 @@
             try {
                 const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
                 for (const line of lines) {
-                    const parts = line.split(',');
-                    const studentId = parts.pop().trim();
-                    const name = parts.join(',').trim();
+                    const lastCommaIndex = line.lastIndexOf(',');
+                    let name = '';
+                    let studentId = '';
+
+                    if (lastCommaIndex !== -1) {
+                        name = line.substring(0, lastCommaIndex).trim();
+                        studentId = line.substring(lastCommaIndex + 1).trim();
+                    } else {
+                        // If no comma, assume the whole line is the name and a new ID will be generated
+                        name = line;
+                        studentId = crypto.randomUUID(); // Fallback to a random ID
+                    }
 
                     if (!name || !studentId) {
                         showMessage(`Skipping invalid format on line: ${line}. Format should be "Name, ID#"`);
