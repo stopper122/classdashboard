@@ -139,7 +139,11 @@
                 `;
             }).join('');
         };
-        
+
+        const normalizeName = (name) => {
+            return name.trim().toLowerCase().replace(/[\W_]+/g, '').replace(/,/g, '');
+        }
+
         const handleLogin = async (event) => {
             event.preventDefault();
             const name = document.getElementById('student-name').value.trim();
@@ -157,10 +161,11 @@
                 const querySnapshot = await getDocs(q);
 
                 if (querySnapshot.empty) {
-                    messageEl.textContent = 'Login failed. Please check your ID and name.';
+                    messageEl.textContent = 'Login failed. The ID you entered was not found.';
                 } else {
                     const studentDoc = querySnapshot.docs[0];
-                    if (studentDoc.data().name.toLowerCase() === name.toLowerCase()) {
+                    const dbName = studentDoc.data().name;
+                    if (normalizeName(dbName) === normalizeName(name)) {
                         state.student = { id: studentDoc.id, ...studentDoc.data() };
                         state.isLoggedIn = true;
                         startDataListeners();
