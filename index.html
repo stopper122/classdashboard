@@ -266,7 +266,7 @@
                     const studentName = student ? student.name : 'Unknown Student';
                     const assignmentTitle = assignment ? assignment.title : 'Unknown Assignment';
                     return `
-                        <div class="bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center">
+                        <div class="bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center cursor-pointer hover:bg-gray-100" onclick="handleStudentClick('${student.id}')">
                             <div class="flex-grow">
                                 <p class="font-semibold text-gray-700">${studentName}</p>
                                 <p class="text-sm text-gray-500">Assignment: ${assignmentTitle}</p>
@@ -284,7 +284,7 @@
                     const studentName = student ? student.name : 'Unknown Student';
                     const assignmentTitle = assignment ? assignment.title : 'Unknown Assignment';
                     return `
-                        <div class="bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center">
+                        <div class="bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center cursor-pointer hover:bg-gray-100" onclick="handleStudentClick('${student.id}')">
                             <div class="flex-grow">
                                 <p class="font-semibold text-gray-700">${studentName}</p>
                                 <p class="text-sm text-gray-500">Assignment: ${assignmentTitle}</p>
