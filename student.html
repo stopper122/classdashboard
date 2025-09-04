@@ -39,14 +39,13 @@
         // Sign in anonymously to get a user ID
         auth.onAuthStateChanged(async (user) => {
             if (user) {
-                if (state.loading) {
-                    const params = new URLSearchParams(window.location.search);
-                    const studentIdFromUrl = params.get('studentId');
-                    if (studentIdFromUrl) {
-                        await handleLogin({ studentId: studentIdFromUrl });
-                    }
-                    state.loading = false;
+                const params = new URLSearchParams(window.location.search);
+                const studentIdFromUrl = params.get('studentId');
+                if (studentIdFromUrl) {
+                    await handleLogin({ studentId: studentIdFromUrl });
                 }
+                state.loading = false;
+                renderUI();
             } else {
                 await signInAnonymously(auth);
             }
@@ -56,18 +55,22 @@
             const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
             let q = query(studentsRef, where('studentId', '==', studentId));
 
-            const studentSnapshot = await getDocs(q);
-            const studentDoc = studentSnapshot.docs[0];
+            try {
+                const studentSnapshot = await getDocs(q);
+                const studentDoc = studentSnapshot.docs[0];
 
-            if (studentDoc && (studentName === undefined || studentDoc.data().name.toLowerCase() === studentName.toLowerCase())) {
-                state.student = { id: studentDoc.id, ...studentDoc.data() };
-                state.loginMessage = '';
-                await startDataListeners();
-                renderUI();
-            } else {
-                state.loginMessage = 'Invalid name or ID. Please try again.';
-                renderUI();
+                if (studentDoc && (studentName === undefined || studentDoc.data().name.toLowerCase().replace(/,/, '').replace(/\s/g, '') === studentName.toLowerCase().replace(/\s/g, ''))) {
+                    state.student = { id: studentDoc.id, ...studentDoc.data() };
+                    state.loginMessage = '';
+                    await startDataListeners();
+                } else {
+                    state.loginMessage = 'Invalid name or ID. Please try again.';
+                }
+            } catch (error) {
+                console.error("Login failed:", error);
+                state.loginMessage = 'Failed to connect. Please check your credentials and network connection.';
             }
+            renderUI();
         };
 
         const startDataListeners = async () => {
