@@ -81,6 +81,9 @@
             onSnapshot(collection(db, `${publicDataPath}/assignments`), (snapshot) => {
                 state.assignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderUI();
+                if (state.selectedStudent) {
+                  renderStudentDetails();
+                }
             });
 
             // Listen for requests
