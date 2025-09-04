@@ -163,6 +163,19 @@
                         
                         <hr class="border-gray-200 my-6">
 
+                        <!-- Add Assignments -->
+                        <div class="space-y-4">
+                            <h2 class="text-2xl font-bold text-blue-800 mb-2">Add Assignments</h2>
+                            <p class="text-gray-600 text-sm">Paste assignment titles (one per line)</p>
+                            <textarea id="assignment-titles" rows="5" placeholder="e.g., Assignment 1"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                            <button onclick="handleAddAssignments()" class="w-full bg-purple-600 text-white font-bold py-2 rounded-lg hover:bg-purple-700 transition-colors duration-200">
+                                Add Assignments
+                            </button>
+                        </div>
+
+                        <hr class="border-gray-200 my-6">
+
                         <!-- Add Students -->
                         <div class="space-y-4">
                             <h2 class="text-2xl font-bold text-blue-800 mb-2">Add Students & Seats</h2>
@@ -177,18 +190,6 @@
                             </button>
                         </div>
 
-                        <hr class="border-gray-200 my-6">
-
-                        <!-- Add Assignments -->
-                        <div class="space-y-4">
-                            <h2 class="text-2xl font-bold text-blue-800 mb-2">Add Assignments</h2>
-                            <p class="text-gray-600 text-sm">Paste assignment titles (one per line)</p>
-                            <textarea id="assignment-titles" rows="5" placeholder="e.g., Assignment 1"
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-                            <button onclick="handleAddAssignments()" class="w-full bg-purple-600 text-white font-bold py-2 rounded-lg hover:bg-purple-700 transition-colors duration-200">
-                                Add Assignments
-                            </button>
-                        </div>
                     </div>
 
                     <!-- Main Content -->
@@ -424,9 +425,21 @@
                 if (parts.length >= 2) {
                     const studentId = parts.pop().trim();
                     const name = parts.join(',').trim();
-                    const nameParts = name.split(',').map(s => s.trim());
-                    const lastName = nameParts[0];
-                    const firstName = nameParts.length > 1 ? nameParts[1] : '';
+                    
+                    let firstName = '';
+                    let lastName = '';
+                    
+                    if (name.includes(',')) {
+                        // Assumes "Last, First" format
+                        const nameParts = name.split(',').map(s => s.trim());
+                        lastName = nameParts[0];
+                        firstName = nameParts[1] || '';
+                    } else {
+                        // Assumes "First Last" format
+                        const nameParts = name.split(/\s+/).map(s => s.trim());
+                        firstName = nameParts[0];
+                        lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+                    }
 
                     if (name && studentId) {
                         const studentData = {
