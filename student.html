@@ -8,11 +8,12 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, collection, updateDoc, query, where, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, updateDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // IMPORTANT: These global variables are provided by the canvas environment.
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         setLogLevel('debug');
@@ -34,136 +35,77 @@
         let auth, db;
         let state = {
             view: 'login',
-            student: null,
+            studentInfo: null,
             assignments: [],
-            isProcessing: false,
+            helpQueuePosition: null,
             message: '',
+            isProcessing: false,
         };
 
         const app = initializeApp(firebaseConfig);
         db = getFirestore(app);
         auth = getAuth(app);
 
+        // Sign in user anonymously to access public data
         const signIn = async () => {
             try {
                 await signInAnonymously(auth);
             } catch (error) {
                 console.error("Authentication error:", error);
-                state.message = "Authentication failed. Please refresh the page.";
-                renderUI();
+                showMessage("Authentication failed. Please refresh the page.");
             }
         };
 
         auth.onAuthStateChanged(async (user) => {
             if (user) {
-                await checkLoginStatus();
+                const urlParams = new URLSearchParams(window.location.search);
+                const studentId = urlParams.get('studentId');
+                
+                if (studentId) {
+                    state.view = 'student_dashboard';
+                    await startDataListeners(studentId);
+                } else {
+                    state.view = 'login';
+                }
             } else {
                 await signIn();
             }
+            renderUI();
         });
 
-        const checkLoginStatus = () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const studentId = urlParams.get('studentId');
-            if (studentId) {
-                // If a studentId is in the URL, this is the old shareable link.
-                // Log them in automatically.
-                state.view = 'loading';
-                renderUI();
-                listenToStudentData(studentId);
-            } else {
-                // If no studentId, show the login page
-                state.view = 'login';
-                renderUI();
-            }
-        };
-
-        const handleLogin = async (event) => {
-            event.preventDefault();
-            if (state.isProcessing) return;
-            state.isProcessing = true;
-            renderUI();
-            
-            const form = event.target;
-            const name = form.elements['studentName'].value.trim();
-            const studentId = form.elements['studentId'].value.trim();
-
-            if (!name || !studentId) {
-                showMessage('Please enter both your name and ID.');
-                state.isProcessing = false;
-                renderUI();
-                return;
-            }
-
-            try {
-                const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
-                const q = query(studentsRef, where("studentId", "==", studentId));
-                const querySnapshot = await getDocs(q);
-
-                if (querySnapshot.empty) {
-                    showMessage('Invalid ID. Please check and try again.');
+        const startDataListeners = async (studentId) => {
+            // Listen to student info
+            const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
+            const studentQuery = query(studentsRef, where("studentId", "==", studentId));
+            onSnapshot(studentQuery, (snapshot) => {
+                if (!snapshot.empty) {
+                    state.studentInfo = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+                    state.helpQueuePosition = state.studentInfo.queuePosition;
                 } else {
-                    const studentDoc = querySnapshot.docs[0];
-                    if (studentDoc.data().name.toLowerCase() !== name.toLowerCase()) {
-                        showMessage('Name and ID do not match. Please check and try again.');
-                    } else {
-                        state.student = { id: studentDoc.id, ...studentDoc.data() };
-                        state.view = 'student_dashboard';
-                        await startDataListeners();
-                    }
+                    state.studentInfo = null;
+                    showMessage("Invalid student ID.");
                 }
-            } catch (error) {
-                console.error("Login error:", error);
-                showMessage('An error occurred during login. Please try again.');
-            } finally {
-                state.isProcessing = false;
                 renderUI();
-            }
-        };
+            });
 
-        const startDataListeners = async () => {
-            if (!state.student) return;
-
-            const assignmentsRef = collection(db, `artifacts/${appId}/public/data/assignments`);
-            onSnapshot(assignmentsRef, (snapshot) => {
+            // Listen to assignments for the student's period
+            onSnapshot(collection(db, `artifacts/${appId}/public/data/assignments`), (snapshot) => {
                 const assignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                state.assignments = assignments;
-                renderUI();
-            });
-
-            const studentDocRef = doc(db, `artifacts/${appId}/public/data/students`, state.student.id);
-            onSnapshot(studentDocRef, (doc) => {
-                state.student = { id: doc.id, ...doc.data() };
+                const filteredAssignments = assignments.filter(a => a.periodId === state.studentInfo?.periodId);
+                state.assignments = filteredAssignments;
+                sortAssignments();
                 renderUI();
             });
         };
 
-        const handleRequestHelp = async () => {
-            if (state.isProcessing) return;
-            state.isProcessing = true;
-            renderUI();
-            
-            try {
-                const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
-                const q = query(studentsRef, where("helpRequested", "==", true));
-                const querySnapshot = await getDocs(q);
-                const currentQueueLength = querySnapshot.size;
-
-                const studentDocRef = doc(db, `artifacts/${appId}/public/data/students`, state.student.id);
-                await updateDoc(studentDocRef, {
-                    helpRequested: true,
-                    queuePosition: currentQueueLength + 1,
-                });
-                showMessage(`Help requested! Your position in queue: ${currentQueueLength + 1}`);
-            } catch (error) {
-                console.error("Error requesting help:", error);
-                showMessage("Error requesting help.");
-            } finally {
-                state.isProcessing = false;
-                renderUI();
-            }
-        };
-
+        const sortAssignments = () => {
+             state.assignments.sort((a, b) => {
+                const dateA = a.dueDate ? new Date(a.dueDate) : new Date(0);
+                const dateB = b.dueDate ? new Date(b.dueDate) : new Date(0);
+                return dateA - dateB;
+            });
+        }
+        
         const renderUI = () => {
             const app = document.getElementById('app');
             app.innerHTML = '';
@@ -171,8 +113,6 @@
             renderMessage(state.message);
             if (state.view === 'login') {
                 renderLogin();
-            } else if (state.view === 'loading') {
-                renderLoading();
             } else if (state.view === 'student_dashboard') {
                 renderStudentDashboard();
             }
@@ -185,6 +125,184 @@
                     <h1 class="text-3xl font-extrabold text-blue-800 tracking-tight">Student Portal</h1>
                 </div>
             `;
+        }
+        
+        const renderLogin = () => {
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
+                    <div class="bg-white p-8 rounded-2xl shadow-lg w-full max-w-sm">
+                        <h2 class="text-2xl font-bold text-center text-blue-800 mb-6">Student Login</h2>
+                        <form id="login-form" class="space-y-4">
+                            <div>
+                                <label for="studentName" class="block text-gray-700 font-semibold mb-2">Full Name</label>
+                                <input type="text" id="studentName" name="studentName" required
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label for="studentId" class="block text-gray-700 font-semibold mb-2">Student ID</label>
+                                <input type="text" id="studentId" name="studentId" required
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-blue-700 transition-colors duration-200 shadow-lg">
+                                Login
+                            </button>
+                        </form>
+                        <p id="login-message" class="text-center text-sm text-red-500 mt-4"></p>
+                    </div>
+                </div>
+            `;
+            document.getElementById('login-form').addEventListener('submit', handleLogin);
+        };
+        
+        const handleLogin = async (event) => {
+            event.preventDefault();
+            const form = event.target;
+            const studentName = form.elements['studentName'].value.trim();
+            const studentId = form.elements['studentId'].value.trim();
+            const messageEl = document.getElementById('login-message');
+            
+            if (!studentName || !studentId) {
+                messageEl.textContent = "Please enter both name and ID.";
+                return;
+            }
+
+            try {
+                const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
+                const q = query(studentsRef, where("name", "==", studentName), where("studentId", "==", studentId));
+                const querySnapshot = await getDocs(q);
+
+                if (!querySnapshot.empty) {
+                    const studentDoc = querySnapshot.docs[0];
+                    const periodId = studentDoc.data().periodId;
+                    
+                    if (!periodId) {
+                        messageEl.textContent = "Your account is not assigned to a period. Please contact your instructor.";
+                        return;
+                    }
+
+                    const newUrl = new URL(window.location.href);
+                    newUrl.searchParams.set('studentId', studentId);
+                    window.location.href = newUrl.href;
+                } else {
+                    messageEl.textContent = "Invalid name or ID. Please try again.";
+                }
+            } catch (error) {
+                console.error("Login error:", error);
+                messageEl.textContent = "An error occurred during login. Please try again later.";
+            }
+        };
+        
+        const renderStudentDashboard = () => {
+            if (!state.studentInfo) {
+                renderLoading();
+                return;
+            }
+            
+            const app = document.getElementById('app');
+            const assignmentsList = state.assignments.map(a => {
+                const completion = a.completions.find(c => c.studentId === state.studentInfo.studentId);
+                const isCompleted = !!completion;
+                const score = isCompleted ? (completion.score || 0) : 0;
+                
+                return `
+                    <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+                        <div class="flex justify-between items-center mb-4">
+                            <div>
+                                <h3 class="font-bold text-lg text-blue-800">${a.title}</h3>
+                                <p class="text-sm text-gray-500">Due: ${a.dueDate ? new Date(a.dueDate).toLocaleDateString() : 'N/A'}</p>
+                            </div>
+                            <span class="text-sm font-semibold ${isCompleted ? 'text-green-600' : 'text-red-500'}">
+                                Status: ${isCompleted ? `Completed (${score}/4)` : 'Pending'}
+                            </span>
+                        </div>
+                        <div class="flex flex-col space-y-2">
+                             <button onclick="handleHelpRequest('${a.id}', '${state.studentInfo.id}')"
+                                class="w-full bg-red-500 text-white py-2 rounded-lg font-semibold hover:bg-red-600 transition-colors duration-200">
+                                Request Help
+                             </button>
+                             <button onclick="handleCheckRequest('${a.id}', '${state.studentInfo.id}')"
+                                 class="w-full bg-blue-500 text-white py-2 rounded-lg font-semibold hover:bg-blue-600 transition-colors duration-200">
+                                Ready for Check
+                             </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            app.innerHTML = `
+                <div class="p-6">
+                    <div class="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 text-center mb-8">
+                        <h2 class="text-3xl font-bold text-blue-800">Welcome, ${state.studentInfo.name}!</h2>
+                        ${state.helpQueuePosition !== null ? `
+                            <div class="mt-4 bg-red-500 text-white py-3 px-6 rounded-full font-bold shadow-md inline-block">
+                                You are #${state.helpQueuePosition} in the help queue.
+                            </div>
+                        ` : `
+                             <p class="mt-2 text-gray-500">Your current assignments are listed below.</p>
+                        `}
+                    </div>
+                    <div class="space-y-4">
+                        ${state.assignments.length > 0 ? assignmentsList : `
+                            <div class="text-center py-10 text-gray-500">
+                                <p>You have no assignments to display for this period.</p>
+                            </div>
+                        `}
+                    </div>
+                </div>
+            `;
+        };
+        
+        const handleHelpRequest = async (assignmentId, studentDocId) => {
+            if (state.isProcessing) return;
+            state.isProcessing = true;
+            showMessage("Requesting help...");
+            
+            try {
+                // Get current queue count
+                const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
+                const helpQueueQuery = query(studentsRef, where("helpRequested", "==", true));
+                const helpQueueSnapshot = await getDocs(helpQueueQuery);
+                const queueCount = helpQueueSnapshot.docs.length;
+                
+                const studentDocRef = doc(db, `artifacts/${appId}/public/data/students`, studentDocId);
+                await updateDoc(studentDocRef, {
+                    helpRequested: true,
+                    checkRequested: false, // Ensure checkRequested is false
+                    queuePosition: queueCount + 1,
+                });
+            } catch (error) {
+                console.error("Error requesting help:", error);
+                showMessage("An error occurred. Please try again.");
+            } finally {
+                state.isProcessing = false;
+            }
+        };
+
+        const handleCheckRequest = async (assignmentId, studentDocId) => {
+             if (state.isProcessing) return;
+            state.isProcessing = true;
+            showMessage("Requesting check...");
+            
+            try {
+                // Get current queue count
+                const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
+                const checkQueueQuery = query(studentsRef, where("checkRequested", "==", true));
+                const checkQueueSnapshot = await getDocs(checkQueueQuery);
+                const queueCount = checkQueueSnapshot.docs.length;
+                
+                const studentDocRef = doc(db, `artifacts/${appId}/public/data/students`, studentDocId);
+                await updateDoc(studentDocRef, {
+                    helpRequested: false, // Ensure helpRequested is false
+                    checkRequested: true,
+                    queuePosition: queueCount + 1,
+                });
+            } catch (error) {
+                console.error("Error requesting check:", error);
+                showMessage("An error occurred. Please try again.");
+            } finally {
+                state.isProcessing = false;
+            }
         };
 
         const renderMessage = (message) => {
@@ -202,104 +320,26 @@
                 }, 3000);
             }
         };
-        
+
         const showMessage = (message) => {
             state.message = message;
             renderMessage(message);
         };
-
+        
         const renderLoading = () => {
             const app = document.getElementById('app');
             app.innerHTML = `
-                <div class="flex flex-col items-center justify-center h-full">
+                <div class="flex flex-col items-center justify-center min-h-screen">
                     <div class="w-16 h-16 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div>
                     <p class="mt-4 text-gray-600">Loading...</p>
                 </div>
             `;
         };
 
-        const renderLogin = () => {
-            const app = document.getElementById('app');
-            app.innerHTML = `
-                <div class="flex items-center justify-center h-full p-6">
-                    <div class="w-full max-w-md bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
-                        <h2 class="text-2xl font-bold text-blue-800 mb-6 text-center">Student Login</h2>
-                        <form onsubmit="handleLogin(event)">
-                            <div class="mb-4">
-                                <label for="studentName" class="block text-gray-700 font-semibold mb-2">Full Name</label>
-                                <input type="text" id="studentName" name="studentName" placeholder="e.g., Jane Doe" required
-                                       class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                            </div>
-                            <div class="mb-6">
-                                <label for="studentId" class="block text-gray-700 font-semibold mb-2">Student ID</label>
-                                <input type="text" id="studentId" name="studentId" placeholder="e.g., 12345" required
-                                       class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                            </div>
-                            <button type="submit"
-                                class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-blue-700 transition-colors duration-200 shadow-lg ${state.isProcessing ? 'opacity-50 cursor-not-allowed' : ''}"
-                                ${state.isProcessing ? 'disabled' : ''}>
-                                ${state.isProcessing ? 'Logging in...' : 'Login'}
-                            </button>
-                        </form>
-                        <p class="mt-4 text-sm text-gray-500 text-center">
-                            Your full name and ID must match your teacher's records exactly.
-                        </p>
-                    </div>
-                </div>
-            `;
-        };
-        
-        const renderStudentDashboard = () => {
-            const app = document.getElementById('app');
-            const assignmentsList = state.assignments.map(a => {
-                const completion = a.completions.find(c => c.studentId === state.student.studentId);
-                const isCompleted = !!completion;
-                const score = isCompleted ? (completion.score || 0) : 0;
-                
-                return `
-                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                        <h3 class="font-bold text-lg text-blue-800">${a.title}</h3>
-                        <p class="text-sm text-gray-500 mb-2">Due: ${a.dueDate ? new Date(a.dueDate).toLocaleDateString() : 'N/A'}</p>
-                        <div class="mt-2 flex items-center space-x-2">
-                            <span class="text-sm font-semibold ${isCompleted ? 'text-green-600' : 'text-red-500'}">
-                                Status: ${isCompleted ? 'Completed' : 'Pending'}
-                            </span>
-                            ${isCompleted ? `<span class="text-xs text-gray-500 font-bold">Score: ${score}/4</span>` : ''}
-                        </div>
-                    </div>
-                `;
-            }).join('');
-            
-            const helpButtonText = state.student.helpRequested ? `In Queue: ${state.student.queuePosition}` : 'Request Help';
-            const isHelpDisabled = state.student.helpRequested;
+        window.handleHelpRequest = handleHelpRequest;
+        window.handleCheckRequest = handleCheckRequest;
 
-            app.innerHTML = `
-                <div class="max-w-3xl mx-auto p-6 space-y-6">
-                    <div class="bg-blue-500 text-white p-6 rounded-2xl shadow-lg">
-                        <h2 class="text-2xl font-bold">Hello, ${state.student.name}!</h2>
-                        <p class="text-sm opacity-90 mt-1">Your ID: ${state.student.studentId}</p>
-                    </div>
-                    
-                    <div class="bg-white p-8 rounded-2xl shadow-lg">
-                        <h2 class="text-2xl font-bold text-blue-800 mb-6">Your Assignments</h2>
-                        ${state.assignments.length > 0 ? `<div class="space-y-4">${assignmentsList}</div>` : `
-                            <div class="text-center py-10 text-gray-500">
-                                <p>No assignments to display.</p>
-                            </div>
-                        `}
-                    </div>
-                    
-                    <button onclick="handleRequestHelp()"
-                        class="w-full py-3 rounded-lg font-bold text-lg transition-colors duration-200 shadow-lg
-                        ${isHelpDisabled ? 'bg-gray-400 text-gray-700 cursor-not-allowed' : 'bg-green-500 text-white hover:bg-green-600'}">
-                        ${helpButtonText}
-                    </button>
-                </div>
-            `;
-        };
-
-        window.handleLogin = handleLogin;
-        window.handleRequestHelp = handleRequestHelp;
+        document.addEventListener('DOMContentLoaded', renderUI);
     </script>
     <style>
         body {
@@ -309,7 +349,7 @@
         }
     </style>
 </head>
-<body class="p-6 md:p-10">
+<body>
     <header id="header"></header>
     <div id="message"></div>
     <main id="app" class="mt-6 md:mt-10"></main>
