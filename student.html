@@ -160,12 +160,12 @@
                     messageEl.textContent = 'Login failed. Please check your ID and name.';
                 } else {
                     const studentDoc = querySnapshot.docs[0];
-                    if (studentDoc.data().name === name) {
+                    if (studentDoc.data().name.toLowerCase() === name.toLowerCase()) {
                         state.student = { id: studentDoc.id, ...studentDoc.data() };
                         state.isLoggedIn = true;
                         startDataListeners();
                     } else {
-                        messageEl.textContent = 'Login failed. Please check your ID and name.';
+                        messageEl.textContent = 'Login failed. The name does not match the provided ID.';
                     }
                 }
             } catch (error) {
