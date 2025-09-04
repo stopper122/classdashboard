@@ -119,17 +119,17 @@
                             ${isCompleted ? `
                                 <span class="bg-green-200 text-green-800 text-sm font-bold px-3 py-1 rounded-full">Score: ${score}</span>
                             ` : isExcused ? `
-                                <span class="bg-purple-200 text-purple-800 text-sm font-bold px-3 py-1 rounded-full">Excused</span>
+                                <span class="bg-purple-600 text-white text-sm font-bold px-3 py-1 rounded-full">Excused</span>
                             ` : ''}
                         </div>
                         <p class="text-sm text-gray-500 mb-4">Due: ${a.dueDate ? new Date(a.dueDate).toLocaleDateString() : 'N/A'}</p>
                         <div class="flex space-x-2">
-                            <button onclick="handleHelpRequest('${a.id}', '${state.student.studentId}')"
+                            <button onclick="handleHelpRequest('${a.id}', '${state.student.id}')"
                                 ${isExcused || isCompleted ? 'disabled' : ''}
                                 class="flex-1 bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 transition-colors duration-200 disabled:bg-gray-400">
                                 ${helpButtonText}
                             </button>
-                            <button onclick="handleCheckRequest('${a.id}', '${state.student.studentId}')"
+                            <button onclick="handleCheckRequest('${a.id}', '${state.student.id}')"
                                 ${isExcused || isCompleted ? 'disabled' : ''}
                                 class="flex-1 bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors duration-200 disabled:bg-gray-400">
                                 ${checkButtonText}
@@ -185,7 +185,7 @@
                 renderAssignments();
             });
 
-            // Listen for help requests
+            // Listen for requests
             const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
             onSnapshot(requestsRef, (snapshot) => {
                 state.requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
