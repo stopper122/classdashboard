@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Class Dashboard</title>
+    <title>Instructor Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, updateDoc, collection, query, orderBy, getDocs, addDoc, deleteDoc, getDoc, setDoc, arrayRemove, arrayUnion, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, collection, query, where, addDoc, updateDoc, deleteDoc, getDoc, getDocs, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // IMPORTANT: These global variables are provided by the canvas environment.
@@ -26,797 +26,636 @@
 
         let auth, db;
         let state = {
-            view: 'class_layout',
             periods: [],
-            selectedPeriod: null,
+            selectedPeriodId: null,
             students: [],
             assignments: [],
-            activeStudent: null,
-            message: '',
-            isProcessing: false,
             requests: [],
-            sort: 'seat' // default sort order
+            selectedStudent: null,
+            sortOption: 'seatOrder',
+            loading: true,
+            isDragging: false,
+            draggedId: null,
+            draggedIndex: null,
         };
 
         const app = initializeApp(firebaseConfig);
         db = getFirestore(app);
         auth = getAuth(app);
 
-        // Sign in user anonymously to access public data
-        const signIn = async () => {
-            try {
-                await signInAnonymously(auth);
-            } catch (error) {
-                console.error("Authentication error:", error);
-            }
-        };
-
+        // Sign in anonymously to get a user ID for private data access
         auth.onAuthStateChanged(async (user) => {
             if (user) {
-                await startDataListeners();
+                if (state.loading) {
+                    await startDataListeners();
+                    state.loading = false;
+                }
             } else {
-                await signIn();
+                await signInAnonymously(auth);
             }
         });
 
+        // Function to start real-time listeners for all data
         const startDataListeners = async () => {
-            // Periods Listener
-            const periodsRef = collection(db, `artifacts/${appId}/public/data/periods`);
-            onSnapshot(periodsRef, (snapshot) => {
+            const publicDataPath = `artifacts/${appId}/public/data`;
+            const userId = auth.currentUser?.uid || "anonymous_user";
+
+            // Listen for periods
+            onSnapshot(collection(db, `${publicDataPath}/periods`), (snapshot) => {
                 state.periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                if (!state.selectedPeriod && state.periods.length > 0) {
-                    state.selectedPeriod = state.periods[0].id;
+                if (!state.selectedPeriodId && state.periods.length > 0) {
+                    state.selectedPeriodId = state.periods[0].id;
                 }
                 renderUI();
             });
 
-            // Students Listener
-            const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
-            onSnapshot(studentsRef, (snapshot) => {
+            // Listen for students and sort
+            onSnapshot(collection(db, `${publicDataPath}/students`), (snapshot) => {
                 state.students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 sortStudents();
                 renderUI();
             });
-
-            // Assignments Listener
-            const assignmentsRef = collection(db, `artifacts/${appId}/public/data/assignments`);
-            onSnapshot(assignmentsRef, (snapshot) => {
+            
+            // Listen for assignments
+            onSnapshot(collection(db, `${publicDataPath}/assignments`), (snapshot) => {
                 state.assignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderUI();
             });
 
-            // Requests Listener
-            const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
-            onSnapshot(requestsRef, (snapshot) => {
+            // Listen for requests
+            onSnapshot(collection(db, `${publicDataPath}/requests`), (snapshot) => {
                 state.requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderUI();
             });
         };
 
+        const sortStudents = () => {
+            const filteredStudents = state.students.filter(s => s.periodId === state.selectedPeriodId);
+            if (state.sortOption === 'seatOrder') {
+                state.students = filteredStudents.sort((a, b) => (a.seatOrder || 0) - (b.seatOrder || 0));
+            } else if (state.sortOption === 'lastName') {
+                state.students = filteredStudents.sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
+            } else if (state.sortOption === 'firstName') {
+                state.students = filteredStudents.sort((a, b) => (a.firstName || '').localeCompare(b.firstName || ''));
+            } else {
+                state.students = filteredStudents;
+            }
+        };
+
         const renderUI = () => {
             const app = document.getElementById('app');
-            app.innerHTML = '';
-            renderHeader();
-
-            if (state.periods.length === 0) {
-                renderNoPeriodsMessage();
-            } else {
-                renderDashboard();
-            }
-        };
-
-        const renderHeader = () => {
-            const header = document.getElementById('header');
-            header.innerHTML = `
-                <div class="flex justify-between items-center py-4 px-6 bg-white shadow-md rounded-b-xl">
-                    <h1 class="text-3xl font-extrabold text-blue-800 tracking-tight">Class Dashboard</h1>
-                </div>
-            `;
-        };
-
-        const renderNoPeriodsMessage = () => {
-            const app = document.getElementById('app');
-            app.innerHTML = `
-                <div class="flex items-center justify-center min-h-screen">
-                    <div class="p-8 bg-white rounded-xl shadow-lg w-full max-w-lg text-center">
-                        <h2 class="text-2xl font-bold text-gray-800 mb-4">No Periods Found</h2>
-                        <p class="text-gray-600 mb-6">Please add a period to get started.</p>
-                        <form id="add-period-form" class="flex flex-col space-y-4">
-                            <input type="text" id="new-period-name" placeholder="Period Name (e.g., Period 1)"
-                                class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <button type="submit" class="bg-blue-600 text-white font-bold py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">
-                                Add Period
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            `;
-            document.getElementById('add-period-form').addEventListener('submit', handleAddPeriod);
-        };
-
-        const renderDashboard = () => {
-            const app = document.getElementById('app');
-            app.innerHTML = `
-                <div class="flex flex-col lg:flex-row min-h-screen bg-gray-100 p-4 space-y-4 lg:space-y-0 lg:space-x-4">
-                    <!-- Left Sidebar -->
-                    <div class="w-full lg:w-1/4 bg-white p-6 rounded-xl shadow-lg h-full space-y-6">
-                        <!-- Period Selector -->
-                        <div class="space-y-4">
-                            <h2 class="text-2xl font-bold text-blue-800 mb-2">Manage Periods</h2>
-                            <div class="relative">
-                                <select id="period-select" class="block appearance-none w-full bg-white border border-gray-300 text-gray-700 py-3 px-4 pr-8 rounded-lg leading-tight focus:outline-none focus:bg-white focus:border-blue-500">
-                                    ${state.periods.map(p => `<option value="${p.id}" ${state.selectedPeriod === p.id ? 'selected' : ''}>${p.name}</option>`).join('')}
-                                </select>
-                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                                    <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
-                                </div>
-                            </div>
-                            <form id="add-period-form" class="flex space-x-2">
-                                <input type="text" id="new-period-name" placeholder="New Period Name" class="flex-grow px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                <button type="submit" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-200">
-                                    Add
-                                </button>
-                            </form>
-                            <button onclick="handleDeletePeriod()" class="w-full bg-red-500 text-white font-bold py-2 rounded-lg hover:bg-red-600 transition-colors duration-200">
-                                Delete Current Period
-                            </button>
-                        </div>
-                        
-                        <hr class="border-gray-200 my-6">
-
-                        <!-- Add Assignments -->
-                        <div class="space-y-4">
-                            <h2 class="text-2xl font-bold text-blue-800 mb-2">Add Assignments</h2>
-                            <p class="text-gray-600 text-sm">Paste assignment titles (one per line)</p>
-                            <textarea id="assignment-titles" rows="5" placeholder="e.g., Assignment 1"
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-                            <button onclick="handleAddAssignments()" class="w-full bg-purple-600 text-white font-bold py-2 rounded-lg hover:bg-purple-700 transition-colors duration-200">
-                                Add Assignments
-                            </button>
-                        </div>
-
-                        <hr class="border-gray-200 my-6">
-
-                        <!-- Add Students -->
-                        <div class="space-y-4">
-                            <h2 class="text-2xl font-bold text-blue-800 mb-2">Add Students & Seats</h2>
-                            <p class="text-gray-600 text-sm">Paste your roster (Full Name, ID)</p>
-                            <textarea id="student-roster" rows="5" placeholder="e.g., Doe, Jane, 12345"
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-                            <button onclick="handleAddStudents()" class="w-full bg-green-600 text-white font-bold py-2 rounded-lg hover:bg-green-700 transition-colors duration-200">
-                                Add Students
-                            </button>
-                            <button onclick="handleAddEmptySeat()" class="w-full bg-gray-400 text-white font-bold py-2 rounded-lg hover:bg-gray-500 transition-colors duration-200">
-                                Add Empty Seat
-                            </button>
-                        </div>
-
-                    </div>
-
-                    <!-- Main Content -->
-                    <div class="w-full lg:w-3/4 bg-white p-6 rounded-xl shadow-lg h-full space-y-6">
-                        <!-- Class Layout & Student Details -->
-                        <div class="space-y-4">
-                            <div class="flex justify-between items-center">
-                                <h2 class="text-2xl font-bold text-blue-800">Class Layout</h2>
-                                <div id="sort-options" class="flex items-center space-x-4">
-                                    <span class="text-gray-600">Sort By:</span>
-                                    <label class="flex items-center space-x-2 cursor-pointer">
-                                        <input type="radio" name="sort-option" value="seat" ${state.sort === 'seat' ? 'checked' : ''} class="form-radio text-blue-600 h-4 w-4" onclick="handleSortChange(event)">
-                                        <span class="text-gray-700 font-medium">Assigned Seat</span>
-                                    </label>
-                                    <label class="flex items-center space-x-2 cursor-pointer">
-                                        <input type="radio" name="sort-option" value="lastName" ${state.sort === 'lastName' ? 'checked' : ''} class="form-radio text-blue-600 h-4 w-4" onclick="handleSortChange(event)">
-                                        <span class="text-gray-700 font-medium">Last Name</span>
-                                    </label>
-                                    <label class="flex items-center space-x-2 cursor-pointer">
-                                        <input type="radio" name="sort-option" value="firstName" ${state.sort === 'firstName' ? 'checked' : ''} class="form-radio text-blue-600 h-4 w-4" onclick="handleSortChange(event)">
-                                        <span class="text-gray-700 font-medium">First Name</span>
-                                    </label>
-                                </div>
-                            </div>
-                            <div id="class-grid" class="grid grid-cols-6 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                                <!-- Student cards will be rendered here -->
-                            </div>
-                        </div>
-                        
-                        <!-- Queue and Selected Student Details -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <!-- Queue Section -->
-                            <div id="queue-section" class="bg-gray-50 p-6 rounded-xl border border-gray-200">
-                                <h3 class="text-2xl font-bold text-blue-800 mb-4">Queues</h3>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div class="space-y-4">
-                                        <h4 class="font-bold text-lg text-red-600 mb-2">Help Queue</h4>
-                                        <div id="help-queue-list" class="space-y-2"></div>
-                                    </div>
-                                    <div class="space-y-4">
-                                        <h4 class="font-bold text-lg text-blue-600 mb-2">Check Queue</h4>
-                                        <div id="check-queue-list" class="space-y-2"></div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Selected Student Details -->
-                            <div id="student-details" class="bg-gray-50 p-6 rounded-xl border border-gray-200" style="${state.activeStudent ? '' : 'display: none;'}">
-                                <!-- Student details will be rendered here -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            document.getElementById('period-select').addEventListener('change', handlePeriodChange);
-            document.getElementById('add-period-form').addEventListener('submit', handleAddPeriod);
-            renderStudentCards();
-            renderStudentDetails();
-            renderQueues();
-        };
-
-        const renderQueues = () => {
-            const helpQueueList = document.getElementById('help-queue-list');
-            const checkQueueList = document.getElementById('check-queue-list');
-
-            const helpRequests = state.requests.filter(r => r.type === 'help').sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-            const checkRequests = state.requests.filter(r => r.type === 'check').sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-
-            if (helpQueueList) {
-                helpQueueList.innerHTML = helpRequests.length > 0 ? helpRequests.map((r, index) => {
-                    const student = state.students.find(s => s.studentId === r.studentId);
-                    const assignment = state.assignments.find(a => a.id === r.assignmentId);
-                    const studentName = student ? student.name : 'Unknown Student';
-                    const assignmentTitle = assignment ? assignment.title : 'Unknown Assignment';
-                    return `
-                        <div class="bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center cursor-pointer hover:bg-gray-100" onclick="handleStudentClick('${student.id}')">
-                            <div class="flex-grow">
-                                <p class="font-semibold text-gray-700">${studentName}</p>
-                                <p class="text-sm text-gray-500">Assignment: ${assignmentTitle}</p>
-                            </div>
-                            <span class="text-xs font-semibold px-2 py-1 rounded-full bg-red-500 text-white">${index + 1}</span>
-                        </div>
-                    `;
-                }).join('') : '<p class="text-center text-gray-500">Queue is empty.</p>';
-            }
-
-            if (checkQueueList) {
-                checkQueueList.innerHTML = checkRequests.length > 0 ? checkRequests.map((r, index) => {
-                    const student = state.students.find(s => s.studentId === r.studentId);
-                    const assignment = state.assignments.find(a => a.id === r.assignmentId);
-                    const studentName = student ? student.name : 'Unknown Student';
-                    const assignmentTitle = assignment ? assignment.title : 'Unknown Assignment';
-                    return `
-                        <div class="bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center cursor-pointer hover:bg-gray-100" onclick="handleStudentClick('${student.id}')">
-                            <div class="flex-grow">
-                                <p class="font-semibold text-gray-700">${studentName}</p>
-                                <p class="text-sm text-gray-500">Assignment: ${assignmentTitle}</p>
-                            </div>
-                            <span class="text-xs font-semibold px-2 py-1 rounded-full bg-blue-500 text-white">${index + 1}</span>
-                        </div>
-                    `;
-                }).join('') : '<p class="text-center text-gray-500">Queue is empty.</p>';
-            }
-        };
-
-        const renderStudentCards = () => {
-            const grid = document.getElementById('class-grid');
-            if (!grid) return;
-
-            const periodStudents = state.students
-                .filter(s => s.periodId === state.selectedPeriod);
-            
-            const sortedStudents = [...periodStudents].sort((a, b) => {
-                if (state.sort === 'lastName') {
-                    return (a.lastName || '').localeCompare(b.lastName || '');
-                } else if (state.sort === 'firstName') {
-                    return (a.firstName || '').localeCompare(b.firstName || '');
-                } else {
-                    const orderA = a.seatOrder !== undefined ? a.seatOrder : Infinity;
-                    const orderB = b.seatOrder !== undefined ? b.seatOrder : Infinity;
-                    return orderA - orderB;
-                }
-            });
-
-            grid.innerHTML = sortedStudents.map(student => {
-                const isActive = state.activeStudent && state.activeStudent.id === student.id;
-                const activeRequests = state.requests.filter(r => r.studentId === student.studentId);
-                const isHelpRequested = activeRequests.some(r => r.type === 'help');
-                const isCheckRequested = activeRequests.some(r => r.type === 'check');
-                const backgroundColor = isActive ? 'bg-blue-200' : 'bg-white';
-                const borderColor = isActive ? 'border-blue-500' : 'border-gray-200';
-                const hasRequests = activeRequests.length > 0;
-                
-                // Calculate queue position for each request type
-                const helpRequests = state.requests.filter(r => r.type === 'help').sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-                const checkRequests = state.requests.filter(r => r.type === 'check').sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-                
-                const helpPosition = helpRequests.findIndex(r => r.studentId === student.studentId) + 1;
-                const checkPosition = checkRequests.findIndex(r => r.studentId === student.studentId) + 1;
-
-                const isDraggable = state.sort === 'seat';
-                const cursorStyle = isDraggable ? 'cursor-grab' : 'cursor-default';
-
-                return `
-                    <div draggable="${isDraggable}" id="student-${student.id}"
-                        onclick="handleStudentClick('${student.id}')"
-                        class="p-4 rounded-lg shadow-sm border ${borderColor} ${backgroundColor} flex flex-col items-center ${cursorStyle} transition-all duration-200 hover:shadow-md">
-                        <button onclick="handleDeleteStudent('${student.id}')" class="text-sm text-gray-500 self-end -mt-2 -mr-2">
-                             &times;
-                        </button>
-                        <span class="text-2xl mb-2">${student.isSeated ? '👨‍🎓' : '🪑'}</span>
-                        <p class="font-semibold text-center">${student.name || 'Empty Seat'}</p>
-                        ${hasRequests ? `
-                            <div class="mt-2 flex space-x-2">
-                                ${isHelpRequested ? `<span class="text-xs font-semibold px-2 py-1 rounded-full bg-red-500 text-white">${helpPosition}</span>` : ''}
-                                ${isCheckRequested ? `<span class="text-xs font-semibold px-2 py-1 rounded-full bg-blue-500 text-white">${checkPosition}</span>` : ''}
-                            </div>
-                        ` : ''}
-                    </div>
-                `;
-            }).join('');
-
-            // Add drag and drop listeners
-            if (state.sort === 'seat') {
-                const studentCards = grid.querySelectorAll('[draggable="true"]');
-                studentCards.forEach(card => {
-                    card.addEventListener('dragstart', handleDragStart);
-                    card.addEventListener('dragover', handleDragOver);
-                    card.addEventListener('drop', handleDrop);
-                });
-            }
-        };
-        
-        const renderStudentDetails = () => {
-            const detailsDiv = document.getElementById('student-details');
-            if (!detailsDiv) return;
-
-            if (!state.activeStudent) {
-                detailsDiv.style.display = 'none';
+            if (state.loading) {
+                app.innerHTML = `<div class="flex items-center justify-center h-screen"><div class="text-xl font-semibold">Loading...</div></div>`;
                 return;
             }
 
-            detailsDiv.style.display = 'block';
-
-            const activeStudent = state.students.find(s => s.id === state.activeStudent.id);
-            const studentAssignments = state.assignments.filter(a => a.periodId === activeStudent.periodId);
-            const studentRequests = state.requests.filter(r => r.studentId === activeStudent.studentId);
-            
-            const assignmentsList = studentAssignments.map(a => {
-                const completion = a.completions.find(c => c.studentId === activeStudent.studentId);
-                const isCompleted = !!completion;
-                const score = isCompleted ? (completion.score || 0) : 0;
-                const isExcused = isCompleted && completion.isExcused;
-                
-                return `
-                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center">
-                        <div class="flex-grow">
-                            <input type="text" value="${a.title}" data-assignment-id="${a.id}" onchange="handleAssignmentUpdate(event, '${a.id}')" 
-                                class="font-semibold text-gray-700 w-full bg-transparent border-none focus:ring-0">
-                            <p class="text-sm text-gray-500">Due: ${a.dueDate ? new Date(a.dueDate).toLocaleDateString() : 'N/A'}</p>
-                        </div>
-                        <div class="flex items-center space-x-2 flex-shrink-0">
-                            <button onclick="handleDeleteAssignment('${a.id}')" class="text-sm text-gray-500 hover:text-red-500">
-                                &times;
-                            </button>
-                            <div class="flex space-x-1">
-                                ${[1, 2, 3, 4].map(s => `
-                                    <label class="inline-flex items-center cursor-pointer">
-                                        <input type="checkbox" data-assignment-id="${a.id}" data-score="${s}"
-                                            onclick="handleScoreUpdate(event, '${activeStudent.id}')"
-                                            ${s <= score ? 'checked' : ''}
-                                            ${isExcused ? 'disabled' : ''}
-                                            class="form-checkbox h-5 w-5 text-blue-600 rounded-md">
-                                        <span class="ml-1 text-sm text-gray-700">${s}</span>
-                                    </label>
-                                `).join('')}
-                                <label class="inline-flex items-center cursor-pointer ml-4">
-                                    <input type="checkbox" data-assignment-id="${a.id}" data-excused="true"
-                                        onclick="handleExcusedUpdate(event, '${activeStudent.id}')"
-                                        ${isExcused ? 'checked' : ''}
-                                        class="form-checkbox h-5 w-5 text-purple-600 rounded-md">
-                                    <span class="ml-1 text-sm text-gray-700">Excused</span>
-                                </label>
-                                <button onclick="handleClearUpdate(event, '${activeStudent.id}', '${a.id}')" class="text-sm text-gray-500 hover:text-red-500 ml-4">
-                                     Clear
-                                </button>
+            app.innerHTML = `
+                <div class="min-h-screen bg-gray-100 p-4 font-sans">
+                    <div class="max-w-7xl mx-auto bg-white p-6 rounded-xl shadow-lg">
+                        <!-- Header -->
+                        <div class="flex justify-between items-center mb-6">
+                            <h1 class="text-4xl font-extrabold text-gray-800 tracking-tight">Assignment Tracker</h1>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-sm text-gray-500">${auth.currentUser?.uid}</span>
                             </div>
                         </div>
-                    </div>
-                `;
-            }).join('');
 
-            // Sort requests by timestamp to get correct queue order
-            studentRequests.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-
-            const helpQueue = studentRequests.filter(r => r.type === 'help');
-            const checkQueue = studentRequests.filter(r => r.type === 'check');
-            
-            const requestsList = studentRequests.length > 0 ? studentRequests.map((r, index) => {
-                const assignment = state.assignments.find(a => a.id === r.assignmentId);
-                const typeColor = r.type === 'help' ? 'bg-red-500' : 'bg-blue-500';
-                const typeText = r.type === 'help' ? 'Help' : 'Check';
-                
-                let position = 0;
-                if (r.type === 'help') {
-                    position = helpQueue.findIndex(req => req.id === r.id) + 1;
-                } else {
-                    position = checkQueue.findIndex(req => req.id === r.id) + 1;
-                }
-
-                return `
-                    <div class="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm border border-gray-200">
-                        <div class="flex-grow">
-                            <span class="font-medium text-gray-700">${assignment ? assignment.title : 'Unknown Assignment'}</span>
+                        <!-- Period Management -->
+                        <div class="bg-gray-50 p-4 rounded-lg shadow-inner mb-6">
+                            <h2 class="text-xl font-bold text-gray-700 mb-4">Period Management</h2>
+                            <div class="flex flex-col md:flex-row md:items-center md:space-x-4 mb-4">
+                                <div class="flex-1 mb-4 md:mb-0">
+                                    <label for="period-select" class="block text-sm font-medium text-gray-700">Select Period:</label>
+                                    <select id="period-select" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md">
+                                        ${state.periods.map(p => `<option value="${p.id}" ${p.id === state.selectedPeriodId ? 'selected' : ''}>${p.name}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div class="flex-1 flex flex-col space-y-2">
+                                    <input type="text" id="new-period-name" placeholder="New Period Name" class="px-3 py-2 border rounded-lg">
+                                    <div class="flex space-x-2">
+                                        <button id="add-period-btn" class="flex-1 bg-green-500 text-white font-bold py-2 rounded-lg hover:bg-green-600 transition-colors duration-200">
+                                            Add Period
+                                        </button>
+                                        <button id="delete-period-btn" class="flex-1 bg-red-500 text-white font-bold py-2 rounded-lg hover:bg-red-600 transition-colors duration-200">
+                                            Delete Selected Period
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="flex items-center space-x-2 flex-shrink-0">
-                            <span class="text-sm font-semibold text-white px-2 py-1 rounded-full ${typeColor}">#${position} ${typeText}</span>
-                            <button onclick="handleAcknowledgeRequest('${r.id}')" class="text-red-500 hover:text-red-700 transition-colors duration-200">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                `;
-            }).join('') : `<p class="text-center text-gray-500">No active requests.</p>`;
 
-            detailsDiv.innerHTML = `
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-2xl font-bold text-blue-800">${activeStudent.name || 'Empty Seat'}</h3>
-                    <button onclick="handleCopyLink('${activeStudent.studentId}')"
-                        class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors duration-200">
-                        Share Student Link
-                    </button>
-                </div>
-                <div class="space-y-4">
-                    <div class="bg-gray-100 p-4 rounded-lg">
-                        <h4 class="font-bold text-lg mb-2">Pending Requests</h4>
-                        <div class="space-y-2">
-                            ${requestsList}
-                        </div>
-                    </div>
-                    <div class="bg-gray-100 p-4 rounded-lg">
-                        <h4 class="font-bold text-lg mb-2">Assignments & Scores</h4>
-                        <div class="space-y-2">
-                            ${assignmentsList.length > 0 ? assignmentsList : `
-                                <p class="text-center text-gray-500">No assignments for this period.</p>
-                            `}
+                        <!-- Main Content -->
+                        <div class="flex flex-col lg:flex-row lg:space-x-6">
+                            <!-- Left Sidebar -->
+                            <div class="w-full lg:w-1/4 space-y-6 mb-6 lg:mb-0">
+                                <!-- Add Assignments Section -->
+                                <div class="bg-gray-50 p-4 rounded-lg shadow-inner">
+                                    <h2 class="text-xl font-bold text-gray-700 mb-2">Assignments</h2>
+                                    <textarea id="new-assignment-titles" rows="4" placeholder="Paste assignment titles here (one per line)" class="w-full px-3 py-2 border rounded-lg mb-2"></textarea>
+                                    <div class="flex space-x-2">
+                                        <input type="date" id="assignment-due-date" class="flex-1 px-3 py-2 border rounded-lg">
+                                        <button id="add-assignments-btn" class="flex-1 bg-blue-500 text-white font-bold py-2 rounded-lg hover:bg-blue-600 transition-colors duration-200">
+                                            Add Assignments
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- Add Students Section -->
+                                <div class="bg-gray-50 p-4 rounded-lg shadow-inner">
+                                    <h2 class="text-xl font-bold text-gray-700 mb-2">Add Students & Seats</h2>
+                                    <textarea id="student-roster" rows="6" placeholder="Paste student roster (one per line, e.g., Last, First, ID#)" class="w-full px-3 py-2 border rounded-lg mb-2"></textarea>
+                                    <div class="flex space-x-2">
+                                        <button id="add-students-btn" class="flex-1 bg-blue-500 text-white font-bold py-2 rounded-lg hover:bg-blue-600 transition-colors duration-200">
+                                            Add Students
+                                        </button>
+                                        <button id="add-empty-seat-btn" class="flex-1 bg-gray-500 text-white font-bold py-2 rounded-lg hover:bg-gray-600 transition-colors duration-200">
+                                            Add Empty Seat
+                                        </button>
+                                    </div>
+                                    <button id="delete-all-students-btn" class="w-full mt-2 bg-red-500 text-white font-bold py-2 rounded-lg hover:bg-red-600 transition-colors duration-200">
+                                        Delete All Students in Period
+                                    </button>
+                                </div>
+
+                                <!-- Queue Display -->
+                                <div class="bg-gray-50 p-4 rounded-lg shadow-inner">
+                                    <h2 class="text-xl font-bold text-gray-700 mb-2">Help & Check Queue</h2>
+                                    <div class="space-y-2">
+                                        <div class="bg-red-100 p-2 rounded-md">
+                                            <h3 class="font-semibold text-gray-700">Help Queue</h3>
+                                            <ul id="help-queue-list" class="list-disc list-inside text-gray-600">
+                                                ${state.requests.filter(r => r.type === 'help').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).map((r, i) => {
+                                                    const student = state.students.find(s => s.id === r.studentId);
+                                                    const assignment = state.assignments.find(a => a.id === r.assignmentId);
+                                                    if (!student) return '';
+                                                    return `<li class="cursor-pointer hover:text-red-500 transition-colors" data-student-id="${student.id}">${i + 1}. ${student.name} - ${assignment ? assignment.title : 'N/A'}</li>`;
+                                                }).join('')}
+                                            </ul>
+                                        </div>
+                                        <div class="bg-blue-100 p-2 rounded-md">
+                                            <h3 class="font-semibold text-gray-700">Check Queue</h3>
+                                            <ul id="check-queue-list" class="list-disc list-inside text-gray-600">
+                                                ${state.requests.filter(r => r.type === 'check').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).map((r, i) => {
+                                                    const student = state.students.find(s => s.id === r.studentId);
+                                                    const assignment = state.assignments.find(a => a.id === r.assignmentId);
+                                                    if (!student) return '';
+                                                    return `<li class="cursor-pointer hover:text-blue-500 transition-colors" data-student-id="${student.id}">${i + 1}. ${student.name} - ${assignment ? assignment.title : 'N/A'}</li>`;
+                                                }).join('')}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Main Content Area -->
+                            <div class="w-full lg:w-3/4 space-y-6">
+                                <!-- Sort and Class Layout -->
+                                <div class="bg-gray-50 p-4 rounded-lg shadow-inner">
+                                    <div class="flex items-center space-x-4 mb-4">
+                                        <span class="text-sm font-medium text-gray-700">Sort By:</span>
+                                        <div class="flex space-x-2">
+                                            <label class="inline-flex items-center">
+                                                <input type="radio" name="sort-option" value="seatOrder" class="form-radio" ${state.sortOption === 'seatOrder' ? 'checked' : ''}>
+                                                <span class="ml-2 text-gray-700">Assigned Seat</span>
+                                            </label>
+                                            <label class="inline-flex items-center">
+                                                <input type="radio" name="sort-option" value="firstName" class="form-radio" ${state.sortOption === 'firstName' ? 'checked' : ''}>
+                                                <span class="ml-2 text-gray-700">First Name</span>
+                                            </label>
+                                            <label class="inline-flex items-center">
+                                                <input type="radio" name="sort-option" value="lastName" class="form-radio" ${state.sortOption === 'lastName' ? 'checked' : ''}>
+                                                <span class="ml-2 text-gray-700">Last Name</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div id="class-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                                        ${state.students.filter(s => s.periodId === state.selectedPeriodId).map(s => {
+                                            const hasHelpRequest = state.requests.some(r => r.studentId === s.id && r.type === 'help');
+                                            const hasCheckRequest = state.requests.some(r => r.studentId === s.id && r.type === 'check' && !hasHelpRequest);
+                                            const backgroundColor = hasHelpRequest ? 'bg-red-400' : hasCheckRequest ? 'bg-blue-400' : 'bg-gray-200';
+                                            const textColor = hasHelpRequest || hasCheckRequest ? 'text-white' : 'text-gray-800';
+
+                                            return `
+                                                <div id="student-card-${s.id}" draggable="${state.sortOption === 'seatOrder'}"
+                                                    class="student-card p-4 rounded-lg shadow cursor-pointer transition-colors duration-200
+                                                    ${s.isPlaceholder ? 'border-2 border-dashed border-gray-400' : backgroundColor} ${textColor}
+                                                    ${state.selectedStudent && state.selectedStudent.id === s.id ? 'ring-4 ring-blue-500' : ''}"
+                                                    data-id="${s.id}" data-seat-order="${s.seatOrder}">
+                                                    <div class="flex justify-between items-center mb-2">
+                                                        <h3 class="font-bold">${s.isPlaceholder ? 'Empty Seat' : s.name}</h3>
+                                                        ${s.isPlaceholder ? '' : `<button onclick="deleteStudent('${s.id}')" class="text-gray-600 hover:text-red-500 transition-colors ml-2">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                                                                    <path d="M18.3 5.71a.996.996 0 0 0-1.41 0L12 10.59 7.11 5.7A.996.996 0 1 0 5.7 7.11L10.59 12 5.7 16.89A.996.996 0 1 0 7.11 18.3L12 13.41l4.89 4.89a.996.996 0 1 0 1.41-1.41L13.41 12l4.89-4.89a.996.996 0 0 0 0-1.4z"/>
+                                                                </svg>
+                                                            </button>`}
+                                                    </div>
+                                                    <p class="text-sm">ID: ${s.studentId}</p>
+                                                    ${hasHelpRequest ? `<span class="text-sm font-semibold">Help Queue: #${state.requests.filter(r => r.type === 'help').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).findIndex(r => r.studentId === s.id) + 1}</span>` : ''}
+                                                    ${hasCheckRequest ? `<span class="text-sm font-semibold">Check Queue: #${state.requests.filter(r => r.type === 'check').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).findIndex(r => r.studentId === s.id) + 1}</span>` : ''}
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                    </div>
+                                </div>
+                                
+                                <!-- Student Details -->
+                                <div id="student-details" class="bg-gray-50 p-4 rounded-lg shadow-inner ${state.selectedStudent ? '' : 'hidden'}">
+                                    <div class="flex justify-between items-center mb-4">
+                                        <h2 class="text-xl font-bold text-gray-700">Assignments for ${state.selectedStudent ? state.selectedStudent.name : ''}</h2>
+                                        <button id="copy-link-btn" class="text-sm bg-gray-300 px-3 py-1 rounded-lg hover:bg-gray-400">Share Student Link</button>
+                                    </div>
+                                    <div id="student-assignments" class="space-y-4">
+                                        <!-- Assignments will be rendered here -->
+                                    </div>
+                                    <div class="mt-4">
+                                        <h3 class="font-bold text-lg mb-2">Active Requests</h3>
+                                        <ul id="active-requests-list" class="space-y-2">
+                                            <!-- Requests will be rendered here -->
+                                        </ul>
+                                    </div>
+                                    <button id="clear-all-requests-btn" class="mt-4 w-full bg-red-500 text-white font-bold py-2 rounded-lg hover:bg-red-600 transition-colors duration-200">
+                                        Clear All Requests
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             `;
-        };
+            
+            // Re-attach event listeners
+            document.getElementById('period-select').addEventListener('change', (e) => {
+                state.selectedPeriodId = e.target.value;
+                sortStudents();
+                renderUI();
+            });
+            document.getElementById('add-period-btn').addEventListener('click', handleAddPeriod);
+            document.getElementById('delete-period-btn').addEventListener('click', handleDeletePeriod);
+            document.getElementById('add-assignments-btn').addEventListener('click', handleAddAssignments);
+            document.getElementById('add-students-btn').addEventListener('click', handleAddStudents);
+            document.getElementById('add-empty-seat-btn').addEventListener('click', handleAddEmptySeat);
+            document.getElementById('delete-all-students-btn').addEventListener('click', handleDeleteAllStudents);
 
-        const handlePeriodChange = (event) => {
-            state.selectedPeriod = event.target.value;
-            state.activeStudent = null;
-            sortStudents();
-            renderUI();
-        };
+            document.querySelectorAll('input[name="sort-option"]').forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    state.sortOption = e.target.value;
+                    sortStudents();
+                    renderUI();
+                });
+            });
 
-        const handleAddPeriod = async (event) => {
-            event.preventDefault();
+            document.querySelectorAll('.student-card').forEach(card => {
+                card.addEventListener('click', handleStudentSelect);
+            });
+            
+            document.querySelectorAll('#help-queue-list li, #check-queue-list li').forEach(item => {
+                item.addEventListener('click', handleQueueItemClick);
+            });
+
+            if (state.selectedStudent) {
+                renderStudentDetails();
+                document.getElementById('copy-link-btn').addEventListener('click', handleCopyLink);
+                document.getElementById('clear-all-requests-btn').addEventListener('click', handleClearAllRequests);
+            }
+
+            if (state.sortOption === 'seatOrder') {
+                setupDragAndDrop();
+            }
+        };
+        
+        const handleAddPeriod = async () => {
             const name = document.getElementById('new-period-name').value.trim();
             if (name) {
-                await addDoc(collection(db, `artifacts/${appId}/public/data/periods`), { name });
+                const periodsRef = collection(db, `artifacts/${appId}/public/data/periods`);
+                await addDoc(periodsRef, { name, timestamp: new Date().toISOString() });
                 document.getElementById('new-period-name').value = '';
             }
         };
-
+        
         const handleDeletePeriod = async () => {
-            if (state.selectedPeriod && confirm('Are you sure you want to delete this period and all its students?')) {
-                const periodId = state.selectedPeriod;
-                const periodDocRef = doc(db, `artifacts/${appId}/public/data/periods`, periodId);
-                await deleteDoc(periodDocRef);
-                state.selectedPeriod = state.periods[0] ? state.periods[0].id : null;
-                renderUI();
+            if (state.selectedPeriodId) {
+                const confirmDelete = confirm("Are you sure you want to delete this period and all its students?");
+                if (confirmDelete) {
+                    await runTransaction(db, async (transaction) => {
+                        const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
+                        const q = query(studentsRef, where('periodId', '==', state.selectedPeriodId));
+                        const studentsSnapshot = await getDocs(q);
+                        studentsSnapshot.forEach(doc => {
+                            transaction.delete(doc.ref);
+                        });
+                        const periodRef = doc(db, `artifacts/${appId}/public/data/periods`, state.selectedPeriodId);
+                        transaction.delete(periodRef);
+                    });
+                }
             }
         };
 
+        const handleAddAssignments = async () => {
+            const titles = document.getElementById('new-assignment-titles').value.split('\n').map(t => t.trim()).filter(t => t);
+            const dueDate = document.getElementById('assignment-due-date').value;
+            if (!titles.length || !state.selectedPeriodId) return;
+            
+            for (const title of titles) {
+                const assignmentsRef = collection(db, `artifacts/${appId}/public/data/assignments`);
+                await addDoc(assignmentsRef, {
+                    periodId: state.selectedPeriodId,
+                    title,
+                    dueDate,
+                    completions: []
+                });
+            }
+            document.getElementById('new-assignment-titles').value = '';
+        };
+
         const handleAddStudents = async () => {
-            const roster = document.getElementById('student-roster').value.trim().split('\n');
-            if (!roster) return;
+            const rosterText = document.getElementById('student-roster').value.trim();
+            if (!rosterText || !state.selectedPeriodId) return;
+            
+            const lines = rosterText.split('\n').map(line => line.trim()).filter(line => line);
+            const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
+            
+            const existingStudentsCount = state.students.filter(s => s.periodId === state.selectedPeriodId && !s.isPlaceholder).length;
+            const existingEmptySeatsCount = state.students.filter(s => s.periodId === state.selectedPeriodId && s.isPlaceholder).length;
 
-            for (const line of roster) {
-                const parts = line.trim().split(',');
-                if (parts.length >= 2) {
-                    const studentId = parts.pop().trim();
-                    const name = parts.join(',').trim();
-                    
-                    let firstName = '';
-                    let lastName = '';
-                    
-                    if (name.includes(',')) {
-                        // Assumes "Last, First" format
-                        const nameParts = name.split(',').map(s => s.trim());
-                        lastName = nameParts[0];
-                        firstName = nameParts[1] || '';
-                    } else {
-                        // Assumes "First Last" format
-                        const nameParts = name.split(/\s+/).map(s => s.trim());
-                        firstName = nameParts[0];
-                        lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
-                    }
-
-                    if (name && studentId) {
-                        const studentData = {
-                            name: name,
-                            studentId: studentId,
-                            isSeated: true,
-                            periodId: state.selectedPeriod,
-                            seatOrder: state.students.filter(s => s.periodId === state.selectedPeriod).length,
-                            firstName: firstName,
-                            lastName: lastName
-                        };
-                        await addDoc(collection(db, `artifacts/${appId}/public/data/students`), studentData);
-                    }
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                const parts = line.split(',');
+                const studentId = parts.pop().trim();
+                const name = parts.join(',').trim();
+                
+                if (name && studentId) {
+                    await addDoc(studentsRef, {
+                        periodId: state.selectedPeriodId,
+                        name,
+                        firstName: name.split(' ')[0],
+                        lastName: name.split(' ').slice(-1)[0],
+                        studentId,
+                        seatOrder: existingStudentsCount + existingEmptySeatsCount + i,
+                        isPlaceholder: false
+                    });
                 }
             }
             document.getElementById('student-roster').value = '';
         };
 
         const handleAddEmptySeat = async () => {
-             const studentData = {
-                name: null,
-                studentId: null,
-                isSeated: false,
-                periodId: state.selectedPeriod,
-                seatOrder: state.students.filter(s => s.periodId === state.selectedPeriod).length,
-                firstName: null,
-                lastName: null
-            };
-            await addDoc(collection(db, `artifacts/${appId}/public/data/students`), studentData);
+            if (!state.selectedPeriodId) return;
+            const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
+            const existingStudentsCount = state.students.filter(s => s.periodId === state.selectedPeriodId).length;
+            await addDoc(studentsRef, {
+                periodId: state.selectedPeriodId,
+                name: "Empty Seat",
+                studentId: `empty-${Date.now()}`,
+                seatOrder: existingStudentsCount,
+                isPlaceholder: true,
+                firstName: "",
+                lastName: ""
+            });
         };
 
-        const handleAddAssignments = async () => {
-            const titles = document.getElementById('assignment-titles').value.trim().split('\n');
-            if (!titles) return;
-
-            for (const title of titles) {
-                const trimmedTitle = title.trim();
-                if (trimmedTitle) {
-                    const assignmentData = {
-                        title: trimmedTitle,
-                        dueDate: null,
-                        completions: [],
-                        periodId: state.selectedPeriod,
-                    };
-                    await addDoc(collection(db, `artifacts/${appId}/public/data/assignments`), assignmentData);
-                }
-            }
-            document.getElementById('assignment-titles').value = '';
-        };
-
-        const handleStudentClick = (studentId) => {
-            state.activeStudent = state.students.find(s => s.id === studentId);
-            renderStudentCards();
-            renderStudentDetails();
-        };
-
-        const handleDeleteStudent = async (studentId) => {
-            await deleteDoc(doc(db, `artifacts/${appId}/public/data/students`, studentId));
-            if (state.activeStudent && state.activeStudent.id === studentId) {
-                state.activeStudent = null;
-            }
-        };
-
-        const handleAssignmentUpdate = async (event, assignmentId) => {
-            const newTitle = event.target.value.trim();
-            if (newTitle) {
-                const assignmentDocRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
-                await updateDoc(assignmentDocRef, {
-                    title: newTitle
+        const handleDeleteAllStudents = async () => {
+            if (!state.selectedPeriodId) return;
+            const confirmDelete = confirm("Are you sure you want to delete all students and empty seats in this period?");
+            if (confirmDelete) {
+                const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
+                const q = query(studentsRef, where('periodId', '==', state.selectedPeriodId));
+                const studentsSnapshot = await getDocs(q);
+                studentsSnapshot.forEach(async (doc) => {
+                    await deleteDoc(doc.ref);
                 });
             }
         };
+
+        const deleteStudent = async (studentId) => {
+            const studentRef = doc(db, `artifacts/${appId}/public/data/students`, studentId);
+            await deleteDoc(studentRef);
+            if (state.selectedStudent && state.selectedStudent.id === studentId) {
+                state.selectedStudent = null;
+                renderUI();
+            }
+        };
+        window.deleteStudent = deleteStudent;
+
+        const handleStudentSelect = (e) => {
+            const studentCard = e.currentTarget;
+            const studentId = studentCard.dataset.id;
+            state.selectedStudent = state.students.find(s => s.id === studentId);
+            renderUI();
+        };
+
+        const renderStudentDetails = () => {
+            const detailsSection = document.getElementById('student-details');
+            if (!detailsSection || !state.selectedStudent) return;
+            
+            const studentAssignmentsList = document.getElementById('student-assignments');
+            studentAssignmentsList.innerHTML = state.assignments
+                .filter(a => a.periodId === state.selectedStudent.periodId)
+                .map(a => {
+                    const completion = a.completions.find(c => c.studentId === state.selectedStudent.id);
+                    const isExcused = completion ? completion.isExcused : false;
+                    const score = completion ? completion.score : 0;
+                    
+                    return `
+                        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                            <div class="flex justify-between items-center">
+                                <span contenteditable="true" onblur="handleAssignmentEdit('${a.id}', this.innerText)" class="text-lg font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md p-1">${a.title}</span>
+                                <button onclick="handleDeleteAssignment('${a.id}')" class="text-gray-600 hover:text-red-500 transition-colors ml-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M18.3 5.71a.996.996 0 0 0-1.41 0L12 10.59 7.11 5.7A.996.996 0 1 0 5.7 7.11L10.59 12 5.7 16.89A.996.996 0 1 0 7.11 18.3L12 13.41l4.89 4.89a.996.996 0 1 0 1.41-1.41L13.41 12l4.89-4.89a.996.996 0 0 0 0-1.4z"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            <p class="text-sm text-gray-500 mb-2">Due: ${a.dueDate ? new Date(a.dueDate).toLocaleDateString() : 'N/A'}</p>
+                            <div class="flex items-center space-x-4">
+                                <div class="flex items-center space-x-1">
+                                    ${[1, 2, 3, 4].map(s => `
+                                        <input type="checkbox" id="score-${a.id}-${s}" 
+                                            class="form-checkbox text-blue-600 rounded" 
+                                            data-score="${s}"
+                                            ${score >= s ? 'checked' : ''}
+                                            onclick="handleScoreChange('${a.id}', ${s}, event)"
+                                        >
+                                        <label for="score-${a.id}-${s}" class="text-gray-700">${s}</label>
+                                    `).join('')}
+                                </div>
+                                <label class="inline-flex items-center space-x-2 cursor-pointer">
+                                    <input type="checkbox" id="excused-${a.id}" class="form-checkbox text-purple-600 rounded"
+                                        ${isExcused ? 'checked' : ''}
+                                        onclick="handleExcusedToggle('${a.id}', event)">
+                                    <span class="${isExcused ? 'text-purple-600 font-semibold' : ''}">Excused</span>
+                                </label>
+                                <button onclick="clearCompletion('${a.id}')" class="text-gray-500 hover:text-red-500 transition-colors">Clear</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+            const requestsList = document.getElementById('active-requests-list');
+            if (requestsList) {
+                const studentRequests = state.requests.filter(r => r.studentId === state.selectedStudent.id);
+                requestsList.innerHTML = studentRequests.length > 0 ? studentRequests.map(r => {
+                    const assignment = state.assignments.find(a => a.id === r.assignmentId);
+                    const type = r.type === 'help' ? 'Help' : 'Check';
+                    return `
+                        <li class="flex justify-between items-center p-2 rounded-md ${r.type === 'help' ? 'bg-red-100' : 'bg-blue-100'}">
+                            <span>${type} on: ${assignment ? assignment.title : 'N/A'}</span>
+                            <button onclick="clearSpecificRequest('${r.id}')" class="text-gray-500 hover:text-red-500">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M18.3 5.71a.996.996 0 0 0-1.41 0L12 10.59 7.11 5.7A.996.996 0 1 0 5.7 7.11L10.59 12 5.7 16.89A.996.996 0 1 0 7.11 18.3L12 13.41l4.89 4.89a.996.996 0 1 0 1.41-1.41L13.41 12l4.89-4.89a.996.996 0 0 0 0-1.4z"/>
+                                </svg>
+                            </button>
+                        </li>
+                    `;
+                }).join('') : `<li>No active requests.</li>`;
+            }
+        };
+
+        const handleAssignmentEdit = async (assignmentId, newTitle) => {
+            const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
+            await updateDoc(assignmentRef, { title: newTitle });
+        };
+        window.handleAssignmentEdit = handleAssignmentEdit;
 
         const handleDeleteAssignment = async (assignmentId) => {
-             if (confirm('Are you sure you want to delete this assignment for ALL students?')) {
-                // Delete the assignment document itself
-                await deleteDoc(doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId));
-
-                // Find and delete any pending requests for this assignment
-                const requestsQuery = query(collection(db, `artifacts/${appId}/public/data/requests`), where('assignmentId', '==', assignmentId));
-                const requestDocs = await getDocs(requestsQuery);
-                requestDocs.forEach(async (d) => {
-                    await deleteDoc(d.ref);
-                });
-             }
-        };
-
-        const handleScoreUpdate = async (event, studentDocId) => {
-            const assignmentId = event.target.dataset.assignmentId;
-            const newScore = parseInt(event.target.dataset.score, 10);
-            
-            const studentDocRef = doc(db, `artifacts/${appId}/public/data/students`, studentDocId);
-            const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
-            const assignmentDoc = await getDoc(assignmentRef);
-            let currentCompletions = assignmentDoc.data().completions || [];
-            
-            const existingCompletion = currentCompletions.find(c => c.studentId === studentDocId);
-            
-            if (existingCompletion) {
-                currentCompletions = currentCompletions.filter(c => c.studentId !== studentDocId);
-            }
-            
-            currentCompletions.push({ studentId: studentDocId, score: newScore, dateCompleted: new Date().toISOString(), isExcused: false });
-            await updateDoc(assignmentRef, { completions: currentCompletions });
-            renderUI();
-        };
-
-        const handleExcusedUpdate = async (event, studentDocId) => {
-            const assignmentId = event.target.dataset.assignmentId;
-            const isExcused = event.target.checked;
-            
-            const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
-            const assignmentDoc = await getDoc(assignmentRef);
-            let currentCompletions = assignmentDoc.data().completions || [];
-
-            const existingCompletion = currentCompletions.find(c => c.studentId === studentDocId);
-            
-            if (existingCompletion) {
-                currentCompletions = currentCompletions.filter(c => c.studentId !== studentDocId);
-            }
-            
-            if (isExcused) {
-                 currentCompletions.push({ studentId: studentDocId, score: null, dateCompleted: new Date().toISOString(), isExcused: true });
-            }
-           
-            await updateDoc(assignmentRef, { completions: currentCompletions });
-            renderUI();
-        };
-
-        const handleClearUpdate = async (event, studentDocId, assignmentId) => {
-            const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
-            const assignmentDoc = await getDoc(assignmentRef);
-            let currentCompletions = assignmentDoc.data().completions || [];
-
-            currentCompletions = currentCompletions.filter(c => c.studentId !== studentDocId);
-            
-            await updateDoc(assignmentRef, { completions: currentCompletions });
-            renderUI();
-        };
-
-        const handleCopyLink = (studentId) => {
-            const url = `${window.location.origin}/student.html?studentId=${studentId}`;
-            const tempInput = document.createElement('input');
-            tempInput.value = url;
-            document.body.appendChild(tempInput);
-            tempInput.select();
-            document.execCommand('copy');
-            document.body.removeChild(tempInput);
-            showMessage('Link copied!');
-        };
-
-        const handleAcknowledgeRequest = async (requestId) => {
-            await deleteDoc(doc(db, `artifacts/${appId}/public/data/requests`, requestId));
-        };
-
-        const handleSortChange = (event) => {
-            state.sort = event.target.value;
-            sortStudents();
-            renderUI();
-        };
-
-        const sortStudents = () => {
-            const periodStudents = state.students.filter(s => s.periodId === state.selectedPeriod);
-            if (state.sort === 'lastName') {
-                periodStudents.sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
-            } else if (state.sort === 'firstName') {
-                periodStudents.sort((a, b) => (a.firstName || '').localeCompare(b.firstName || ''));
-            } else {
-                periodStudents.sort((a, b) => {
-                    const orderA = a.seatOrder !== undefined ? a.seatOrder : Infinity;
-                    const orderB = b.seatOrder !== undefined ? b.seatOrder : Infinity;
-                    return orderA - orderB;
-                });
+            const confirmDelete = confirm("Are you sure you want to delete this assignment for all students?");
+            if (confirmDelete) {
+                const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
+                await deleteDoc(assignmentRef);
             }
         };
-        
-        const showMessage = (message) => {
-            state.message = message;
-            const messageDiv = document.getElementById('message');
-            messageDiv.innerHTML = `
-                <div class="fixed top-20 left-1/2 -translate-x-1/2 bg-blue-500 text-white px-6 py-3 rounded-full shadow-lg z-50 transition-all duration-300 transform scale-100">
-                    ${message}
-                </div>
-            `;
-            setTimeout(() => {
-                messageDiv.innerHTML = '';
-            }, 3000);
-        };
-
-        // Drag and drop logic
-        let draggedElement = null;
-
-        const handleDragStart = (e) => {
-            draggedElement = e.target;
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', e.target.id);
-        };
-
-        const handleDragOver = (e) => {
-            e.preventDefault();
-            const droppedOnElement = e.target.closest('[draggable="true"]');
-            if (droppedOnElement) {
-                e.dataTransfer.dropEffect = 'move';
-            }
-        };
-
-        const handleDrop = async (e) => {
-            e.preventDefault();
-            const droppedOnElement = e.target.closest('[draggable="true"]');
-            if (!droppedOnElement) return;
-
-            const droppedOnId = droppedOnElement.id;
-            const draggedId = draggedElement.id;
-
-            if (draggedId === droppedOnId) return;
-
-            const draggedStudentId = draggedId.split('-')[1];
-            const droppedOnStudentId = droppedOnId.split('-')[1];
-
-            const draggedIndex = state.students.findIndex(s => s.id === draggedStudentId);
-            const droppedOnIndex = state.students.findIndex(s => s.id === droppedOnStudentId);
-            
-            if (draggedIndex === -1 || droppedOnIndex === -1) return;
-
-            const draggedStudent = state.students[draggedIndex];
-            const droppedOnStudent = state.students[droppedOnIndex];
-
-            // Re-order the local state
-            const studentsInPeriod = state.students.filter(s => s.periodId === state.selectedPeriod);
-            const draggedStudentCurrentOrder = draggedStudent.seatOrder;
-            const droppedOnStudentCurrentOrder = droppedOnStudent.seatOrder;
-            
-            if (draggedStudentCurrentOrder < droppedOnStudentCurrentOrder) {
-                // Moving down
-                for (let i = draggedStudentCurrentOrder + 1; i <= droppedOnStudentCurrentOrder; i++) {
-                    const studentToUpdate = studentsInPeriod.find(s => s.seatOrder === i);
-                    if (studentToUpdate) {
-                        await updateDoc(doc(db, `artifacts/${appId}/public/data/students`, studentToUpdate.id), {
-                            seatOrder: i - 1
-                        });
-                    }
-                }
-                await updateDoc(doc(db, `artifacts/${appId}/public/data/students`, draggedStudentId), {
-                    seatOrder: droppedOnStudentCurrentOrder
-                });
-            } else {
-                // Moving up
-                for (let i = draggedStudentCurrentOrder - 1; i >= droppedOnStudentCurrentOrder; i--) {
-                    const studentToUpdate = studentsInPeriod.find(s => s.seatOrder === i);
-                    if (studentToUpdate) {
-                        await updateDoc(doc(db, `artifacts/${appId}/public/data/students`, studentToUpdate.id), {
-                            seatOrder: i + 1
-                        });
-                    }
-                }
-                 await updateDoc(doc(db, `artifacts/${appId}/public/data/students`, draggedStudentId), {
-                    seatOrder: droppedOnStudentCurrentOrder
-                });
-            }
-        };
-
-        window.handlePeriodChange = handlePeriodChange;
-        window.handleAddPeriod = handleAddPeriod;
-        window.handleDeletePeriod = handleDeletePeriod;
-        window.handleAddStudents = handleAddStudents;
-        window.handleAddEmptySeat = handleAddEmptySeat;
-        window.handleAddAssignments = handleAddAssignments;
-        window.handleStudentClick = handleStudentClick;
-        window.handleDeleteStudent = handleDeleteStudent;
-        window.handleScoreUpdate = handleScoreUpdate;
-        window.handleCopyLink = handleCopyLink;
-        window.handleAcknowledgeRequest = handleAcknowledgeRequest;
-        window.handleSortChange = handleSortChange;
-        window.handleDragOver = handleDragOver;
-        window.handleDrop = handleDrop;
-        window.handleDragStart = handleDragStart;
-        window.handleAssignmentUpdate = handleAssignmentUpdate;
         window.handleDeleteAssignment = handleDeleteAssignment;
-        window.handleExcusedUpdate = handleExcusedUpdate;
-        window.handleClearUpdate = handleClearUpdate;
 
-        document.addEventListener('DOMContentLoaded', renderUI);
+        const handleScoreChange = async (assignmentId, score, event) => {
+            const isChecked = event.target.checked;
+            const completion = state.assignments
+                .find(a => a.id === assignmentId)
+                ?.completions
+                .find(c => c.studentId === state.selectedStudent.id);
+
+            const newScore = isChecked ? score : score - 1;
+            
+            const assignmentsRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
+            const newCompletion = {
+                studentId: state.selectedStudent.id,
+                score: newScore,
+                dateCompleted: new Date().toISOString(),
+                isExcused: false
+            };
+            
+            await updateDoc(assignmentsRef, {
+                completions: state.assignments.find(a => a.id === assignmentId).completions
+                    .filter(c => c.studentId !== state.selectedStudent.id)
+                    .concat(newCompletion)
+            });
+        };
+        window.handleScoreChange = handleScoreChange;
+
+        const handleExcusedToggle = async (assignmentId, event) => {
+            const isExcused = event.target.checked;
+            const completion = state.assignments
+                .find(a => a.id === assignmentId)
+                ?.completions
+                .find(c => c.studentId === state.selectedStudent.id);
+
+            const assignmentsRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
+            const newCompletion = {
+                studentId: state.selectedStudent.id,
+                score: isExcused ? null : completion ? completion.score : null,
+                dateCompleted: isExcused ? new Date().toISOString() : null,
+                isExcused: isExcused
+            };
+
+            await updateDoc(assignmentsRef, {
+                completions: state.assignments.find(a => a.id === assignmentId).completions
+                    .filter(c => c.studentId !== state.selectedStudent.id)
+                    .concat(newCompletion)
+            });
+        };
+        window.handleExcusedToggle = handleExcusedToggle;
+
+        const clearCompletion = async (assignmentId) => {
+            const assignmentsRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
+            const currentCompletions = state.assignments.find(a => a.id === assignmentId).completions;
+            const newCompletions = currentCompletions.filter(c => c.studentId !== state.selectedStudent.id);
+            await updateDoc(assignmentsRef, { completions: newCompletions });
+        };
+        window.clearCompletion = clearCompletion;
+
+        const clearSpecificRequest = async (requestId) => {
+            const requestRef = doc(db, `artifacts/${appId}/public/data/requests`, requestId);
+            await deleteDoc(requestRef);
+        };
+        window.clearSpecificRequest = clearSpecificRequest;
+
+        const handleClearAllRequests = async () => {
+            const studentRequests = state.requests.filter(r => r.studentId === state.selectedStudent.id);
+            for (const req of studentRequests) {
+                await clearSpecificRequest(req.id);
+            }
+        };
+
+        const handleQueueItemClick = (e) => {
+            const studentId = e.currentTarget.dataset.studentId;
+            state.selectedStudent = state.students.find(s => s.id === studentId);
+            renderUI();
+        };
+
+        const handleCopyLink = () => {
+            if (state.selectedStudent) {
+                const studentLink = `${window.location.origin}/classdashboard/student.html?studentId=${state.selectedStudent.studentId}`;
+                const el = document.createElement('textarea');
+                el.value = studentLink;
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand('copy');
+                document.body.removeChild(el);
+            }
+        };
+
+        const setupDragAndDrop = () => {
+            const grid = document.getElementById('class-grid');
+            let draggedItem = null;
+
+            grid.addEventListener('dragstart', (e) => {
+                state.isDragging = true;
+                draggedItem = e.target;
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', e.target.dataset.id);
+                setTimeout(() => e.target.classList.add('opacity-50'), 0);
+            });
+
+            grid.addEventListener('dragend', (e) => {
+                state.isDragging = false;
+                e.target.classList.remove('opacity-50');
+                draggedItem = null;
+            });
+
+            grid.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                const target = e.target.closest('.student-card');
+                if (target && target !== draggedItem) {
+                    const rect = target.getBoundingClientRect();
+                    const next = (e.clientY - rect.top) / (rect.bottom - rect.top) > 0.5;
+                    grid.insertBefore(draggedItem, next && target.nextSibling || target);
+                }
+            });
+
+            grid.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                state.isDragging = false;
+                const newOrder = Array.from(grid.children).map((card, index) => ({
+                    id: card.dataset.id,
+                    seatOrder: index
+                }));
+
+                await runTransaction(db, async (transaction) => {
+                    newOrder.forEach(item => {
+                        const studentRef = doc(db, `artifacts/${appId}/public/data/students`, item.id);
+                        transaction.update(studentRef, { seatOrder: item.seatOrder });
+                    });
+                });
+            });
+        };
     </script>
     <style>
         body {
@@ -824,11 +663,14 @@
             background-color: #f3f4f6;
             color: #1f2937;
         }
+        .form-checkbox {
+            cursor: pointer;
+            height: 1.25rem;
+            width: 1.25rem;
+        }
     </style>
 </head>
 <body>
-    <header id="header"></header>
-    <div id="message"></div>
-    <main id="app" class="mt-6 md:mt-10"></main>
+    <div id="app"></div>
 </body>
 </html>
