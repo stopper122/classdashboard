@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, collection, query, where, addDoc, updateDoc, deleteDoc, getDoc, arrayUnion, arrayRemove, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
@@ -37,8 +37,13 @@
         db = getFirestore(app);
         auth = getAuth(app);
 
-        const urlParams = new URLSearchParams(window.location.search);
-        const studentId = urlParams.get('studentId');
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                renderUI();
+            } else {
+                await signInAnonymously(auth);
+            }
+        });
 
         const renderUI = () => {
             const app = document.getElementById('app');
@@ -96,8 +101,8 @@
                 const score = completion ? completion.score : null;
                 const dateCompleted = completion ? completion.dateCompleted : null;
 
-                const helpRequest = state.requests.find(r => r.assignmentId === a.id && r.type === 'help');
-                const checkRequest = state.requests.find(r => r.assignmentId === a.id && r.type === 'check');
+                const helpRequest = state.requests.find(r => r.assignmentId === a.id && r.studentId === state.student.studentId && r.type === 'help');
+                const checkRequest = state.requests.find(r => r.assignmentId === a.id && r.studentId === state.student.studentId && r.type === 'check');
 
                 const helpQueue = state.requests.filter(r => r.type === 'help').sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
                 const checkQueue = state.requests.filter(r => r.type === 'check').sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
@@ -107,8 +112,6 @@
                 const helpButtonText = helpRequest ? `Cancel Help (#${helpPosition})` : 'Request Help';
                 const checkButtonText = checkRequest ? `Cancel Check (#${checkPosition})` : 'Ready for Check';
 
-                const isAnyRequestActive = helpRequest || checkRequest;
-                
                 return `
                     <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                         <div class="flex justify-between items-center mb-2">
@@ -150,16 +153,20 @@
 
             try {
                 const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
-                const q = query(studentsRef, where("studentId", "==", studentId), where("name", "==", name));
+                const q = query(studentsRef, where("studentId", "==", studentId));
                 const querySnapshot = await getDocs(q);
 
                 if (querySnapshot.empty) {
-                    messageEl.textContent = 'Login failed. Please check your name and ID.';
+                    messageEl.textContent = 'Login failed. Please check your ID and name.';
                 } else {
                     const studentDoc = querySnapshot.docs[0];
-                    state.student = { id: studentDoc.id, ...studentDoc.data() };
-                    state.isLoggedIn = true;
-                    startDataListeners();
+                    if (studentDoc.data().name === name) {
+                        state.student = { id: studentDoc.id, ...studentDoc.data() };
+                        state.isLoggedIn = true;
+                        startDataListeners();
+                    } else {
+                        messageEl.textContent = 'Login failed. Please check your ID and name.';
+                    }
                 }
             } catch (error) {
                 console.error("Login error:", error);
