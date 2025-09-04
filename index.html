@@ -220,9 +220,27 @@
                             </div>
                         </div>
                         
-                        <!-- Selected Student Details -->
-                        <div id="student-details" class="bg-gray-50 p-6 rounded-xl border border-gray-200" style="${state.activeStudent ? '' : 'display: none;'}">
-                            <!-- Student details will be rendered here -->
+                        <!-- Queue and Selected Student Details -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Queue Section -->
+                            <div id="queue-section" class="bg-gray-50 p-6 rounded-xl border border-gray-200">
+                                <h3 class="text-2xl font-bold text-blue-800 mb-4">Queues</h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="space-y-4">
+                                        <h4 class="font-bold text-lg text-red-600 mb-2">Help Queue</h4>
+                                        <div id="help-queue-list" class="space-y-2"></div>
+                                    </div>
+                                    <div class="space-y-4">
+                                        <h4 class="font-bold text-lg text-blue-600 mb-2">Check Queue</h4>
+                                        <div id="check-queue-list" class="space-y-2"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Selected Student Details -->
+                            <div id="student-details" class="bg-gray-50 p-6 rounded-xl border border-gray-200" style="${state.activeStudent ? '' : 'display: none;'}">
+                                <!-- Student details will be rendered here -->
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -231,6 +249,51 @@
             document.getElementById('add-period-form').addEventListener('submit', handleAddPeriod);
             renderStudentCards();
             renderStudentDetails();
+            renderQueues();
+        };
+
+        const renderQueues = () => {
+            const helpQueueList = document.getElementById('help-queue-list');
+            const checkQueueList = document.getElementById('check-queue-list');
+
+            const helpRequests = state.requests.filter(r => r.type === 'help').sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            const checkRequests = state.requests.filter(r => r.type === 'check').sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+            if (helpQueueList) {
+                helpQueueList.innerHTML = helpRequests.length > 0 ? helpRequests.map((r, index) => {
+                    const student = state.students.find(s => s.studentId === r.studentId);
+                    const assignment = state.assignments.find(a => a.id === r.assignmentId);
+                    const studentName = student ? student.name : 'Unknown Student';
+                    const assignmentTitle = assignment ? assignment.title : 'Unknown Assignment';
+                    return `
+                        <div class="bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center">
+                            <div class="flex-grow">
+                                <p class="font-semibold text-gray-700">${studentName}</p>
+                                <p class="text-sm text-gray-500">Assignment: ${assignmentTitle}</p>
+                            </div>
+                            <span class="text-xs font-semibold px-2 py-1 rounded-full bg-red-500 text-white">${index + 1}</span>
+                        </div>
+                    `;
+                }).join('') : '<p class="text-center text-gray-500">Queue is empty.</p>';
+            }
+
+            if (checkQueueList) {
+                checkQueueList.innerHTML = checkRequests.length > 0 ? checkRequests.map((r, index) => {
+                    const student = state.students.find(s => s.studentId === r.studentId);
+                    const assignment = state.assignments.find(a => a.id === r.assignmentId);
+                    const studentName = student ? student.name : 'Unknown Student';
+                    const assignmentTitle = assignment ? assignment.title : 'Unknown Assignment';
+                    return `
+                        <div class="bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center">
+                            <div class="flex-grow">
+                                <p class="font-semibold text-gray-700">${studentName}</p>
+                                <p class="text-sm text-gray-500">Assignment: ${assignmentTitle}</p>
+                            </div>
+                            <span class="text-xs font-semibold px-2 py-1 rounded-full bg-blue-500 text-white">${index + 1}</span>
+                        </div>
+                    `;
+                }).join('') : '<p class="text-center text-gray-500">Queue is empty.</p>';
+            }
         };
 
         const renderStudentCards = () => {
