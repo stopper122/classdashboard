@@ -8,7 +8,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, updateDoc, deleteDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // IMPORTANT: These global variables are provided by the canvas environment.
@@ -54,11 +54,7 @@
         // Sign in user
         const signIn = async () => {
             try {
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
+                await signInAnonymously(auth);
             } catch (error) {
                 console.error("Authentication error:", error);
                 renderMessage("Authentication failed. Please refresh the page.");
@@ -81,7 +77,7 @@
             if (!userId) return;
 
             // Listen for changes to the assignments collection
-            const assignmentsRef = collection(db, `artifacts/${appId}/users/${userId}/assignments`);
+            const assignmentsRef = collection(db, `artifacts/${appId}/public/data/assignments`);
             onSnapshot(assignmentsRef, (snapshot) => {
                 const assignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 state.instructorAssignments = assignments;
@@ -90,7 +86,7 @@
             });
 
             // Listen for changes to the students collection
-            const studentsRef = collection(db, `artifacts/${appId}/users/${userId}/students`);
+            const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
             onSnapshot(studentsRef, (snapshot) => {
                 const students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 state.students = students;
@@ -182,7 +178,7 @@
             }
             
             try {
-                const assignmentsRef = collection(db, `artifacts/${appId}/users/${userId}/assignments`);
+                const assignmentsRef = collection(db, `artifacts/${appId}/public/data/assignments`);
                 for (const title of titles) {
                      await addDoc(assignmentsRef, {
                         title,
@@ -220,7 +216,7 @@
             }
             
             try {
-                const studentsRef = collection(db, `artifacts/${appId}/users/${userId}/students`);
+                const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
                 for (const line of lines) {
                     const parts = line.split(',').map(part => part.trim());
                     const name = parts[0];
@@ -257,7 +253,7 @@
             state.isProcessing = true;
             renderUI();
             try {
-                const studentsRef = collection(db, `artifacts/${appId}/users/${userId}/students`);
+                const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
                 await addDoc(studentsRef, {
                     name: 'Empty Seat',
                     isSeatEmpty: true,
@@ -283,7 +279,7 @@
             renderUI();
 
             try {
-                const assignmentDocRef = doc(db, `artifacts/${appId}/users/${userId}/assignments`, assignmentId);
+                const assignmentDocRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
                 const assignment = state.instructorAssignments.find(a => a.id === assignmentId);
                 let newCompletions = [...assignment.completions];
                 const now = new Date().toISOString();
@@ -327,7 +323,7 @@
             renderUI();
             
             try {
-                const assignmentDocRef = doc(db, `artifacts/${appId}/users/${userId}/assignments`, assignmentId);
+                const assignmentDocRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
                 await deleteDoc(assignmentDocRef);
                 showMessage("Assignment deleted!");
             } catch (error) {
@@ -345,7 +341,7 @@
             renderUI();
 
             try {
-                const studentDocRef = doc(db, `artifacts/${appId}/users/${userId}/students`, studentId);
+                const studentDocRef = doc(db, `artifacts/${appId}/public/data/students`, studentId);
                 await updateDoc(studentDocRef, {
                     helpRequested: false,
                     queuePosition: null,
@@ -429,8 +425,8 @@
 
             state.isProcessing = true;
             try {
-                const draggedStudentRef = doc(db, `artifacts/${appId}/users/${userId}/students`, draggedStudent.id);
-                const targetStudentRef = doc(db, `artifacts/${appId}/users/${userId}/students`, targetStudent.id);
+                const draggedStudentRef = doc(db, `artifacts/${appId}/public/data/students`, draggedStudent.id);
+                const targetStudentRef = doc(db, `artifacts/${appId}/public/data/students`, targetStudent.id);
                 
                 const draggedOrder = draggedStudent.orderIndex;
                 const targetOrder = targetStudent.orderIndex;
