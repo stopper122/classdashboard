@@ -201,7 +201,8 @@
                                     <span class="text-gray-600">Sort:</span>
                                     <select id="sort-select" class="px-2 py-1 rounded-lg border border-gray-300">
                                         <option value="seat">Assigned Seat</option>
-                                        <option value="name">Alphabetical</option>
+                                        <option value="lastName">Last Name</option>
+                                        <option value="firstName">First Name</option>
                                     </select>
                                 </div>
                             </div>
@@ -229,17 +230,19 @@
             if (!grid) return;
 
             const periodStudents = state.students
-                .filter(s => s.periodId === state.selectedPeriod)
-                .sort((a, b) => {
-                    if (a.seatOrder === b.seatOrder) return 0;
-                    if (a.seatOrder === null) return 1;
-                    if (b.seatOrder === null) return -1;
-                    return a.seatOrder - b.seatOrder;
-                });
+                .filter(s => s.periodId === state.selectedPeriod);
             
-            const sortedStudents = state.sort === 'name' 
-                ? [...periodStudents].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-                : periodStudents;
+            const sortedStudents = [...periodStudents].sort((a, b) => {
+                if (state.sort === 'lastName') {
+                    return (a.lastName || '').localeCompare(b.lastName || '');
+                } else if (state.sort === 'firstName') {
+                    return (a.firstName || '').localeCompare(b.firstName || '');
+                } else {
+                    const orderA = a.seatOrder !== undefined ? a.seatOrder : Infinity;
+                    const orderB = b.seatOrder !== undefined ? b.seatOrder : Infinity;
+                    return orderA - orderB;
+                }
+            });
 
             grid.innerHTML = sortedStudents.map(student => {
                 const isActive = state.activeStudent && state.activeStudent.id === student.id;
@@ -257,10 +260,13 @@
                 const helpPosition = helpRequests.findIndex(r => r.studentId === student.studentId) + 1;
                 const checkPosition = checkRequests.findIndex(r => r.studentId === student.studentId) + 1;
 
+                const isDraggable = state.sort === 'seat';
+                const cursorStyle = isDraggable ? 'cursor-grab' : 'cursor-default';
+
                 return `
-                    <div draggable="true" id="student-${student.id}"
+                    <div draggable="${isDraggable}" id="student-${student.id}"
                         onclick="handleStudentClick('${student.id}')"
-                        class="p-4 rounded-lg shadow-sm border ${borderColor} ${backgroundColor} flex flex-col items-center cursor-pointer transition-all duration-200 hover:shadow-md">
+                        class="p-4 rounded-lg shadow-sm border ${borderColor} ${backgroundColor} flex flex-col items-center ${cursorStyle} transition-all duration-200 hover:shadow-md">
                         <button onclick="handleDeleteStudent('${student.id}')" class="text-sm text-gray-500 self-end -mt-2 -mr-2">
                              &times;
                         </button>
@@ -277,12 +283,14 @@
             }).join('');
 
             // Add drag and drop listeners
-            const studentCards = grid.querySelectorAll('[draggable="true"]');
-            studentCards.forEach(card => {
-                card.addEventListener('dragstart', handleDragStart);
-                card.addEventListener('dragover', handleDragOver);
-                card.addEventListener('drop', handleDrop);
-            });
+            if (state.sort === 'seat') {
+                const studentCards = grid.querySelectorAll('[draggable="true"]');
+                studentCards.forEach(card => {
+                    card.addEventListener('dragstart', handleDragStart);
+                    card.addEventListener('dragover', handleDragOver);
+                    card.addEventListener('drop', handleDrop);
+                });
+            }
         };
         
         const renderStudentDetails = () => {
@@ -416,6 +424,9 @@
                 if (parts.length >= 2) {
                     const studentId = parts.pop().trim();
                     const name = parts.join(',').trim();
+                    const nameParts = name.split(',').map(s => s.trim());
+                    const lastName = nameParts[0];
+                    const firstName = nameParts.length > 1 ? nameParts[1] : '';
 
                     if (name && studentId) {
                         const studentData = {
@@ -423,7 +434,9 @@
                             studentId: studentId,
                             isSeated: true,
                             periodId: state.selectedPeriod,
-                            seatOrder: state.students.filter(s => s.periodId === state.selectedPeriod).length
+                            seatOrder: state.students.filter(s => s.periodId === state.selectedPeriod).length,
+                            firstName: firstName,
+                            lastName: lastName
                         };
                         await addDoc(collection(db, `artifacts/${appId}/public/data/students`), studentData);
                     }
@@ -438,7 +451,9 @@
                 studentId: null,
                 isSeated: false,
                 periodId: state.selectedPeriod,
-                seatOrder: state.students.filter(s => s.periodId === state.selectedPeriod).length
+                seatOrder: state.students.filter(s => s.periodId === state.selectedPeriod).length,
+                firstName: null,
+                lastName: null
             };
             await addDoc(collection(db, `artifacts/${appId}/public/data/students`), studentData);
         };
@@ -534,8 +549,10 @@
 
         const sortStudents = () => {
             const periodStudents = state.students.filter(s => s.periodId === state.selectedPeriod);
-            if (state.sort === 'name') {
-                periodStudents.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+            if (state.sort === 'lastName') {
+                periodStudents.sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
+            } else if (state.sort === 'firstName') {
+                periodStudents.sort((a, b) => (a.firstName || '').localeCompare(b.firstName || ''));
             } else {
                 periodStudents.sort((a, b) => {
                     const orderA = a.seatOrder !== undefined ? a.seatOrder : Infinity;
