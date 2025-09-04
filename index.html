@@ -37,7 +37,10 @@
             isDragging: false,
             draggedId: null,
             draggedIndex: null,
+            isTeacherLoggedIn: false,
         };
+
+        const TEACHER_PASSWORD = 'Rocket_22!!';
 
         const app = initializeApp(firebaseConfig);
         db = getFirestore(app);
@@ -104,6 +107,10 @@
 
         const renderUI = () => {
             const app = document.getElementById('app');
+            if (!state.isTeacherLoggedIn) {
+                renderLogin();
+                return;
+            }
             if (state.loading) {
                 app.innerHTML = `<div class="flex items-center justify-center h-screen"><div class="text-xl font-semibold">Loading...</div></div>`;
                 return;
@@ -322,7 +329,39 @@
                 setupDragAndDrop();
             }
         };
+
+        const renderLogin = () => {
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="flex items-center justify-center min-h-screen bg-gray-100">
+                    <div class="p-8 bg-white rounded-xl shadow-lg w-full max-w-lg text-center">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-4">Teacher Login</h2>
+                        <form id="teacher-login-form" class="flex flex-col space-y-4">
+                            <input type="password" id="password" placeholder="Password"
+                                class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <button type="submit" class="bg-blue-600 text-white font-bold py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">
+                                Log In
+                            </button>
+                        </form>
+                        <p id="login-message" class="mt-4 text-red-500"></p>
+                    </div>
+                </div>
+            `;
+            document.getElementById('teacher-login-form').addEventListener('submit', handleTeacherLogin);
+        };
         
+        const handleTeacherLogin = (e) => {
+            e.preventDefault();
+            const password = document.getElementById('password').value;
+            const messageEl = document.getElementById('login-message');
+            if (password === TEACHER_PASSWORD) {
+                state.isTeacherLoggedIn = true;
+                renderUI();
+            } else {
+                messageEl.textContent = 'Incorrect password.';
+            }
+        };
+
         const handleAddPeriod = async () => {
             const name = document.getElementById('new-period-name').value.trim();
             if (name) {
