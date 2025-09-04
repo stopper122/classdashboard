@@ -218,14 +218,9 @@
             try {
                 const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
                 for (const line of lines) {
-                    const lastCommaIndex = line.lastIndexOf(',');
-                    let name = line.trim();
-                    let studentId = '';
-
-                    if (lastCommaIndex !== -1) {
-                        name = line.substring(0, lastCommaIndex).trim();
-                        studentId = line.substring(lastCommaIndex + 1).trim();
-                    }
+                    const parts = line.split(',');
+                    const studentId = parts.pop().trim();
+                    const name = parts.join(',').trim();
 
                     if (!name || !studentId) {
                         showMessage(`Skipping invalid format on line: ${line}. Format should be "Name, ID#"`);
