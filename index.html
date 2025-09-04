@@ -3,25 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Assignment Tracker</title>
+    <title>Class Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, updateDoc, deleteDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, updateDoc, collection, query, orderBy, getDocs, addDoc, deleteDoc, getDoc, setDoc, arrayRemove, arrayUnion, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // IMPORTANT: These global variables are provided by the canvas environment.
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        // const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-        setLogLevel('debug');
-
-        // --- START: PASTE YOUR FIREBASE CONFIG HERE ---
-        // You can find this by going to your Firebase project, clicking the gear icon
-        // next to "Project overview," selecting "Project settings," and then scrolling down to
-        // "Your apps."
         const firebaseConfig = {
   apiKey: "AIzaSyBX96xDY5ThDAZn-SckmsnfynMnQjvUc2I",
   authDomain: "helprequest-469c0.firebaseapp.com",
@@ -30,118 +21,86 @@
   messagingSenderId: "1092775554304",
   appId: "1:1092775554304:web:e771c3ebac1e6ba4f597e5"
 };
-        // --- END: PASTE YOUR FIREBASE CONFIG HERE ---
+
+        setLogLevel('debug');
 
         let auth, db;
-        let userId = null;
         let state = {
-            view: 'loading',
-            instructorAssignments: [],
-            students: [],
-            selectedStudentId: null,
-            userRole: 'unknown',
-            isProcessing: false,
-            message: '',
-            sortOrder: 'seat', // 'alphabetical' or 'seat'
+            view: 'class_layout',
             periods: [],
-            currentPeriodId: null,
+            selectedPeriod: null,
+            students: [],
+            assignments: [],
+            activeStudent: null,
+            message: '',
+            isProcessing: false,
+            requests: [],
         };
 
         const app = initializeApp(firebaseConfig);
         db = getFirestore(app);
         auth = getAuth(app);
-        
-        let dragSrcEl = null;
 
-        // Sign in user
+        // Sign in user anonymously to access public data
         const signIn = async () => {
             try {
                 await signInAnonymously(auth);
             } catch (error) {
                 console.error("Authentication error:", error);
-                renderMessage("Authentication failed. Please refresh the page.");
             }
         };
 
         auth.onAuthStateChanged(async (user) => {
             if (user) {
-                userId = user.uid;
-                state.userRole = 'instructor'; // For this basic app, the main user is the instructor
-                state.view = 'instructor_dashboard';
                 await startDataListeners();
             } else {
                 await signIn();
             }
-            renderUI();
         });
 
-        // Start listening for data changes
         const startDataListeners = async () => {
-            if (!userId) return;
-
-            // Listen for changes to the periods collection first
+            // Periods Listener
             const periodsRef = collection(db, `artifacts/${appId}/public/data/periods`);
-            onSnapshot(periodsRef, async (snapshot) => {
-                const periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                state.periods = periods;
-                if (!state.currentPeriodId || !periods.some(p => p.id === state.currentPeriodId)) {
-                    // Set default period or the first one if it exists
-                    if (periods.length > 0) {
-                        state.currentPeriodId = periods[0].id;
-                    } else {
-                        state.currentPeriodId = null;
-                    }
+            onSnapshot(periodsRef, (snapshot) => {
+                state.periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                if (!state.selectedPeriod && state.periods.length > 0) {
+                    state.selectedPeriod = state.periods[0].id;
                 }
-                await startAssignmentAndStudentListeners();
-            });
-        };
-
-        const startAssignmentAndStudentListeners = async () => {
-            if (!state.currentPeriodId) {
-                state.instructorAssignments = [];
-                state.students = [];
                 renderUI();
-                return;
-            }
+            });
 
+            // Students Listener
             const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
-            const studentsQuery = query(studentsRef, where("periodId", "==", state.currentPeriodId));
-            onSnapshot(studentsQuery, (snapshot) => {
-                const students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                state.students = students;
+            onSnapshot(studentsRef, (snapshot) => {
+                state.students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                sortStudents();
                 renderUI();
             });
 
+            // Assignments Listener
             const assignmentsRef = collection(db, `artifacts/${appId}/public/data/assignments`);
-            const assignmentsQuery = query(assignmentsRef, where("periodId", "==", state.currentPeriodId));
-            onSnapshot(assignmentsQuery, (snapshot) => {
-                const assignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                state.instructorAssignments = assignments;
-                sortAssignments();
+            onSnapshot(assignmentsRef, (snapshot) => {
+                state.assignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderUI();
+            });
+
+            // Requests Listener
+            const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
+            onSnapshot(requestsRef, (snapshot) => {
+                state.requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderUI();
             });
         };
-        
-        const sortAssignments = () => {
-             state.instructorAssignments.sort((a, b) => {
-                const dateA = a.dueDate ? new Date(a.dueDate) : new Date(0);
-                const dateB = b.dueDate ? new Date(b.dueDate) : new Date(0);
-                return dateA - dateB;
-            });
-        }
 
         const renderUI = () => {
             const app = document.getElementById('app');
             app.innerHTML = '';
             renderHeader();
-            renderMessage(state.message);
-            if (state.view === 'loading') {
-                renderLoading();
-            } else if (state.view === 'instructor_dashboard') {
-                renderInstructorDashboard();
-            } else if (state.view === 'student_dashboard') {
-                // This view is no longer used for the instructor
-                // This would be the code for the old student view
+
+            if (state.periods.length === 0) {
+                renderNoPeriodsMessage();
+            } else {
+                renderDashboard();
             }
         };
 
@@ -149,696 +108,517 @@
             const header = document.getElementById('header');
             header.innerHTML = `
                 <div class="flex justify-between items-center py-4 px-6 bg-white shadow-md rounded-b-xl">
-                    <h1 class="text-3xl font-extrabold text-blue-800 tracking-tight">Assignment Tracker</h1>
-                    ${userId ? `<span class="text-sm text-gray-500 truncate">User ID: ${userId}</span>` : ''}
+                    <h1 class="text-3xl font-extrabold text-blue-800 tracking-tight">Class Dashboard</h1>
                 </div>
             `;
-        }
-        
-        const renderLoading = () => {
+        };
+
+        const renderNoPeriodsMessage = () => {
             const app = document.getElementById('app');
             app.innerHTML = `
-                <div class="flex flex-col items-center justify-center h-full">
-                    <div class="w-16 h-16 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div>
-                    <p class="mt-4 text-gray-600">Loading...</p>
+                <div class="flex items-center justify-center min-h-screen">
+                    <div class="p-8 bg-white rounded-xl shadow-lg w-full max-w-lg text-center">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-4">No Periods Found</h2>
+                        <p class="text-gray-600 mb-6">Please add a period to get started.</p>
+                        <form id="add-period-form" class="flex flex-col space-y-4">
+                            <input type="text" id="new-period-name" placeholder="Period Name (e.g., Period 1)"
+                                class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <button type="submit" class="bg-blue-600 text-white font-bold py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">
+                                Add Period
+                            </button>
+                        </form>
+                    </div>
                 </div>
             `;
-        };
-        
-        const renderMessage = (message) => {
-            const messageDiv = document.getElementById('message');
-            messageDiv.innerHTML = '';
-            if (message) {
-                messageDiv.innerHTML = `
-                    <div class="fixed top-20 left-1/2 -translate-x-1/2 bg-blue-500 text-white px-6 py-3 rounded-full shadow-lg z-50 transition-all duration-300 transform scale-100">
-                        ${message}
-                    </div>
-                `;
-                setTimeout(() => {
-                    messageDiv.innerHTML = '';
-                    state.message = '';
-                }, 3000);
-            }
-        };
-        
-        const showMessage = (message) => {
-            state.message = message;
-            renderMessage(message);
-        };
-        
-        const handleFormSubmit = async (event) => {
-            event.preventDefault();
-            if (state.isProcessing) return;
-            state.isProcessing = true;
-            renderUI();
-            
-            const form = event.target;
-            const titlesText = form.elements['titles'].value;
-            const dueDate = form.elements['dueDate'].value;
-
-            const titles = titlesText.split('\n').map(title => title.trim()).filter(title => title);
-
-            if (titles.length === 0) {
-                showMessage("At least one assignment title is required.");
-                state.isProcessing = false;
-                renderUI();
-                return;
-            }
-            
-            try {
-                const assignmentsRef = collection(db, `artifacts/${appId}/public/data/assignments`);
-                for (const title of titles) {
-                     await addDoc(assignmentsRef, {
-                        title,
-                        dueDate,
-                        completions: [],
-                        createdAt: new Date().toISOString(),
-                        periodId: state.currentPeriodId,
-                    });
-                }
-                form.reset();
-                showMessage("Assignments added!");
-            } catch (error) {
-                console.error("Error adding documents:", error);
-                showMessage("Error adding assignments.");
-            } finally {
-                state.isProcessing = false;
-                renderUI();
-            }
+            document.getElementById('add-period-form').addEventListener('submit', handleAddPeriod);
         };
 
-        const handleAddStudents = async (event) => {
-            event.preventDefault();
-            if (state.isProcessing) return;
-            state.isProcessing = true;
-            renderUI();
-
-            const form = event.target;
-            const studentDataText = form.elements['studentData'].value;
-            const lines = studentDataText.split('\n').map(line => line.trim()).filter(line => line);
-            
-            if (lines.length === 0) {
-                showMessage("Please enter at least one student.");
-                state.isProcessing = false;
-                renderUI();
-                return;
-            }
-            
-            try {
-                const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
-                for (const line of lines) {
-                    const lastCommaIndex = line.lastIndexOf(',');
-                    let name = '';
-                    let studentId = '';
-
-                    if (lastCommaIndex !== -1) {
-                        name = line.substring(0, lastCommaIndex).trim();
-                        studentId = line.substring(lastCommaIndex + 1).trim();
-                    } else {
-                        // If no comma, assume the whole line is the name and a new ID will be generated
-                        name = line;
-                        studentId = crypto.randomUUID(); // Fallback to a random ID
-                    }
-
-                    if (!name || !studentId) {
-                        showMessage(`Skipping invalid format on line: ${line}. Format should be "Name, ID#"`);
-                        continue;
-                    }
-                    
-                    await addDoc(studentsRef, {
-                        name: name,
-                        isSeatEmpty: false,
-                        studentId: studentId,
-                        createdAt: new Date().toISOString(),
-                        orderIndex: state.students.length + 1,
-                        helpRequested: false,
-                        checkRequested: false, // New check requested state
-                        queuePosition: null,
-                        periodId: state.currentPeriodId,
-                    });
-                }
-                form.reset();
-                showMessage("Students added successfully!");
-            } catch (error) {
-                console.error("Error adding student:", error);
-                showMessage("Error adding students.");
-            } finally {
-                state.isProcessing = false;
-                renderUI();
-            }
-        };
-
-        const handleAddEmptySeat = async () => {
-            if (state.isProcessing) return;
-            state.isProcessing = true;
-            renderUI();
-            try {
-                const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
-                await addDoc(studentsRef, {
-                    name: 'Empty Seat',
-                    isSeatEmpty: true,
-                    studentId: null, // No token for empty seats
-                    createdAt: new Date().toISOString(),
-                    orderIndex: state.students.length + 1,
-                    helpRequested: false,
-                    checkRequested: false, // New check requested state
-                    queuePosition: null,
-                    periodId: state.currentPeriodId,
-                });
-                showMessage("Empty seat added!");
-            } catch (error) {
-                console.error("Error adding empty seat:", error);
-                showMessage("Error adding empty seat.");
-            } finally {
-                state.isProcessing = false;
-                renderUI();
-            }
-        };
-
-        const handleDeleteStudent = async (studentDocId) => {
-            if (state.isProcessing) return;
-            if (!confirm("Are you sure you want to delete this student?")) return;
-            
-            state.isProcessing = true;
-            renderUI();
-
-            try {
-                const studentDocRef = doc(db, `artifacts/${appId}/public/data/students`, studentDocId);
-                await deleteDoc(studentDocRef);
-                showMessage("Student deleted successfully!");
-            } catch (error) {
-                console.error("Error deleting student:", error);
-                showMessage("Error deleting student.");
-            } finally {
-                state.isProcessing = false;
-                renderUI();
-            }
-        }
-        
-        const handleScoreAssignment = async (assignmentId, studentId, score, isChecked) => {
-            if (state.isProcessing) return;
-            state.isProcessing = true;
-            renderUI();
-
-            try {
-                const assignmentDocRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
-                const assignment = state.instructorAssignments.find(a => a.id === assignmentId);
-                let newCompletions = [...assignment.completions];
-                const now = new Date().toISOString();
-                const existingCompletionIndex = newCompletions.findIndex(c => c.studentId === studentId);
-                
-                let newScore = 0;
-                if (isChecked) {
-                    newScore = score;
-                } else {
-                    newScore = score - 1;
-                }
-
-                if (newScore > 0) {
-                    // Update or add completion with new score
-                    if (existingCompletionIndex > -1) {
-                        newCompletions[existingCompletionIndex] = { ...newCompletions[existingCompletionIndex], completedAt: now, score: newScore };
-                    } else {
-                        newCompletions.push({ studentId: studentId, completedAt: now, score: newScore });
-                    }
-                } else {
-                    // Remove completion if new score is 0
-                    newCompletions = newCompletions.filter(c => c.studentId !== studentId);
-                }
-
-                await updateDoc(assignmentDocRef, {
-                    completions: newCompletions,
-                });
-                showMessage(newScore > 0 ? "Score updated!" : "Assignment marked as incomplete.");
-            } catch (error) {
-                console.error("Error updating document:", error);
-                showMessage("Error updating assignment status.");
-            } finally {
-                state.isProcessing = false;
-                renderUI();
-            }
-        };
-        
-        const handleDeleteAssignment = async (assignmentId) => {
-            if (state.isProcessing) return;
-            state.isProcessing = true;
-            renderUI();
-            
-            try {
-                const assignmentDocRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
-                await deleteDoc(assignmentDocRef);
-                showMessage("Assignment deleted!");
-            } catch (error) {
-                console.error("Error deleting document:", error);
-                showMessage("Error deleting assignment.");
-            } finally {
-                state.isProcessing = false;
-                renderUI();
-            }
-        };
-        
-        const handleAcknowledgeHelp = async (studentId) => {
-            if (state.isProcessing) return;
-            state.isProcessing = true;
-            renderUI();
-
-            try {
-                const studentDocRef = doc(db, `artifacts/${appId}/public/data/students`, studentId);
-                await updateDoc(studentDocRef, {
-                    helpRequested: false,
-                    checkRequested: false,
-                    queuePosition: null,
-                });
-                showMessage("Help request acknowledged!");
-            } catch (error) {
-                console.error("Error acknowledging help:", error);
-                showMessage("Error acknowledging help.");
-            } finally {
-                state.isProcessing = false;
-                renderUI();
-            }
-        };
-
-        const handleStudentClick = (studentId) => {
-            state.selectedStudentId = studentId;
-            renderUI();
-        };
-
-        const handleSortChange = (event) => {
-            state.sortOrder = event.target.value;
-            renderUI();
-        };
-
-        const handlePeriodChange = (event) => {
-            state.currentPeriodId = event.target.value;
-            state.selectedStudentId = null; // Clear selected student on period change
-            startAssignmentAndStudentListeners();
-        };
-
-        const handleCopyLink = (studentToken) => {
-            // Note: The correct path for GitHub Pages is typically the root of the repository.
-            // Assuming student.html is in the same directory as index.html.
-            const studentUrl = `${window.location.origin}${window.location.pathname.replace('index.html', 'student.html')}?studentId=${studentToken}`;
-            
-            // Create a temporary text area to copy the URL from
-            const tempInput = document.createElement('textarea');
-            tempInput.value = studentUrl;
-            document.body.appendChild(tempInput);
-            tempInput.select();
-            
-            try {
-                // Use the older but more reliable execCommand for cross-browser support in iframes
-                const successful = document.execCommand('copy');
-                if (successful) {
-                    showMessage("Student link copied to clipboard!");
-                } else {
-                    throw new Error('Copy command failed.');
-                }
-            } catch (err) {
-                console.error('Failed to copy text:', err);
-                showMessage("Failed to copy link. Please copy manually.");
-            } finally {
-                document.body.removeChild(tempInput);
-            }
-        }
-
-        const handleAddPeriod = async (event) => {
-            event.preventDefault();
-            if (state.isProcessing) return;
-            state.isProcessing = true;
-            renderUI();
-
-            const form = event.target;
-            const periodName = form.elements['periodName'].value.trim();
-            if (!periodName) {
-                showMessage("Please enter a period name.");
-                state.isProcessing = false;
-                renderUI();
-                return;
-            }
-
-            try {
-                const periodsRef = collection(db, `artifacts/${appId}/public/data/periods`);
-                await addDoc(periodsRef, { name: periodName, createdAt: new Date().toISOString() });
-                form.reset();
-                showMessage("Period added successfully!");
-            } catch (error) {
-                console.error("Error adding period:", error);
-                showMessage("Error adding period.");
-            } finally {
-                state.isProcessing = false;
-                renderUI();
-            }
-        };
-        
-        const handleDeletePeriod = async (periodId) => {
-            if (!confirm("Are you sure you want to delete this period? This will also delete all students and assignments associated with it.")) {
-                return;
-            }
-            if (state.isProcessing) return;
-            state.isProcessing = true;
-            renderUI();
-
-            try {
-                const periodDocRef = doc(db, `artifacts/${appId}/public/data/periods`, periodId);
-                
-                // Delete all students in this period
-                const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
-                const studentsQuery = query(studentsRef, where("periodId", "==", periodId));
-                const studentDocs = await getDocs(studentsQuery);
-                const studentDeletePromises = studentDocs.docs.map(d => deleteDoc(d.ref));
-
-                // Delete all assignments in this period
-                const assignmentsRef = collection(db, `artifacts/${appId}/public/data/assignments`);
-                const assignmentsQuery = query(assignmentsRef, where("periodId", "==", periodId));
-                const assignmentDocs = await getDocs(assignmentsQuery);
-                const assignmentDeletePromises = assignmentDocs.docs.map(d => deleteDoc(d.ref));
-
-                await Promise.all([...studentDeletePromises, ...assignmentDeletePromises]);
-                await deleteDoc(periodDocRef);
-
-                showMessage("Period and all associated data deleted successfully!");
-            } catch (error) {
-                console.error("Error deleting period:", error);
-                showMessage("Error deleting period.");
-            } finally {
-                state.isProcessing = false;
-                renderUI();
-            }
-        };
-
-
-        // Drag and drop functions
-        const handleDragStart = (event, studentId) => {
-            dragSrcEl = event.target;
-            event.dataTransfer.effectAllowed = 'move';
-            event.dataTransfer.setData('text/plain', studentId);
-            dragSrcEl.classList.add('opacity-50');
-        };
-
-        const handleDragOver = (event) => {
-            event.preventDefault(); 
-            event.dataTransfer.dropEffect = 'move';
-        };
-
-        const handleDrop = async (event, targetStudentId) => {
-            event.preventDefault();
-            event.stopPropagation();
-            
-            const draggedStudentId = event.dataTransfer.getData('text/plain');
-            
-            if (draggedStudentId === targetStudentId) {
-                return;
-            }
-
-            const draggedStudent = state.students.find(s => s.id === draggedStudentId);
-            const targetStudent = state.students.find(s => s.id === targetStudentId);
-            
-            if (!draggedStudent || !targetStudent || state.isProcessing) {
-                return;
-            }
-
-            state.isProcessing = true;
-            try {
-                const draggedStudentRef = doc(db, `artifacts/${appId}/public/data/students`, draggedStudent.id);
-                const targetStudentRef = doc(db, `artifacts/${appId}/public/data/students`, targetStudent.id);
-                
-                const draggedOrder = draggedStudent.orderIndex;
-                const targetOrder = targetStudent.orderIndex;
-                
-                await updateDoc(draggedStudentRef, { orderIndex: targetOrder });
-                await updateDoc(targetStudentRef, { orderIndex: draggedOrder });
-
-                showMessage("Student order updated!");
-            } catch (error) {
-                console.error("Error updating student order:", error);
-                showMessage("Error updating student order.");
-            } finally {
-                state.isProcessing = false;
-                renderUI();
-            }
-        };
-
-        const getSortedStudents = () => {
-            if (state.sortOrder === 'alphabetical') {
-                return [...state.students].sort((a, b) => a.name.localeCompare(b.name));
-            }
-            return [...state.students].sort((a, b) => a.orderIndex - b.orderIndex);
-        };
-        
-        const renderInstructorDashboard = () => {
+        const renderDashboard = () => {
             const app = document.getElementById('app');
-            const sortedStudents = getSortedStudents();
-            const studentGrid = sortedStudents.map((s, index) => {
-                const isSelected = s.id === state.selectedStudentId;
-                const hasPending = s.isSeatEmpty ? false : state.instructorAssignments.some(a => !a.completions.some(c => c.studentId === s.id));
-                const isDraggable = state.sortOrder === 'seat';
-                
-                let cardClasses = 'bg-white p-4 rounded-lg shadow-md cursor-pointer transition-all duration-200 hover:bg-gray-100';
-                if (isSelected) {
-                    cardClasses += ' border-4 border-blue-500';
-                } else if (s.helpRequested) {
-                    cardClasses = 'bg-red-100 p-4 rounded-lg shadow-md cursor-pointer transition-all duration-200 border-2 border-red-500 hover:bg-red-200';
-                } else if (s.checkRequested) {
-                    cardClasses = 'bg-blue-100 p-4 rounded-lg shadow-md cursor-pointer transition-all duration-200 border-2 border-blue-500 hover:bg-blue-200';
-                }
-                
-                if (s.isSeatEmpty) {
-                    return `
-                        <div draggable="${isDraggable}" 
-                             ondragstart="handleDragStart(event, '${s.id}')" 
-                             ondragover="handleDragOver(event)" 
-                             ondrop="handleDrop(event, '${s.id}')"
-                             class="bg-gray-200 p-4 rounded-lg shadow-inner flex flex-col justify-between items-center relative">
-                            <span class="text-gray-500 font-medium text-sm">Empty Seat</span>
-                            <button onclick="handleDeleteStudent('${s.id}')"
-                                class="absolute top-1 right-1 text-gray-400 hover:text-red-500 transition-colors duration-200">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                                </svg>
+            app.innerHTML = `
+                <div class="flex flex-col lg:flex-row min-h-screen bg-gray-100 p-4 space-y-4 lg:space-y-0 lg:space-x-4">
+                    <!-- Left Sidebar -->
+                    <div class="w-full lg:w-1/4 bg-white p-6 rounded-xl shadow-lg h-full space-y-6">
+                        <!-- Period Selector -->
+                        <div class="space-y-4">
+                            <h2 class="text-2xl font-bold text-blue-800 mb-2">Manage Periods</h2>
+                            <div class="relative">
+                                <select id="period-select" class="block appearance-none w-full bg-white border border-gray-300 text-gray-700 py-3 px-4 pr-8 rounded-lg leading-tight focus:outline-none focus:bg-white focus:border-blue-500">
+                                    ${state.periods.map(p => `<option value="${p.id}" ${state.selectedPeriod === p.id ? 'selected' : ''}>${p.name}</option>`).join('')}
+                                </select>
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                                    <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                                </div>
+                            </div>
+                            <form id="add-period-form" class="flex space-x-2">
+                                <input type="text" id="new-period-name" placeholder="New Period Name" class="flex-grow px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <button type="submit" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-200">
+                                    Add
+                                </button>
+                            </form>
+                            <button onclick="handleDeletePeriod()" class="w-full bg-red-500 text-white font-bold py-2 rounded-lg hover:bg-red-600 transition-colors duration-200">
+                                Delete Current Period
                             </button>
                         </div>
-                    `;
-                }
+                        
+                        <hr class="border-gray-200 my-6">
 
-                return `
-                    <div draggable="${isDraggable}" 
-                         onclick="handleStudentClick('${s.id}')" 
-                         ondragstart="handleDragStart(event, '${s.id}')" 
-                         ondragover="handleDragOver(event)" 
-                         ondrop="handleDrop(event, '${s.id}')"
-                         class="${cardClasses} relative">
-                        <button onclick="event.stopPropagation(); handleDeleteStudent('${s.id}')"
-                            class="absolute top-1 right-1 text-gray-400 hover:text-red-500 transition-colors duration-200">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                            </svg>
-                        </button>
-                        <div class="flex justify-between items-center mb-2">
-                            <h3 class="font-bold text-lg text-blue-800">${s.name}</h3>
-                            <div class="flex items-center space-x-2">
-                                ${s.helpRequested ? `<span class="bg-red-500 text-white font-bold text-xs rounded-full h-5 w-5 flex items-center justify-center">${s.queuePosition}</span>` : ''}
-                                ${s.checkRequested ? `<span class="bg-blue-500 text-white font-bold text-xs rounded-full h-5 w-5 flex items-center justify-center">${s.queuePosition}</span>` : ''}
-                                ${hasPending ? `<div class="w-3 h-3 bg-red-500 rounded-full" title="Has pending assignments"></div>` : ''}
+                        <!-- Add Students -->
+                        <div class="space-y-4">
+                            <h2 class="text-2xl font-bold text-blue-800 mb-2">Add Students & Seats</h2>
+                            <p class="text-gray-600 text-sm">Paste your roster (Full Name, ID)</p>
+                            <textarea id="student-roster" rows="5" placeholder="e.g., Doe, Jane, 12345"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                            <button onclick="handleAddStudents()" class="w-full bg-green-600 text-white font-bold py-2 rounded-lg hover:bg-green-700 transition-colors duration-200">
+                                Add Students
+                            </button>
+                            <button onclick="handleAddEmptySeat()" class="w-full bg-gray-400 text-white font-bold py-2 rounded-lg hover:bg-gray-500 transition-colors duration-200">
+                                Add Empty Seat
+                            </button>
+                        </div>
+
+                        <hr class="border-gray-200 my-6">
+
+                        <!-- Add Assignments -->
+                        <div class="space-y-4">
+                            <h2 class="text-2xl font-bold text-blue-800 mb-2">Add Assignments</h2>
+                            <p class="text-gray-600 text-sm">Paste assignment titles (one per line)</p>
+                            <textarea id="assignment-titles" rows="5" placeholder="e.g., Assignment 1"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                            <button onclick="handleAddAssignments()" class="w-full bg-purple-600 text-white font-bold py-2 rounded-lg hover:bg-purple-700 transition-colors duration-200">
+                                Add Assignments
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Main Content -->
+                    <div class="w-full lg:w-3/4 bg-white p-6 rounded-xl shadow-lg h-full space-y-6">
+                        <!-- Class Layout & Student Details -->
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center">
+                                <h2 class="text-2xl font-bold text-blue-800">Class Layout</h2>
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-gray-600">Sort:</span>
+                                    <select id="sort-select" class="px-2 py-1 rounded-lg border border-gray-300">
+                                        <option value="seat">Assigned Seat</option>
+                                        <option value="name">Alphabetical</option>
+                                    </select>
+                                </div>
                             </div>
+                            <div id="class-grid" class="grid grid-cols-6 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                <!-- Student cards will be rendered here -->
+                            </div>
+                        </div>
+                        
+                        <!-- Selected Student Details -->
+                        <div id="student-details" class="bg-gray-50 p-6 rounded-xl border border-gray-200" style="${state.activeStudent ? '' : 'display: none;'}">
+                            <!-- Student details will be rendered here -->
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('period-select').addEventListener('change', handlePeriodChange);
+            document.getElementById('add-period-form').addEventListener('submit', handleAddPeriod);
+            document.getElementById('sort-select').addEventListener('change', handleSortChange);
+            renderStudentCards();
+            renderStudentDetails();
+        };
+
+        const renderStudentCards = () => {
+            const grid = document.getElementById('class-grid');
+            if (!grid) return;
+
+            const periodStudents = state.students
+                .filter(s => s.periodId === state.selectedPeriod)
+                .sort((a, b) => {
+                    if (a.seatOrder === b.seatOrder) return 0;
+                    if (a.seatOrder === null) return 1;
+                    if (b.seatOrder === null) return -1;
+                    return a.seatOrder - b.seatOrder;
+                });
+            
+            const sortedStudents = state.sort === 'name' 
+                ? [...periodStudents].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+                : periodStudents;
+
+            grid.innerHTML = sortedStudents.map(student => {
+                const isActive = state.activeStudent && state.activeStudent.id === student.id;
+                const activeRequests = state.requests.filter(r => r.studentId === student.studentId);
+                const isHelpRequested = activeRequests.some(r => r.type === 'help');
+                const isCheckRequested = activeRequests.some(r => r.type === 'check');
+                const backgroundColor = isActive ? 'bg-blue-200' : 'bg-white';
+                const borderColor = isActive ? 'border-blue-500' : 'border-gray-200';
+                const hasRequests = activeRequests.length > 0;
+                
+                return `
+                    <div draggable="true" id="student-${student.id}"
+                        onclick="handleStudentClick('${student.id}')"
+                        class="p-4 rounded-lg shadow-sm border ${borderColor} ${backgroundColor} flex flex-col items-center cursor-pointer transition-all duration-200 hover:shadow-md">
+                        <button onclick="handleDeleteStudent('${student.id}')" class="text-sm text-gray-500 self-end -mt-2 -mr-2">
+                             &times;
+                        </button>
+                        <span class="text-2xl mb-2">${student.isSeated ? '👨‍🎓' : '🪑'}</span>
+                        <p class="font-semibold text-center">${student.name || 'Empty Seat'}</p>
+                        ${hasRequests ? `
+                            <div class="mt-2 flex space-x-1">
+                                ${isHelpRequested ? '<span class="w-3 h-3 bg-red-500 rounded-full"></span>' : ''}
+                                ${isCheckRequested ? '<span class="w-3 h-3 bg-blue-500 rounded-full"></span>' : ''}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+
+            // Add drag and drop listeners
+            const studentCards = grid.querySelectorAll('[draggable="true"]');
+            studentCards.forEach(card => {
+                card.addEventListener('dragstart', handleDragStart);
+                card.addEventListener('dragover', handleDragOver);
+                card.addEventListener('drop', handleDrop);
+            });
+        };
+        
+        const renderStudentDetails = () => {
+            const detailsDiv = document.getElementById('student-details');
+            if (!detailsDiv) return;
+
+            if (!state.activeStudent) {
+                detailsDiv.style.display = 'none';
+                return;
+            }
+
+            detailsDiv.style.display = 'block';
+
+            const activeStudent = state.students.find(s => s.id === state.activeStudent.id);
+            const studentAssignments = state.assignments.filter(a => a.periodId === activeStudent.periodId);
+            const studentRequests = state.requests.filter(r => r.studentId === activeStudent.studentId);
+            
+            const assignmentsList = studentAssignments.map(a => {
+                const completion = a.completions.find(c => c.studentId === activeStudent.studentId);
+                const isCompleted = !!completion;
+                const score = isCompleted ? (completion.score || 0) : 0;
+                
+                return `
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center">
+                        <div>
+                            <p class="font-semibold text-gray-700">${a.title}</p>
+                            <p class="text-sm text-gray-500">Due: ${a.dueDate ? new Date(a.dueDate).toLocaleDateString() : 'N/A'}</p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                             <input type="number" min="0" max="4" value="${score}" data-assignment-id="${a.id}" onchange="handleScoreUpdate(event, '${activeStudent.id}')"
+                                class="w-16 px-2 py-1 border border-gray-300 rounded-lg text-center">
                         </div>
                     </div>
                 `;
             }).join('');
 
-            const selectedStudent = state.students.find(s => s.id === state.selectedStudentId);
-            const assignmentsList = selectedStudent ? state.instructorAssignments.map(a => {
-                const completion = a.completions.find(c => c.studentId === selectedStudent.studentId); // Use student's unique ID
-                const isCompleted = !!completion;
-                const completionDate = isCompleted ? new Date(completion.completedAt).toLocaleDateString() : 'N/A';
-                const score = isCompleted ? (completion.score || 0) : 0;
-                
+             const requestsList = studentRequests.length > 0 ? studentRequests.map(r => {
+                const assignment = state.assignments.find(a => a.id === r.assignmentId);
+                const typeColor = r.type === 'help' ? 'bg-red-500' : 'bg-blue-500';
+                const typeText = r.type === 'help' ? 'Help' : 'Check';
+
                 return `
-                    <div class="bg-gray-50 p-6 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center">
-                        <div>
-                            <h3 class="font-bold text-lg text-blue-800">${a.title}</h3>
-                            <p class="text-sm text-gray-500">Due: ${a.dueDate ? new Date(a.dueDate).toLocaleDateString() : 'N/A'}</p>
-                            <div class="mt-2 flex items-center space-x-2">
-                                <span class="text-sm font-semibold ${isCompleted ? 'text-green-600' : 'text-red-500'}">
-                                    Status: ${isCompleted ? 'Completed' : 'Pending'}
-                                </span>
-                                ${isCompleted ? `<span class="text-xs text-gray-500">(${completionDate})</span>` : ''}
-                                ${isCompleted ? `<span class="text-xs text-gray-500 font-bold">Score: ${score}/4</span>` : ''}
-                            </div>
-                        </div>
+                    <div class="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm border border-gray-200">
+                        <span class="font-medium text-gray-700">${assignment ? assignment.title : 'Unknown Assignment'}</span>
                         <div class="flex items-center space-x-2">
-                            <div class="flex space-x-2 p-2 rounded-lg bg-white shadow-inner">
-                                <label class="flex items-center space-x-1 cursor-pointer text-gray-700 font-medium">
-                                    <input type="checkbox" onchange="handleScoreAssignment('${a.id}', '${selectedStudent.studentId}', 1, this.checked)" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" ${score >= 1 ? 'checked' : ''}>
-                                    <span>1</span>
-                                </label>
-                                <label class="flex items-center space-x-1 cursor-pointer text-gray-700 font-medium">
-                                    <input type="checkbox" onchange="handleScoreAssignment('${a.id}', '${selectedStudent.studentId}', 2, this.checked)" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" ${score >= 2 ? 'checked' : ''}>
-                                    <span>2</span>
-                                </label>
-                                <label class="flex items-center space-x-1 cursor-pointer text-gray-700 font-medium">
-                                    <input type="checkbox" onchange="handleScoreAssignment('${a.id}', '${selectedStudent.studentId}', 3, this.checked)" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" ${score >= 3 ? 'checked' : ''}>
-                                    <span>3</span>
-                                </label>
-                                <label class="flex items-center space-x-1 cursor-pointer text-gray-700 font-medium">
-                                    <input type="checkbox" onchange="handleScoreAssignment('${a.id}', '${selectedStudent.studentId}', 4, this.checked)" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" ${score >= 4 ? 'checked' : ''}>
-                                    <span>4</span>
-                                </label>
-                            </div>
+                            <span class="text-sm font-semibold text-white px-2 py-1 rounded-full ${typeColor}">${typeText}</span>
+                            <button onclick="handleAcknowledgeRequest('${r.id}')" class="text-red-500 hover:text-red-700 transition-colors duration-200">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
                         </div>
                     </div>
                 `;
-            }).join('') : '';
+            }).join('') : `<p class="text-center text-gray-500">No active requests.</p>`;
 
-            const assignmentsSection = selectedStudent ? `
-                <div class="space-y-4">
-                    ${selectedStudent.helpRequested || selectedStudent.checkRequested ? `
-                        <button onclick="handleAcknowledgeHelp('${selectedStudent.id}')"
-                            class="w-full bg-green-500 text-white py-3 rounded-lg font-bold text-lg hover:bg-green-600 transition-colors duration-200 shadow-lg ${state.isProcessing ? 'opacity-50 cursor-not-allowed' : ''}"
-                            ${state.isProcessing ? 'disabled' : ''}>
-                            Acknowledge Help Request
-                        </button>
-                    ` : ''}
-                    <button onclick="handleCopyLink('${selectedStudent.studentId}')"
-                        class="w-full bg-blue-500 text-white py-3 rounded-lg font-bold text-lg hover:bg-blue-600 transition-colors duration-200 shadow-lg mt-4">
+            detailsDiv.innerHTML = `
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-2xl font-bold text-blue-800">${activeStudent.name || 'Empty Seat'}</h3>
+                    <button onclick="handleCopyLink('${activeStudent.studentId}')"
+                        class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors duration-200">
                         Share Student Link
                     </button>
-                    ${state.instructorAssignments.length > 0 ? assignmentsList : `
-                         <div class="text-center py-10 text-gray-500">
-                            <p>No assignments to display for ${selectedStudent.name}.</p>
-                         </div>
-                    `}
                 </div>
-            ` : `
-                <div class="text-center py-10 text-gray-500">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a5.25 5.25 0 017.424 7.424L12 18.001l-1.414 1.414a2 2 0 01-2.828-2.828L12 11.172l3.232-3.232a2 2 0 012.828 0z" />
-                    </svg>
-                    <p class="mt-2 font-medium">Click on a student to see their assignments.</p>
-                </div>
-            `;
-            
-            app.innerHTML = `
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <!-- Column 1: Add New Assignment and Student -->
-                    <div class="bg-white p-8 rounded-2xl shadow-lg lg:col-span-1 border border-gray-100 h-fit">
-                         <!-- Period Management -->
-                        <div class="mb-8 pb-6 border-b border-gray-200">
-                            <div class="flex justify-between items-center mb-4">
-                                <h2 class="text-2xl font-bold text-blue-800">Manage Periods</h2>
-                            </div>
-                            <form onsubmit="handleAddPeriod(event)" class="flex space-x-2">
-                                <input type="text" name="periodName" placeholder="e.g., Period 1" required
-                                       class="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700 transition-colors duration-200 shadow-lg ${state.isProcessing ? 'opacity-50 cursor-not-allowed' : ''}" ${state.isProcessing ? 'disabled' : ''}>
-                                    Add
-                                </button>
-                            </form>
-                            <div class="mt-4">
-                                <label for="periodSelect" class="block text-gray-700 font-semibold mb-2">Select Period</label>
-                                <div class="flex items-center space-x-2">
-                                     <select id="periodSelect" onchange="handlePeriodChange(event)" class="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                                        ${state.periods.length > 0 ? 
-                                            state.periods.map(p => `<option value="${p.id}" ${p.id === state.currentPeriodId ? 'selected' : ''}>${p.name}</option>`).join('') :
-                                            `<option value="" disabled selected>No periods added</option>`
-                                        }
-                                     </select>
-                                     ${state.currentPeriodId ? `<button onclick="handleDeletePeriod('${state.currentPeriodId}')" class="text-red-500 hover:text-red-700 transition-colors duration-200"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zm2.46-7.12l1.41-1.41L12 12.59l2.12-2.12l1.41 1.41L13.41 14l2.12 2.12l-1.41 1.41L12 15.41l-2.12 2.12l-1.41-1.41L10.59 14l-2.13-2.12zM15.5 4l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>` : ''}
-                                </div>
-                                <p class="text-sm text-gray-500 mt-2">
-                                    Note: Deleting a period will also permanently delete all associated students and assignments.
-                                </p>
-                            </div>
-                        </div>
-                        <h2 class="text-2xl font-bold text-blue-800 mb-6">Add New Assignment</h2>
-                        <form id="add-assignment-form" onsubmit="handleFormSubmit(event)">
-                            <div class="mb-4">
-                                <label for="titles" class="block text-gray-700 font-semibold mb-2">Paste Assignment Titles</label>
-                                <textarea id="titles" name="titles" rows="6" placeholder="Paste assignment titles here, one per line."
-                                           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
-                            </div>
-                            <div class="mb-6">
-                                <label for="dueDate" class="block text-gray-700 font-semibold mb-2">Due Date</label>
-                                <input type="date" id="dueDate" name="dueDate"
-                                       class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
-                            </div>
-                            <button type="submit" 
-                                class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-blue-700 transition-colors duration-200 shadow-lg ${state.isProcessing || !state.currentPeriodId ? 'opacity-50 cursor-not-allowed' : ''}"
-                                ${state.isProcessing || !state.currentPeriodId ? 'disabled' : ''}>
-                                ${state.isProcessing ? 'Adding...' : 'Add Assignment'}
-                            </button>
-                        </form>
-                        
-                        <div class="mt-8 pt-6 border-t border-gray-200">
-                            <h2 class="text-2xl font-bold text-blue-800 mb-6">Add Students & Seats</h2>
-                            <form id="add-students-form" onsubmit="handleAddStudents(event)">
-                                <div class="mb-4">
-                                    <label for="studentData" class="block text-gray-700 font-semibold mb-2">Paste Student Name & ID#</label>
-                                    <textarea id="studentData" name="studentData" rows="6" placeholder="Name, ID# (one student per line)"
-                                           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
-                                </div>
-                                <button type="submit" 
-                                    class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-blue-700 transition-colors duration-200 shadow-lg ${state.isProcessing || !state.currentPeriodId ? 'opacity-50 cursor-not-allowed' : ''}"
-                                    ${state.isProcessing || !state.currentPeriodId ? 'disabled' : ''}>
-                                    ${state.isProcessing ? 'Adding...' : 'Add Students'}
-                                </button>
-                            </form>
-                            <button onclick="handleAddEmptySeat()"
-                                class="w-full bg-gray-400 text-white py-3 mt-4 rounded-lg font-bold text-lg hover:bg-gray-500 transition-colors duration-200 shadow-lg ${state.isProcessing || !state.currentPeriodId ? 'opacity-50 cursor-not-allowed' : ''}"
-                                ${state.isProcessing || !state.currentPeriodId ? 'disabled' : ''}>
-                                ${state.isProcessing ? 'Adding...' : 'Add Empty Seat'}
-                            </button>
+                <div class="space-y-4">
+                    <div class="bg-gray-100 p-4 rounded-lg">
+                        <h4 class="font-bold text-lg mb-2">Pending Requests</h4>
+                        <div class="space-y-2">
+                            ${requestsList}
                         </div>
                     </div>
-                    
-                    <!-- Column 2 & 3: Class Layout and Assignments -->
-                    <div class="lg:col-span-2 space-y-6">
-                        <div class="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
-                            <div class="flex justify-between items-center mb-6">
-                                <h2 class="text-2xl font-bold text-blue-800">Class Layout</h2>
-                                <div class="flex items-center space-x-4">
-                                    <label for="sort-select" class="text-gray-700 font-medium text-sm">Sort by:</label>
-                                    <select id="sort-select" onchange="handleSortChange(event)" class="px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                                        <option value="seat" ${state.sortOrder === 'seat' ? 'selected' : ''}>Assigned Seat</option>
-                                        <option value="alphabetical" ${state.sortOrder === 'alphabetical' ? 'selected' : ''}>Alphabetical</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-6 gap-4">
-                                ${state.students.length > 0 ? studentGrid : `
-                                     <div class="col-span-6 text-center py-10 text-gray-500">
-                                         <p>No students have been added yet.</p>
-                                     </div>
-                                `}
-                            </div>
-                        </div>
-                        <div class="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
-                            <h2 class="text-2xl font-bold text-blue-800 mb-6">${selectedStudent ? `${selectedStudent.name}'s Assignments` : 'Assignments'}</h2>
-                            ${assignmentsSection}
+                    <div class="bg-gray-100 p-4 rounded-lg">
+                        <h4 class="font-bold text-lg mb-2">Assignments & Scores</h4>
+                        <div class="space-y-2">
+                            ${assignmentsList.length > 0 ? assignmentsList : `
+                                <p class="text-center text-gray-500">No assignments for this period.</p>
+                            `}
                         </div>
                     </div>
                 </div>
             `;
         };
+
+        const handlePeriodChange = (event) => {
+            state.selectedPeriod = event.target.value;
+            state.activeStudent = null;
+            sortStudents();
+            renderUI();
+        };
+
+        const handleAddPeriod = async (event) => {
+            event.preventDefault();
+            const name = document.getElementById('new-period-name').value.trim();
+            if (name) {
+                await addDoc(collection(db, `artifacts/${appId}/public/data/periods`), { name });
+                document.getElementById('new-period-name').value = '';
+            }
+        };
+
+        const handleDeletePeriod = async () => {
+            if (state.selectedPeriod && confirm('Are you sure you want to delete this period and all its students?')) {
+                const periodId = state.selectedPeriod;
+                const periodDocRef = doc(db, `artifacts/${appId}/public/data/periods`, periodId);
+                await deleteDoc(periodDocRef);
+                state.selectedPeriod = state.periods[0] ? state.periods[0].id : null;
+                renderUI();
+            }
+        };
+
+        const handleAddStudents = async () => {
+            const roster = document.getElementById('student-roster').value.trim().split('\n');
+            if (!roster) return;
+
+            for (const line of roster) {
+                const parts = line.trim().split(',');
+                if (parts.length >= 2) {
+                    const studentId = parts.pop().trim();
+                    const name = parts.join(',').trim();
+
+                    if (name && studentId) {
+                        const studentData = {
+                            name: name,
+                            studentId: studentId,
+                            isSeated: true,
+                            periodId: state.selectedPeriod,
+                            seatOrder: state.students.filter(s => s.periodId === state.selectedPeriod).length
+                        };
+                        await addDoc(collection(db, `artifacts/${appId}/public/data/students`), studentData);
+                    }
+                }
+            }
+            document.getElementById('student-roster').value = '';
+        };
+
+        const handleAddEmptySeat = async () => {
+             const studentData = {
+                name: null,
+                studentId: null,
+                isSeated: false,
+                periodId: state.selectedPeriod,
+                seatOrder: state.students.filter(s => s.periodId === state.selectedPeriod).length
+            };
+            await addDoc(collection(db, `artifacts/${appId}/public/data/students`), studentData);
+        };
+
+        const handleAddAssignments = async () => {
+            const titles = document.getElementById('assignment-titles').value.trim().split('\n');
+            if (!titles) return;
+
+            for (const title of titles) {
+                const trimmedTitle = title.trim();
+                if (trimmedTitle) {
+                    const assignmentData = {
+                        title: trimmedTitle,
+                        dueDate: null,
+                        completions: [],
+                        periodId: state.selectedPeriod,
+                    };
+                    await addDoc(collection(db, `artifacts/${appId}/public/data/assignments`), assignmentData);
+                }
+            }
+            document.getElementById('assignment-titles').value = '';
+        };
+
+        const handleStudentClick = (studentId) => {
+            state.activeStudent = state.students.find(s => s.id === studentId);
+            renderStudentCards();
+            renderStudentDetails();
+        };
+
+        const handleDeleteStudent = async (studentId) => {
+            await deleteDoc(doc(db, `artifacts/${appId}/public/data/students`, studentId));
+            if (state.activeStudent && state.activeStudent.id === studentId) {
+                state.activeStudent = null;
+            }
+        };
+
+        const handleScoreUpdate = async (event, studentDocId) => {
+            const score = parseInt(event.target.value, 10);
+            const assignmentId = event.target.dataset.assignmentId;
+            
+            const studentDocRef = doc(db, `artifacts/${appId}/public/data/students`, studentDocId);
+            const studentDoc = await getDoc(studentDocRef);
+            const currentStudentData = studentDoc.data();
+            const currentCompletions = currentStudentData.completions || [];
+            
+            const existingCompletionIndex = currentCompletions.findIndex(c => c.assignmentId === assignmentId);
+
+            if (score > 0) {
+                if (existingCompletionIndex > -1) {
+                    currentCompletions[existingCompletionIndex].score = score;
+                } else {
+                    currentCompletions.push({
+                        assignmentId,
+                        score,
+                        dateCompleted: new Date().toISOString(),
+                        studentId: currentStudentData.studentId
+                    });
+                }
+            } else {
+                 if (existingCompletionIndex > -1) {
+                    currentCompletions.splice(existingCompletionIndex, 1);
+                 }
+            }
+
+            const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
+            await updateDoc(assignmentRef, {
+                completions: arrayUnion({ studentId: currentStudentData.studentId, score, dateCompleted: new Date().toISOString() })
+            });
+
+            renderUI();
+        };
+
+        const handleCopyLink = (studentId) => {
+            const url = `${window.location.origin}/student.html?studentId=${studentId}`;
+            const tempInput = document.createElement('input');
+            tempInput.value = url;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            showMessage('Link copied!');
+        };
+
+        const handleAcknowledgeRequest = async (requestId) => {
+            await deleteDoc(doc(db, `artifacts/${appId}/public/data/requests`, requestId));
+        };
+
+        const handleSortChange = (event) => {
+            state.sort = event.target.value;
+            sortStudents();
+            renderUI();
+        };
+
+        const sortStudents = () => {
+            const periodStudents = state.students.filter(s => s.periodId === state.selectedPeriod);
+            if (state.sort === 'name') {
+                periodStudents.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+            } else {
+                periodStudents.sort((a, b) => {
+                    const orderA = a.seatOrder !== undefined ? a.seatOrder : Infinity;
+                    const orderB = b.seatOrder !== undefined ? b.seatOrder : Infinity;
+                    return orderA - orderB;
+                });
+            }
+        };
         
-        window.handleFormSubmit = handleFormSubmit;
-        window.handleAddStudents = handleAddStudents;
-        window.handleAddEmptySeat = handleAddEmptySeat;
-        window.handleDeleteStudent = handleDeleteStudent;
-        window.handleScoreAssignment = handleScoreAssignment;
-        window.handleDeleteAssignment = handleDeleteAssignment;
-        window.handleAcknowledgeHelp = handleAcknowledgeHelp;
-        window.handleStudentClick = handleStudentClick;
-        window.handleSortChange = handleSortChange;
-        window.handleDragStart = handleDragStart;
-        window.handleDragOver = handleDragOver;
-        window.handleDrop = handleDrop;
-        window.handleCopyLink = handleCopyLink;
+        const showMessage = (message) => {
+            state.message = message;
+            const messageDiv = document.getElementById('message');
+            messageDiv.innerHTML = `
+                <div class="fixed top-20 left-1/2 -translate-x-1/2 bg-blue-500 text-white px-6 py-3 rounded-full shadow-lg z-50 transition-all duration-300 transform scale-100">
+                    ${message}
+                </div>
+            `;
+            setTimeout(() => {
+                messageDiv.innerHTML = '';
+            }, 3000);
+        };
+
+        // Drag and drop logic
+        let draggedElement = null;
+
+        const handleDragStart = (e) => {
+            draggedElement = e.target;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', e.target.id);
+        };
+
+        const handleDragOver = (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        };
+
+        const handleDrop = async (e) => {
+            e.preventDefault();
+            const droppedOnId = e.target.closest('[draggable="true"]').id;
+            const draggedId = draggedElement.id;
+
+            if (draggedId === droppedOnId) return;
+
+            const draggedStudentId = draggedId.split('-')[1];
+            const droppedOnStudentId = droppedOnId.split('-')[1];
+
+            const draggedIndex = state.students.findIndex(s => s.id === draggedStudentId);
+            const droppedOnIndex = state.students.findIndex(s => s.id === droppedOnStudentId);
+            
+            if (draggedIndex === -1 || droppedOnIndex === -1) return;
+
+            const draggedStudent = state.students[draggedIndex];
+            const droppedOnStudent = state.students[droppedOnIndex];
+
+            // Re-order the local state
+            const studentsInPeriod = state.students.filter(s => s.periodId === state.selectedPeriod);
+            const draggedStudentCurrentOrder = draggedStudent.seatOrder;
+            const droppedOnStudentCurrentOrder = droppedOnStudent.seatOrder;
+            
+            if (draggedStudentCurrentOrder < droppedOnStudentCurrentOrder) {
+                // Moving down
+                for (let i = draggedStudentCurrentOrder + 1; i <= droppedOnStudentCurrentOrder; i++) {
+                    const studentToUpdate = studentsInPeriod.find(s => s.seatOrder === i);
+                    if (studentToUpdate) {
+                        await updateDoc(doc(db, `artifacts/${appId}/public/data/students`, studentToUpdate.id), {
+                            seatOrder: i - 1
+                        });
+                    }
+                }
+                await updateDoc(doc(db, `artifacts/${appId}/public/data/students`, draggedStudentId), {
+                    seatOrder: droppedOnStudentCurrentOrder
+                });
+            } else {
+                // Moving up
+                for (let i = draggedStudentCurrentOrder - 1; i >= droppedOnStudentCurrentOrder; i--) {
+                    const studentToUpdate = studentsInPeriod.find(s => s.seatOrder === i);
+                    if (studentToUpdate) {
+                        await updateDoc(doc(db, `artifacts/${appId}/public/data/students`, studentToUpdate.id), {
+                            seatOrder: i + 1
+                        });
+                    }
+                }
+                 await updateDoc(doc(db, `artifacts/${appId}/public/data/students`, draggedStudentId), {
+                    seatOrder: droppedOnStudentCurrentOrder
+                });
+            }
+        };
+
+        window.handlePeriodChange = handlePeriodChange;
         window.handleAddPeriod = handleAddPeriod;
         window.handleDeletePeriod = handleDeletePeriod;
-        window.handlePeriodChange = handlePeriodChange;
+        window.handleAddStudents = handleAddStudents;
+        window.handleAddEmptySeat = handleAddEmptySeat;
+        window.handleAddAssignments = handleAddAssignments;
+        window.handleStudentClick = handleStudentClick;
+        window.handleDeleteStudent = handleDeleteStudent;
+        window.handleScoreUpdate = handleScoreUpdate;
+        window.handleCopyLink = handleCopyLink;
+        window.handleAcknowledgeRequest = handleAcknowledgeRequest;
+        window.handleSortChange = handleSortChange;
+        window.handleDragOver = handleDragOver;
+        window.handleDrop = handleDrop;
+        window.handleDragStart = handleDragStart;
 
-        // document.addEventListener('DOMContentLoaded', renderUI);
+        document.addEventListener('DOMContentLoaded', renderUI);
     </script>
     <style>
         body {
@@ -848,7 +628,7 @@
         }
     </style>
 </head>
-<body class="p-6 md:p-10">
+<body>
     <header id="header"></header>
     <div id="message"></div>
     <main id="app" class="mt-6 md:mt-10"></main>
