@@ -35,6 +35,7 @@
             message: '',
             isProcessing: false,
             requests: [],
+            sort: 'seat' // default sort order
         };
 
         const app = initializeApp(firebaseConfig);
@@ -198,13 +199,20 @@
                         <div class="space-y-4">
                             <div class="flex justify-between items-center">
                                 <h2 class="text-2xl font-bold text-blue-800">Class Layout</h2>
-                                <div class="flex items-center space-x-2">
-                                    <span class="text-gray-600">Sort:</span>
-                                    <select id="sort-select" class="px-2 py-1 rounded-lg border border-gray-300">
-                                        <option value="seat">Assigned Seat</option>
-                                        <option value="lastName">Last Name</option>
-                                        <option value="firstName">First Name</option>
-                                    </select>
+                                <div id="sort-options" class="flex items-center space-x-4">
+                                    <span class="text-gray-600">Sort By:</span>
+                                    <label class="flex items-center space-x-2 cursor-pointer">
+                                        <input type="radio" name="sort-option" value="seat" ${state.sort === 'seat' ? 'checked' : ''} class="form-radio text-blue-600 h-4 w-4" onclick="handleSortChange(event)">
+                                        <span class="text-gray-700 font-medium">Assigned Seat</span>
+                                    </label>
+                                    <label class="flex items-center space-x-2 cursor-pointer">
+                                        <input type="radio" name="sort-option" value="lastName" ${state.sort === 'lastName' ? 'checked' : ''} class="form-radio text-blue-600 h-4 w-4" onclick="handleSortChange(event)">
+                                        <span class="text-gray-700 font-medium">Last Name</span>
+                                    </label>
+                                    <label class="flex items-center space-x-2 cursor-pointer">
+                                        <input type="radio" name="sort-option" value="firstName" ${state.sort === 'firstName' ? 'checked' : ''} class="form-radio text-blue-600 h-4 w-4" onclick="handleSortChange(event)">
+                                        <span class="text-gray-700 font-medium">First Name</span>
+                                    </label>
                                 </div>
                             </div>
                             <div id="class-grid" class="grid grid-cols-6 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
@@ -221,7 +229,6 @@
             `;
             document.getElementById('period-select').addEventListener('change', handlePeriodChange);
             document.getElementById('add-period-form').addEventListener('submit', handleAddPeriod);
-            document.getElementById('sort-select').addEventListener('change', handleSortChange);
             renderStudentCards();
             renderStudentDetails();
         };
