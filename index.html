@@ -599,12 +599,18 @@
 
         const handleDragOver = (e) => {
             e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
+            const droppedOnElement = e.target.closest('[draggable="true"]');
+            if (droppedOnElement) {
+                e.dataTransfer.dropEffect = 'move';
+            }
         };
 
         const handleDrop = async (e) => {
             e.preventDefault();
-            const droppedOnId = e.target.closest('[draggable="true"]').id;
+            const droppedOnElement = e.target.closest('[draggable="true"]');
+            if (!droppedOnElement) return;
+
+            const droppedOnId = droppedOnElement.id;
             const draggedId = draggedElement.id;
 
             if (draggedId === droppedOnId) return;
