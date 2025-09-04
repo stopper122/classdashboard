@@ -60,7 +60,8 @@
         // Function to start real-time listeners for all data
         const startDataListeners = async () => {
             const publicDataPath = `artifacts/${appId}/public/data`;
-            
+            const userId = auth.currentUser?.uid || "anonymous_user";
+
             // Listen for periods
             onSnapshot(collection(db, `${publicDataPath}/periods`), (snapshot) => {
                 state.periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -81,9 +82,6 @@
             onSnapshot(collection(db, `${publicDataPath}/assignments`), (snapshot) => {
                 state.assignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderUI();
-                if (state.selectedStudent) {
-                  renderStudentDetails();
-                }
             });
 
             // Listen for requests
@@ -97,12 +95,13 @@
             const filteredStudents = state.students.filter(s => s.periodId === state.selectedPeriodId);
             if (state.sortOption === 'seatOrder') {
                 state.students = filteredStudents.sort((a, b) => (a.seatOrder || 0) - (b.seatOrder || 0));
-            } else if (state.sortOption === 'lastName') {
-                state.students = filteredStudents.sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
             } else if (state.sortOption === 'firstName') {
                 state.students = filteredStudents.sort((a, b) => (a.firstName || '').localeCompare(b.firstName || ''));
-            } else {
-                state.students = filteredStudents;
+            } else if (state.sortOption === 'lastName') {
+                state.students = filteredStudents.sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
+            }
+            if (state.sortOption !== 'seatOrder') {
+                state.students.forEach((s, i) => s.seatOrder = i);
             }
         };
 
@@ -270,7 +269,10 @@
                                 <div id="student-details" class="bg-gray-50 p-4 rounded-lg shadow-inner ${state.selectedStudent ? '' : 'hidden'}">
                                     <div class="flex justify-between items-center mb-4">
                                         <h2 class="text-xl font-bold text-gray-700">Assignments for ${state.selectedStudent ? state.selectedStudent.name : ''}</h2>
-                                        <button id="copy-link-btn" class="text-sm bg-gray-300 px-3 py-1 rounded-lg hover:bg-gray-400">Share Student Link</button>
+                                        <div class="flex space-x-2">
+                                            <button id="clear-all-data-btn" class="text-sm bg-red-500 px-3 py-1 rounded-lg hover:bg-red-600 text-white font-bold">Clear All Student Data</button>
+                                            <button id="copy-link-btn" class="text-sm bg-gray-300 px-3 py-1 rounded-lg hover:bg-gray-400">Share Student Link</button>
+                                        </div>
                                     </div>
                                     <div id="student-assignments" class="space-y-4">
                                         <!-- Assignments will be rendered here -->
@@ -324,6 +326,7 @@
                 renderStudentDetails();
                 document.getElementById('copy-link-btn').addEventListener('click', handleCopyLink);
                 document.getElementById('clear-all-requests-btn').addEventListener('click', handleClearAllRequests);
+                document.getElementById('clear-all-data-btn').addEventListener('click', handleClearAllStudentData);
             }
 
             if (state.sortOption === 'seatOrder') {
@@ -374,19 +377,16 @@
         
         const handleDeletePeriod = async () => {
             if (state.selectedPeriodId) {
-                const confirmDelete = confirm("Are you sure you want to delete this period and all its students?");
-                if (confirmDelete) {
-                    await runTransaction(db, async (transaction) => {
-                        const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
-                        const q = query(studentsRef, where('periodId', '==', state.selectedPeriodId));
-                        const studentsSnapshot = await getDocs(q);
-                        studentsSnapshot.forEach(doc => {
-                            transaction.delete(doc.ref);
-                        });
-                        const periodRef = doc(db, `artifacts/${appId}/public/data/periods`, state.selectedPeriodId);
-                        transaction.delete(periodRef);
+                await runTransaction(db, async (transaction) => {
+                    const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
+                    const q = query(studentsRef, where('periodId', '==', state.selectedPeriodId));
+                    const studentsSnapshot = await getDocs(q);
+                    studentsSnapshot.forEach(doc => {
+                        transaction.delete(doc.ref);
                     });
-                }
+                    const periodRef = doc(db, `artifacts/${appId}/public/data/periods`, state.selectedPeriodId);
+                    transaction.delete(periodRef);
+                });
             }
         };
 
@@ -406,7 +406,7 @@
             }
             document.getElementById('new-assignment-titles').value = '';
         };
-        
+
         const handleAddStudents = async () => {
             const rosterText = document.getElementById('student-roster').value.trim();
             if (!rosterText || !state.selectedPeriodId) return;
@@ -420,22 +420,29 @@
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i];
                 const parts = line.split(',');
-                let studentId = '';
-                let name = '';
-                if (parts.length > 1) {
-                    studentId = parts.pop().trim();
-                    name = parts.join(',').trim();
-                } else {
-                    name = line;
-                    studentId = 'id-' + Date.now() + Math.random().toString(36).substring(2, 8); // fallback ID
-                }
+                const studentId = parts.pop().trim();
+                const name = parts.join(',').trim();
                 
-                if (name) {
+                let firstName = '';
+                let lastName = '';
+                const nameParts = name.split(' ');
+                if (nameParts.length > 1) {
+                    firstName = nameParts[0];
+                    lastName = nameParts.slice(1).join(' ');
+                } else if (name.includes(',')) {
+                    const commaParts = name.split(',').map(p => p.trim());
+                    lastName = commaParts[0];
+                    firstName = commaParts[1];
+                } else {
+                    firstName = name;
+                }
+
+                if (name && studentId) {
                     await addDoc(studentsRef, {
                         periodId: state.selectedPeriodId,
                         name,
-                        firstName: name.split(/\s*,\s*|\s+/)[1] || name.split(/\s*,\s*|\s+/)[0],
-                        lastName: name.split(/\s*,\s*|\s+/)[0],
+                        firstName,
+                        lastName,
                         studentId,
                         seatOrder: existingStudentsCount + existingEmptySeatsCount + i,
                         isPlaceholder: false
@@ -462,15 +469,14 @@
 
         const handleDeleteAllStudents = async () => {
             if (!state.selectedPeriodId) return;
-            const confirmDelete = confirm("Are you sure you want to delete all students and empty seats in this period?");
-            if (confirmDelete) {
+            await runTransaction(db, async (transaction) => {
                 const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
                 const q = query(studentsRef, where('periodId', '==', state.selectedPeriodId));
                 const studentsSnapshot = await getDocs(q);
-                studentsSnapshot.forEach(async (doc) => {
-                    await deleteDoc(doc.ref);
+                studentsSnapshot.forEach(doc => {
+                    transaction.delete(doc.ref);
                 });
-            }
+            });
         };
 
         const deleteStudent = async (studentId) => {
@@ -489,7 +495,7 @@
             state.selectedStudent = state.students.find(s => s.id === studentId);
             renderUI();
         };
-        
+
         const renderStudentDetails = () => {
             const detailsSection = document.getElementById('student-details');
             if (!detailsSection || !state.selectedStudent) return;
@@ -555,171 +561,239 @@
                     `;
                 }).join('') : `<li class="text-gray-500">No active requests.</li>`;
             }
-
-            window.handleAssignmentEdit = async (assignmentId, newTitle) => {
-                const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
-                await updateDoc(assignmentRef, { title: newTitle });
-            };
-
-            window.handleDeleteAssignment = async (assignmentId) => {
-                if (confirm("Are you sure you want to delete this assignment?")) {
-                    const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
-                    await deleteDoc(assignmentRef);
-                }
-            };
-            
-            window.handleScoreChange = async (assignmentId, score, event) => {
-                const isChecked = event.target.checked;
-                let newScore = isChecked ? score : 0;
-            
-                const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
-                const assignmentDoc = await getDoc(assignmentRef);
-                const completions = assignmentDoc.data().completions || [];
-                
-                const completionIndex = completions.findIndex(c => c.studentId === state.selectedStudent.studentId);
-            
-                if (newScore > 0) {
-                    if (completionIndex > -1) {
-                        completions[completionIndex].score = newScore;
-                        completions[completionIndex].isExcused = false;
-                        completions[completionIndex].dateCompleted = new Date().toISOString();
-                    } else {
-                        completions.push({
-                            studentId: state.selectedStudent.studentId,
-                            score: newScore,
-                            isExcused: false,
-                            dateCompleted: new Date().toISOString(),
-                        });
-                    }
-                } else {
-                    if (completionIndex > -1) {
-                        completions.splice(completionIndex, 1);
-                    }
-                }
-            
-                await updateDoc(assignmentRef, { completions });
-            };
-
-            window.handleExcusedToggle = async (assignmentId, event) => {
-                const isChecked = event.target.checked;
-                const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
-                const assignmentDoc = await getDoc(assignmentRef);
-                const completions = assignmentDoc.data().completions || [];
-                const completionIndex = completions.findIndex(c => c.studentId === state.selectedStudent.studentId);
-            
-                if (isChecked) {
-                    if (completionIndex > -1) {
-                        completions[completionIndex].isExcused = true;
-                        completions[completionIndex].score = 0;
-                    } else {
-                        completions.push({
-                            studentId: state.selectedStudent.studentId,
-                            score: 0,
-                            isExcused: true,
-                            dateCompleted: new Date().toISOString()
-                        });
-                    }
-                } else {
-                    if (completionIndex > -1) {
-                        completions.splice(completionIndex, 1);
-                    }
-                }
-            
-                await updateDoc(assignmentRef, { completions });
-            };
-
-            window.clearCompletion = async (assignmentId) => {
-                const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
-                const assignmentDoc = await getDoc(assignmentRef);
-                const completions = assignmentDoc.data().completions || [];
-                const completionIndex = completions.findIndex(c => c.studentId === state.selectedStudent.studentId);
-                
-                if (completionIndex > -1) {
-                    completions.splice(completionIndex, 1);
-                    await updateDoc(assignmentRef, { completions });
-                }
-            };
-            
-            window.clearSpecificRequest = async (requestId) => {
-                const requestRef = doc(db, `artifacts/${appId}/public/data/requests`, requestId);
-                await deleteDoc(requestRef);
-            };
-
-            window.handleClearAllRequests = async () => {
-                const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
-                const q = query(requestsRef, where('studentId', '==', state.selectedStudent.studentId));
-                const requestSnapshot = await getDocs(q);
-                requestSnapshot.forEach(async (doc) => {
-                    await deleteDoc(doc.ref);
-                });
-            };
         };
 
-        const handleCopyLink = () => {
+        const handleAssignmentEdit = async (assignmentId, newTitle) => {
+            const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
+            await updateDoc(assignmentRef, { title: newTitle.trim() });
+        };
+        window.handleAssignmentEdit = handleAssignmentEdit;
+
+        const handleDeleteAssignment = async (assignmentId) => {
+            await runTransaction(db, async (transaction) => {
+                const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
+                transaction.delete(assignmentRef);
+
+                const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
+                const q = query(requestsRef, where('assignmentId', '==', assignmentId));
+                const requestsSnapshot = await getDocs(q);
+                requestsSnapshot.forEach(doc => {
+                    transaction.delete(doc.ref);
+                });
+            });
+        };
+        window.handleDeleteAssignment = handleDeleteAssignment;
+
+        const handleScoreChange = async (assignmentId, score, event) => {
+            const isChecked = event.target.checked;
+            const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
+
+            await runTransaction(db, async (transaction) => {
+                const assignmentDoc = await transaction.get(assignmentRef);
+                const completions = assignmentDoc.data().completions || [];
+                const existingCompletionIndex = completions.findIndex(c => c.studentId === state.selectedStudent.studentId);
+                
+                let newScore = isChecked ? score : score -1;
+                if (!isChecked && newScore === 0) newScore = null;
+                if (!isChecked && score < newScore) newScore = score -1;
+
+                if (existingCompletionIndex !== -1) {
+                    const updatedCompletions = [...completions];
+                    updatedCompletions[existingCompletionIndex] = { ...updatedCompletions[existingCompletionIndex], score: newScore, isExcused: false, timestamp: new Date().toISOString() };
+                    transaction.update(assignmentRef, { completions: updatedCompletions });
+                } else {
+                    const newCompletion = { studentId: state.selectedStudent.studentId, score: newScore, isExcused: false, timestamp: new Date().toISOString() };
+                    transaction.update(assignmentRef, { completions: [...completions, newCompletion] });
+                }
+            });
+        };
+        window.handleScoreChange = handleScoreChange;
+        
+        const handleExcusedToggle = async (assignmentId, event) => {
+            const isChecked = event.target.checked;
+            const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
+
+            await runTransaction(db, async (transaction) => {
+                const assignmentDoc = await transaction.get(assignmentRef);
+                const completions = assignmentDoc.data().completions || [];
+                const existingCompletionIndex = completions.findIndex(c => c.studentId === state.selectedStudent.studentId);
+                
+                if (existingCompletionIndex !== -1) {
+                    const updatedCompletions = [...completions];
+                    updatedCompletions[existingCompletionIndex] = { ...updatedCompletions[existingCompletionIndex], score: null, isExcused: isChecked, timestamp: new Date().toISOString() };
+                    transaction.update(assignmentRef, { completions: updatedCompletions });
+                } else {
+                    const newCompletion = { studentId: state.selectedStudent.studentId, score: null, isExcused: isChecked, timestamp: new Date().toISOString() };
+                    transaction.update(assignmentRef, { completions: [...completions, newCompletion] });
+                }
+            });
+        };
+        window.handleExcusedToggle = handleExcusedToggle;
+
+        const clearCompletion = async (assignmentId) => {
+            const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
+            const studentId = state.selectedStudent.studentId;
+
+            await runTransaction(db, async (transaction) => {
+                const assignmentDoc = await transaction.get(assignmentRef);
+                const completions = assignmentDoc.data().completions || [];
+                const updatedCompletions = completions.filter(c => c.studentId !== studentId);
+                transaction.update(assignmentRef, { completions: updatedCompletions });
+            });
+        };
+        window.clearCompletion = clearCompletion;
+        
+        const handleClearAllStudentData = async () => {
             if (!state.selectedStudent) return;
+            const studentId = state.selectedStudent.studentId;
+            const publicDataPath = `artifacts/${appId}/public/data`;
+
+            await runTransaction(db, async (transaction) => {
+                // Find and update all assignments for this student
+                const assignmentsQuery = query(collection(db, `${publicDataPath}/assignments`), where('periodId', '==', state.selectedStudent.periodId));
+                const assignmentsSnapshot = await getDocs(assignmentsQuery);
+                
+                assignmentsSnapshot.forEach(assignmentDoc => {
+                    const completions = assignmentDoc.data().completions;
+                    const updatedCompletions = completions.filter(c => c.studentId !== studentId);
+                    transaction.update(doc(db, `${publicDataPath}/assignments`, assignmentDoc.id), {
+                        completions: updatedCompletions
+                    });
+                });
+
+                // Delete all requests for this student
+                const requestsQuery = query(collection(db, `${publicDataPath}/requests`), where('studentId', '==', studentId));
+                const requestsSnapshot = await getDocs(requestsQuery);
+                requestsSnapshot.forEach(requestDoc => {
+                    transaction.delete(doc(db, `${publicDataPath}/requests`, requestDoc.id));
+                });
+            });
+        };
+        window.handleClearAllStudentData = handleClearAllStudentData;
+
+        const handleCopyLink = () => {
             const link = `${window.location.origin}/student.html?studentId=${state.selectedStudent.studentId}`;
             const tempInput = document.createElement('input');
-            tempInput.value = link;
             document.body.appendChild(tempInput);
+            tempInput.value = link;
             tempInput.select();
             document.execCommand('copy');
             document.body.removeChild(tempInput);
-            alert("Link copied to clipboard!");
         };
+        window.handleCopyLink = handleCopyLink;
 
-        const setupDragAndDrop = () => {
-            const grid = document.getElementById('class-grid');
-            let dragSrcEl = null;
+        const clearSpecificRequest = async (requestId) => {
+            const requestRef = doc(db, `artifacts/${appId}/public/data/requests`, requestId);
+            await deleteDoc(requestRef);
+        };
+        window.clearSpecificRequest = clearSpecificRequest;
 
-            grid.addEventListener('dragstart', (e) => {
-                if (state.sortOption !== 'seatOrder') return;
-                e.target.classList.add('opacity-50');
-                dragSrcEl = e.target;
-                e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('text/plain', e.target.dataset.id);
-            });
-
-            grid.addEventListener('dragover', (e) => {
-                e.preventDefault(); // Necessary to allow drop
-                e.dataTransfer.dropEffect = 'move';
-                const target = e.target.closest('.student-card');
-                if (target && target !== dragSrcEl) {
-                    const children = Array.from(grid.children);
-                    const dragIndex = children.indexOf(dragSrcEl);
-                    const dropIndex = children.indexOf(target);
-
-                    if (dragIndex < dropIndex) {
-                        grid.insertBefore(dragSrcEl, target.nextSibling);
-                    } else {
-                        grid.insertBefore(dragSrcEl, target);
-                    }
-                }
-            });
-
-            grid.addEventListener('dragend', async (e) => {
-                e.target.classList.remove('opacity-50');
-                const children = Array.from(grid.children);
-                for (let i = 0; i < children.length; i++) {
-                    const studentId = children[i].dataset.id;
-                    const student = state.students.find(s => s.id === studentId);
-                    if (student.seatOrder !== i) {
-                        const studentRef = doc(db, `artifacts/${appId}/public/data/students`, student.id);
-                        await updateDoc(studentRef, { seatOrder: i });
-                    }
-                }
+        const handleClearAllRequests = async () => {
+            if (!state.selectedStudent) return;
+            const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
+            const q = query(requestsRef, where('studentId', '==', state.selectedStudent.studentId));
+            const requestsSnapshot = await getDocs(q);
+            requestsSnapshot.forEach(async (doc) => {
+                await deleteDoc(doc.ref);
             });
         };
-
+        window.handleClearAllRequests = handleClearAllRequests;
+        
         const handleQueueItemClick = (e) => {
             const studentId = e.currentTarget.dataset.studentId;
             state.selectedStudent = state.students.find(s => s.id === studentId);
             renderUI();
+            const detailsSection = document.getElementById('student-details');
+            if (detailsSection) {
+                detailsSection.scrollIntoView({ behavior: 'smooth' });
+            }
         };
+
+        const setupDragAndDrop = () => {
+            const classGrid = document.getElementById('class-grid');
+            let dragSrcEl = null;
+        
+            const handleDragStart = (e) => {
+                dragSrcEl = e.currentTarget;
+                dragSrcEl.style.opacity = '0.4';
+                state.isDragging = true;
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', dragSrcEl.dataset.id);
+            };
+        
+            const handleDragOver = (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                e.currentTarget.classList.add('bg-blue-200');
+            };
+        
+            const handleDragLeave = (e) => {
+                e.currentTarget.classList.remove('bg-blue-200');
+            };
+        
+            const handleDrop = async (e) => {
+                e.preventDefault();
+                e.currentTarget.classList.remove('bg-blue-200');
+                
+                if (dragSrcEl === e.currentTarget) {
+                    return;
+                }
+        
+                const studentIdToMove = dragSrcEl.dataset.id;
+                const targetStudentId = e.currentTarget.dataset.id;
+                
+                if (state.students.filter(s => s.periodId === state.selectedPeriodId).length < 2) return;
+        
+                const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
+        
+                await runTransaction(db, async (transaction) => {
+                    const studentsSnapshot = await getDocs(query(studentsRef, where('periodId', '==', state.selectedPeriodId)));
+                    const studentDocs = studentsSnapshot.docs;
+        
+                    const students = studentDocs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    students.sort((a, b) => a.seatOrder - b.seatOrder);
+        
+                    const studentToMoveIndex = students.findIndex(s => s.id === studentIdToMove);
+                    const targetIndex = students.findIndex(s => s.id === targetStudentId);
+        
+                    const [studentToMove] = students.splice(studentToMoveIndex, 1);
+                    students.splice(targetIndex, 0, studentToMove);
+        
+                    students.forEach((s, index) => {
+                        const newOrder = index;
+                        if (s.seatOrder !== newOrder) {
+                            transaction.update(doc(db, `${studentsRef.path}/${s.id}`), { seatOrder: newOrder });
+                        }
+                    });
+                });
+            };
+        
+            const handleDragEnd = (e) => {
+                e.currentTarget.style.opacity = '1';
+                state.isDragging = false;
+                document.querySelectorAll('.student-card').forEach(card => card.classList.remove('bg-blue-200'));
+            };
+        
+            document.querySelectorAll('.student-card[draggable="true"]').forEach(card => {
+                card.addEventListener('dragstart', handleDragStart);
+                card.addEventListener('dragover', handleDragOver);
+                card.addEventListener('dragleave', handleDragLeave);
+                card.addEventListener('drop', handleDrop);
+                card.addEventListener('dragend', handleDragEnd);
+            });
+        };
+        window.deleteStudent = deleteStudent;
+        window.clearCompletion = clearCompletion;
+        window.handleExcusedToggle = handleExcusedToggle;
+        window.handleScoreChange = handleScoreChange;
+        window.handleAssignmentEdit = handleAssignmentEdit;
+        window.handleDeleteAssignment = handleDeleteAssignment;
+        window.clearSpecificRequest = clearSpecificRequest;
+        window.handleClearAllRequests = handleClearAllRequests;
 
         document.addEventListener('DOMContentLoaded', () => {
             renderUI();
         });
-
     </script>
     <style>
         body {
