@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Assignments</title>
+    <title>Student Portal</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, updateDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, collection, updateDoc, query, where, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // IMPORTANT: These global variables are provided by the canvas environment.
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        // const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         setLogLevel('debug');
 
@@ -30,17 +30,138 @@
   appId: "1:1092775554304:web:e771c3ebac1e6ba4f597e5"
 };
         // --- END: PASTE YOUR FIREBASE CONFIG HERE ---
-        
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
 
+        let auth, db;
         let state = {
+            view: 'login',
             student: null,
             assignments: [],
             isProcessing: false,
             message: '',
-            instructorUserId: null,
+        };
+
+        const app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        auth = getAuth(app);
+
+        const signIn = async () => {
+            try {
+                await signInAnonymously(auth);
+            } catch (error) {
+                console.error("Authentication error:", error);
+                state.message = "Authentication failed. Please refresh the page.";
+                renderUI();
+            }
+        };
+
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                await checkLoginStatus();
+            } else {
+                await signIn();
+            }
+        });
+
+        const checkLoginStatus = () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const studentId = urlParams.get('studentId');
+            if (studentId) {
+                // If a studentId is in the URL, this is the old shareable link.
+                // Log them in automatically.
+                state.view = 'loading';
+                renderUI();
+                listenToStudentData(studentId);
+            } else {
+                // If no studentId, show the login page
+                state.view = 'login';
+                renderUI();
+            }
+        };
+
+        const handleLogin = async (event) => {
+            event.preventDefault();
+            if (state.isProcessing) return;
+            state.isProcessing = true;
+            renderUI();
+            
+            const form = event.target;
+            const name = form.elements['studentName'].value.trim();
+            const studentId = form.elements['studentId'].value.trim();
+
+            if (!name || !studentId) {
+                showMessage('Please enter both your name and ID.');
+                state.isProcessing = false;
+                renderUI();
+                return;
+            }
+
+            try {
+                const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
+                const q = query(studentsRef, where("studentId", "==", studentId));
+                const querySnapshot = await getDocs(q);
+
+                if (querySnapshot.empty) {
+                    showMessage('Invalid ID. Please check and try again.');
+                } else {
+                    const studentDoc = querySnapshot.docs[0];
+                    if (studentDoc.data().name.toLowerCase() !== name.toLowerCase()) {
+                        showMessage('Name and ID do not match. Please check and try again.');
+                    } else {
+                        state.student = { id: studentDoc.id, ...studentDoc.data() };
+                        state.view = 'student_dashboard';
+                        await startDataListeners();
+                    }
+                }
+            } catch (error) {
+                console.error("Login error:", error);
+                showMessage('An error occurred during login. Please try again.');
+            } finally {
+                state.isProcessing = false;
+                renderUI();
+            }
+        };
+
+        const startDataListeners = async () => {
+            if (!state.student) return;
+
+            const assignmentsRef = collection(db, `artifacts/${appId}/public/data/assignments`);
+            onSnapshot(assignmentsRef, (snapshot) => {
+                const assignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                state.assignments = assignments;
+                renderUI();
+            });
+
+            const studentDocRef = doc(db, `artifacts/${appId}/public/data/students`, state.student.id);
+            onSnapshot(studentDocRef, (doc) => {
+                state.student = { id: doc.id, ...doc.data() };
+                renderUI();
+            });
+        };
+
+        const handleRequestHelp = async () => {
+            if (state.isProcessing) return;
+            state.isProcessing = true;
+            renderUI();
+            
+            try {
+                const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
+                const q = query(studentsRef, where("helpRequested", "==", true));
+                const querySnapshot = await getDocs(q);
+                const currentQueueLength = querySnapshot.size;
+
+                const studentDocRef = doc(db, `artifacts/${appId}/public/data/students`, state.student.id);
+                await updateDoc(studentDocRef, {
+                    helpRequested: true,
+                    queuePosition: currentQueueLength + 1,
+                });
+                showMessage(`Help requested! Your position in queue: ${currentQueueLength + 1}`);
+            } catch (error) {
+                console.error("Error requesting help:", error);
+                showMessage("Error requesting help.");
+            } finally {
+                state.isProcessing = false;
+                renderUI();
+            }
         };
 
         const renderUI = () => {
@@ -48,10 +169,12 @@
             app.innerHTML = '';
             renderHeader();
             renderMessage(state.message);
-            if (state.student) {
+            if (state.view === 'login') {
+                renderLogin();
+            } else if (state.view === 'loading') {
+                renderLoading();
+            } else if (state.view === 'student_dashboard') {
                 renderStudentDashboard();
-            } else {
-                renderLoginPage();
             }
         };
 
@@ -59,21 +182,11 @@
             const header = document.getElementById('header');
             header.innerHTML = `
                 <div class="flex justify-between items-center py-4 px-6 bg-white shadow-md rounded-b-xl">
-                    <h1 class="text-3xl font-extrabold text-blue-800 tracking-tight">My Assignments</h1>
+                    <h1 class="text-3xl font-extrabold text-blue-800 tracking-tight">Student Portal</h1>
                 </div>
             `;
         };
 
-        const renderLoading = () => {
-            const app = document.getElementById('app');
-            app.innerHTML = `
-                <div class="flex flex-col items-center justify-center h-full">
-                    <div class="w-16 h-16 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div>
-                    <p class="mt-4 text-gray-600">Loading your assignments...</p>
-                </div>
-            `;
-        };
-        
         const renderMessage = (message) => {
             const messageDiv = document.getElementById('message');
             messageDiv.innerHTML = '';
@@ -94,180 +207,99 @@
             state.message = message;
             renderMessage(message);
         };
-        
-        const renderLoginPage = () => {
-             const app = document.getElementById('app');
-             app.innerHTML = `
-                <div class="flex flex-col items-center justify-center h-full p-6">
-                    <div class="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 w-full max-w-md text-center">
-                        <h2 class="text-2xl font-bold text-blue-800 mb-6">Student Login</h2>
+
+        const renderLoading = () => {
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-full">
+                    <div class="w-16 h-16 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div>
+                    <p class="mt-4 text-gray-600">Loading...</p>
+                </div>
+            `;
+        };
+
+        const renderLogin = () => {
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="flex items-center justify-center h-full p-6">
+                    <div class="w-full max-w-md bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
+                        <h2 class="text-2xl font-bold text-blue-800 mb-6 text-center">Student Login</h2>
                         <form onsubmit="handleLogin(event)">
                             <div class="mb-4">
-                                <input type="text" id="studentName" name="studentName" placeholder="Enter your full name" required
+                                <label for="studentName" class="block text-gray-700 font-semibold mb-2">Full Name</label>
+                                <input type="text" id="studentName" name="studentName" placeholder="e.g., Jane Doe" required
                                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                             </div>
                             <div class="mb-6">
-                                <input type="text" id="studentId" name="studentId" placeholder="Enter your Student ID" required
+                                <label for="studentId" class="block text-gray-700 font-semibold mb-2">Student ID</label>
+                                <input type="text" id="studentId" name="studentId" placeholder="e.g., 12345" required
                                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                             </div>
-                            <button type="submit" 
+                            <button type="submit"
                                 class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-blue-700 transition-colors duration-200 shadow-lg ${state.isProcessing ? 'opacity-50 cursor-not-allowed' : ''}"
                                 ${state.isProcessing ? 'disabled' : ''}>
                                 ${state.isProcessing ? 'Logging in...' : 'Login'}
                             </button>
                         </form>
+                        <p class="mt-4 text-sm text-gray-500 text-center">
+                            Your full name and ID must match your teacher's records exactly.
+                        </p>
                     </div>
                 </div>
             `;
         };
-
+        
         const renderStudentDashboard = () => {
             const app = document.getElementById('app');
-            const helpRequested = state.student?.helpRequested || false;
-            
             const assignmentsList = state.assignments.map(a => {
-                const completion = a.completions.find(c => c.studentId === state.student.studentId); // Use studentId for lookup
+                const completion = a.completions.find(c => c.studentId === state.student.studentId);
                 const isCompleted = !!completion;
-                const completionDate = isCompleted ? new Date(completion.completedAt).toLocaleDateString() : 'Not Completed';
                 const score = isCompleted ? (completion.score || 0) : 0;
                 
                 return `
-                    <div class="bg-gray-50 p-6 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center">
-                        <div>
-                            <h3 class="font-bold text-lg text-blue-800">${a.title}</h3>
-                            <p class="text-sm text-gray-500">Due: ${a.dueDate ? new Date(a.dueDate).toLocaleDateString() : 'N/A'}</p>
-                            <div class="mt-2 flex items-center space-x-2">
-                                <span class="text-sm font-semibold ${isCompleted ? 'text-green-600' : 'text-red-500'}">
-                                    Status: ${isCompleted ? 'Completed' : 'Pending'}
-                                </span>
-                                ${isCompleted ? `<span class="text-xs text-gray-500">(${completionDate})</span>` : ''}
-                                ${isCompleted ? `<span class="text-xs text-gray-500 font-bold">Score: ${score}/4</span>` : ''}
-                            </div>
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <h3 class="font-bold text-lg text-blue-800">${a.title}</h3>
+                        <p class="text-sm text-gray-500 mb-2">Due: ${a.dueDate ? new Date(a.dueDate).toLocaleDateString() : 'N/A'}</p>
+                        <div class="mt-2 flex items-center space-x-2">
+                            <span class="text-sm font-semibold ${isCompleted ? 'text-green-600' : 'text-red-500'}">
+                                Status: ${isCompleted ? 'Completed' : 'Pending'}
+                            </span>
+                            ${isCompleted ? `<span class="text-xs text-gray-500 font-bold">Score: ${score}/4</span>` : ''}
                         </div>
                     </div>
                 `;
             }).join('');
             
+            const helpButtonText = state.student.helpRequested ? `In Queue: ${state.student.queuePosition}` : 'Request Help';
+            const isHelpDisabled = state.student.helpRequested;
+
             app.innerHTML = `
-                <div class="space-y-6">
-                    <div class="flex justify-between items-center bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
-                        <h2 class="text-2xl font-bold text-blue-800">Hello, ${state.student.name}!</h2>
+                <div class="max-w-3xl mx-auto p-6 space-y-6">
+                    <div class="bg-blue-500 text-white p-6 rounded-2xl shadow-lg">
+                        <h2 class="text-2xl font-bold">Hello, ${state.student.name}!</h2>
+                        <p class="text-sm opacity-90 mt-1">Your ID: ${state.student.studentId}</p>
                     </div>
-                    <div class="bg-gray-50 p-6 rounded-lg shadow-sm border border-gray-200 text-center">
-                        <h3 class="text-xl font-semibold mb-4 text-gray-700">Need Help?</h3>
-                        <button onclick="handleRequestHelp()" class="bg-red-500 text-white py-3 px-6 rounded-lg font-bold text-lg hover:bg-red-600 transition-colors duration-200 shadow-lg ${helpRequested ? 'opacity-50 cursor-not-allowed' : ''}" ${helpRequested ? 'disabled' : ''}>
-                            Request Help
-                        </button>
-                        <p class="mt-2 text-sm text-gray-500">${helpRequested ? 'Your request has been sent!' : ''}</p>
-                    </div>
-                    <div class="space-y-4">
-                        ${state.assignments.length > 0 ? assignmentsList : `
+                    
+                    <div class="bg-white p-8 rounded-2xl shadow-lg">
+                        <h2 class="text-2xl font-bold text-blue-800 mb-6">Your Assignments</h2>
+                        ${state.assignments.length > 0 ? `<div class="space-y-4">${assignmentsList}</div>` : `
                             <div class="text-center py-10 text-gray-500">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 002 2h4a2 2 0 002-2v-4a2 2 0 012-2h2a2 2 0 012 2v6m-12 5h14a2 2 0 002-2v-2a2 2 0 00-2-2h-2a2 2 0 01-2-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 01-2 2H5a2 2 0 00-2 2v2a2 2 0 002 2z" />
-                                </svg>
-                                <p class="mt-2 text-gray-500 font-medium">No assignments for you.</p>
+                                <p>No assignments to display.</p>
                             </div>
                         `}
                     </div>
+                    
+                    <button onclick="handleRequestHelp()"
+                        class="w-full py-3 rounded-lg font-bold text-lg transition-colors duration-200 shadow-lg
+                        ${isHelpDisabled ? 'bg-gray-400 text-gray-700 cursor-not-allowed' : 'bg-green-500 text-white hover:bg-green-600'}">
+                        ${helpButtonText}
+                    </button>
                 </div>
             `;
-        };
-        
-        const handleLogin = async (event) => {
-            event.preventDefault();
-            if (state.isProcessing) return;
-            state.isProcessing = true;
-            renderUI();
-
-            const studentName = event.target.studentName.value;
-            const studentId = event.target.studentId.value;
-            
-            try {
-                // Find the instructor's user ID (this assumes a collaboration context)
-                // In a real-world app, you'd need a way to look up the instructor.
-                const instructorId = window.parent.__app_owner_id;
-
-                const studentsRef = collection(db, `artifacts/${appId}/users/${instructorId}/students`);
-                const q = query(studentsRef, where("studentId", "==", studentId), where("name", "==", studentName));
-                const querySnapshot = await getDocs(q);
-
-                if (!querySnapshot.empty) {
-                    const studentDoc = querySnapshot.docs[0];
-                    state.student = { id: studentDoc.id, ...studentDoc.data() };
-                    state.instructorUserId = instructorId;
-                    startStudentListeners();
-                    showMessage("Login successful!");
-                } else {
-                    showMessage("Login failed. Please check your name and ID.");
-                }
-            } catch (error) {
-                console.error("Login error:", error);
-                showMessage("An error occurred during login.");
-            } finally {
-                state.isProcessing = false;
-                renderUI();
-            }
-        };
-
-        const startStudentListeners = () => {
-            const assignmentsRef = collection(db, `artifacts/${appId}/users/${state.instructorUserId}/assignments`);
-            onSnapshot(assignmentsRef, (snapshot) => {
-                const assignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                state.assignments = assignments;
-                renderUI();
-            });
-
-            const studentsRef = doc(db, `artifacts/${appId}/users/${state.instructorUserId}/students`, state.student.id);
-            onSnapshot(studentsRef, (docSnapshot) => {
-                if (docSnapshot.exists()) {
-                    state.student = { id: docSnapshot.id, ...docSnapshot.data() };
-                    renderUI();
-                }
-            });
-        };
-        
-        const handleRequestHelp = async () => {
-            if (state.isProcessing) return;
-            state.isProcessing = true;
-            
-            try {
-                const studentsRef = collection(db, `artifacts/${appId}/users/${state.instructorUserId}/students`);
-                const helpQueue = [];
-                const querySnapshot = await getDocs(studentsRef);
-                querySnapshot.forEach(doc => {
-                    const student = doc.data();
-                    if (student.helpRequested) {
-                        helpQueue.push(student);
-                    }
-                });
-
-                helpQueue.sort((a, b) => a.queuePosition - b.queuePosition);
-                const newQueuePosition = helpQueue.length > 0 ? helpQueue[helpQueue.length - 1].queuePosition + 1 : 1;
-
-                const studentDocRef = doc(db, `artifacts/${appId}/users/${state.instructorUserId}/students`, state.student.id);
-                await updateDoc(studentDocRef, {
-                    helpRequested: true,
-                    queuePosition: newQueuePosition,
-                });
-                showMessage("Help request sent!");
-            } catch (error) {
-                console.error("Error requesting help:", error);
-                showMessage("Error requesting help.");
-            } finally {
-                state.isProcessing = false;
-            }
-        };
-
-        const init = () => {
-            // Check if there's a logged-in user or a way to determine their identity.
-            // For this app, we simply render the login page.
-            renderUI();
         };
 
         window.handleLogin = handleLogin;
         window.handleRequestHelp = handleRequestHelp;
-        document.addEventListener('DOMContentLoaded', init);
     </script>
     <style>
         body {
