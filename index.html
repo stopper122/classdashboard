@@ -195,12 +195,11 @@
             renderUI();
 
             const form = event.target;
-            const studentNamesText = form.elements['studentNames'].value;
-
-            const names = studentNamesText.split('\n').map(name => name.trim()).filter(name => name);
+            const studentDataText = form.elements['studentData'].value;
+            const lines = studentDataText.split('\n').map(line => line.trim()).filter(line => line);
             
-            if (names.length === 0) {
-                showMessage("Please enter at least one student name.");
+            if (lines.length === 0) {
+                showMessage("Please enter at least one student.");
                 state.isProcessing = false;
                 renderUI();
                 return;
@@ -208,12 +207,20 @@
             
             try {
                 const studentsRef = collection(db, `artifacts/${appId}/users/${userId}/students`);
-                for (const name of names) {
-                    const studentId = crypto.randomUUID();
+                for (const line of lines) {
+                    const parts = line.split(',').map(part => part.trim());
+                    const name = parts[0];
+                    const studentId = parts[1];
+
+                    if (!name || !studentId) {
+                        showMessage(`Skipping invalid format on line: ${line}. Format should be "Name, ID#"`);
+                        continue;
+                    }
+                    
                     await addDoc(studentsRef, {
                         name: name,
                         isSeatEmpty: false,
-                        studentId: studentId, // Unique student token for public access
+                        studentId: studentId,
                         createdAt: new Date().toISOString(),
                         orderIndex: state.students.length + 1,
                         helpRequested: false,
@@ -350,7 +357,9 @@
         };
 
         const handleCopyLink = (studentToken) => {
-            const studentUrl = `${window.location.origin}/student.html?studentId=${studentToken}`;
+            // Note: The correct path for GitHub Pages is typically the root of the repository.
+            // Assuming student.html is in the same directory as index.html.
+            const studentUrl = `${window.location.origin}${window.location.pathname.replace('index.html', 'student.html')}?studentId=${studentToken}`;
             
             // Create a temporary text area to copy the URL from
             const tempInput = document.createElement('textarea');
@@ -453,7 +462,7 @@
                              ondragstart="handleDragStart(event, '${s.id}')" 
                              ondragover="handleDragOver(event)" 
                              ondrop="handleDrop(event, '${s.id}')"
-                             class="bg-gray-200 p-4 rounded-lg shadow-inner flex items-center justify-center">
+                             class="bg-gray-200 p-4 rounded-lg shadow-inner">
                             <span class="text-gray-500 font-medium text-sm">Empty Seat</span>
                         </div>
                     `;
@@ -479,7 +488,7 @@
 
             const selectedStudent = state.students.find(s => s.id === state.selectedStudentId);
             const assignmentsList = selectedStudent ? state.instructorAssignments.map(a => {
-                const completion = a.completions.find(c => c.studentId === selectedStudent.id);
+                const completion = a.completions.find(c => c.studentId === selectedStudent.studentId); // Use student's unique ID
                 const isCompleted = !!completion;
                 const completionDate = isCompleted ? new Date(completion.completedAt).toLocaleDateString() : 'N/A';
                 const score = isCompleted ? (completion.score || 0) : 0;
@@ -500,19 +509,19 @@
                         <div class="flex items-center space-x-2">
                             <div class="flex space-x-2 p-2 rounded-lg bg-white shadow-inner">
                                 <label class="flex items-center space-x-1 cursor-pointer text-gray-700 font-medium">
-                                    <input type="checkbox" onchange="handleScoreAssignment('${a.id}', '${selectedStudent.id}', 1, this.checked)" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" ${score >= 1 ? 'checked' : ''}>
+                                    <input type="checkbox" onchange="handleScoreAssignment('${a.id}', '${selectedStudent.studentId}', 1, this.checked)" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" ${score >= 1 ? 'checked' : ''}>
                                     <span>1</span>
                                 </label>
                                 <label class="flex items-center space-x-1 cursor-pointer text-gray-700 font-medium">
-                                    <input type="checkbox" onchange="handleScoreAssignment('${a.id}', '${selectedStudent.id}', 2, this.checked)" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" ${score >= 2 ? 'checked' : ''}>
+                                    <input type="checkbox" onchange="handleScoreAssignment('${a.id}', '${selectedStudent.studentId}', 2, this.checked)" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" ${score >= 2 ? 'checked' : ''}>
                                     <span>2</span>
                                 </label>
                                 <label class="flex items-center space-x-1 cursor-pointer text-gray-700 font-medium">
-                                    <input type="checkbox" onchange="handleScoreAssignment('${a.id}', '${selectedStudent.id}', 3, this.checked)" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" ${score >= 3 ? 'checked' : ''}>
+                                    <input type="checkbox" onchange="handleScoreAssignment('${a.id}', '${selectedStudent.studentId}', 3, this.checked)" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" ${score >= 3 ? 'checked' : ''}>
                                     <span>3</span>
                                 </label>
                                 <label class="flex items-center space-x-1 cursor-pointer text-gray-700 font-medium">
-                                    <input type="checkbox" onchange="handleScoreAssignment('${a.id}', '${selectedStudent.id}', 4, this.checked)" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" ${score >= 4 ? 'checked' : ''}>
+                                    <input type="checkbox" onchange="handleScoreAssignment('${a.id}', '${selectedStudent.studentId}', 4, this.checked)" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" ${score >= 4 ? 'checked' : ''}>
                                     <span>4</span>
                                 </label>
                             </div>
@@ -576,8 +585,8 @@
                             <h2 class="text-2xl font-bold text-blue-800 mb-6">Add Students & Seats</h2>
                             <form id="add-students-form" onsubmit="handleAddStudents(event)">
                                 <div class="mb-4">
-                                    <label for="studentNames" class="block text-gray-700 font-semibold mb-2">Paste Student Names</label>
-                                    <textarea id="studentNames" name="studentNames" rows="6" placeholder="Paste student names here, one per line."
+                                    <label for="studentData" class="block text-gray-700 font-semibold mb-2">Paste Student Name & ID#</label>
+                                    <textarea id="studentData" name="studentData" rows="6" placeholder="Name, ID# (one student per line)"
                                            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
                                 </div>
                                 <button type="submit" 
