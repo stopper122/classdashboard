@@ -3,107 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Assignment Tracker</title>
+    <title>My Assignments</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, updateDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // IMPORTANT: These global variables are provided by the canvas environment.
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        // const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
 
         setLogLevel('debug');
 
-        let auth, db;
-        let userId = null;
+        // --- START: PASTE YOUR FIREBASE CONFIG HERE ---
+        // You can find this by going to your Firebase project, clicking the gear icon
+        // next to "Project overview," selecting "Project settings," and then scrolling down to
+        // "Your apps."
+        const firebaseConfig = {
+  apiKey: "AIzaSyBX96xDY5ThDAZn-SckmsnfynMnQjvUc2I",
+  authDomain: "helprequest-469c0.firebaseapp.com",
+  projectId: "helprequest-469c0",
+  storageBucket: "helprequest-469c0.firebasestorage.app",
+  messagingSenderId: "1092775554304",
+  appId: "1:1092775554304:web:e771c3ebac1e6ba4f597e5"
+};
+        // --- END: PASTE YOUR FIREBASE CONFIG HERE ---
+        
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
         let state = {
-            view: 'loading',
-            instructorAssignments: [],
-            students: [],
-            selectedStudentId: null,
-            userRole: 'unknown',
+            student: null,
+            assignments: [],
             isProcessing: false,
             message: '',
-            sortOrder: 'seat' // 'alphabetical' or 'seat'
+            instructorUserId: null,
         };
-
-        const app = initializeApp(firebaseConfig);
-        db = getFirestore(app);
-        auth = getAuth(app);
-        
-        let dragSrcEl = null;
-
-        // Sign in user
-        const signIn = async () => {
-            try {
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (error) {
-                console.error("Authentication error:", error);
-                renderMessage("Authentication failed. Please refresh the page.");
-            }
-        };
-
-        auth.onAuthStateChanged(async (user) => {
-            if (user) {
-                userId = user.uid;
-                state.userRole = 'instructor'; // For this basic app, the main user is the instructor
-                state.view = 'instructor_dashboard';
-                await startDataListeners();
-            } else {
-                await signIn();
-            }
-        });
-
-        // Start listening for data changes
-        const startDataListeners = async () => {
-            if (!userId) return;
-
-            // Listen for changes to the assignments collection
-            const assignmentsRef = collection(db, `artifacts/${appId}/users/${userId}/assignments`);
-            onSnapshot(assignmentsRef, (snapshot) => {
-                const assignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                state.instructorAssignments = assignments;
-                sortAssignments();
-                renderUI();
-            });
-
-            // Listen for changes to the students collection
-            const studentsRef = collection(db, `artifacts/${appId}/users/${userId}/students`);
-            onSnapshot(studentsRef, (snapshot) => {
-                const students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                state.students = students;
-                renderUI();
-            });
-        };
-        
-        const sortAssignments = () => {
-             state.instructorAssignments.sort((a, b) => {
-                const dateA = a.dueDate ? new Date(a.dueDate) : new Date(0);
-                const dateB = b.dueDate ? new Date(b.dueDate) : new Date(0);
-                return dateA - dateB;
-            });
-        }
 
         const renderUI = () => {
             const app = document.getElementById('app');
             app.innerHTML = '';
             renderHeader();
             renderMessage(state.message);
-            if (state.view === 'loading') {
-                renderLoading();
-            } else if (state.view === 'instructor_dashboard') {
-                renderInstructorDashboard();
-            } else if (state.view === 'student_dashboard') {
-                // This view is no longer used for the instructor
-                // This would be the code for the old student view
+            if (state.student) {
+                renderStudentDashboard();
+            } else {
+                renderLoginPage();
             }
         };
 
@@ -111,18 +59,17 @@
             const header = document.getElementById('header');
             header.innerHTML = `
                 <div class="flex justify-between items-center py-4 px-6 bg-white shadow-md rounded-b-xl">
-                    <h1 class="text-3xl font-extrabold text-blue-800 tracking-tight">Assignment Tracker</h1>
-                    ${userId ? `<span class="text-sm text-gray-500 truncate">User ID: ${userId}</span>` : ''}
+                    <h1 class="text-3xl font-extrabold text-blue-800 tracking-tight">My Assignments</h1>
                 </div>
             `;
-        }
-        
+        };
+
         const renderLoading = () => {
             const app = document.getElementById('app');
             app.innerHTML = `
                 <div class="flex flex-col items-center justify-center h-full">
                     <div class="w-16 h-16 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div>
-                    <p class="mt-4 text-gray-600">Loading...</p>
+                    <p class="mt-4 text-gray-600">Loading your assignments...</p>
                 </div>
             `;
         };
@@ -148,347 +95,40 @@
             renderMessage(message);
         };
         
-        const handleFormSubmit = async (event) => {
-            event.preventDefault();
-            if (state.isProcessing) return;
-            state.isProcessing = true;
-            renderUI();
-            
-            const form = event.target;
-            const titlesText = form.elements['titles'].value;
-            const dueDate = form.elements['dueDate'].value;
-
-            const titles = titlesText.split('\n').map(title => title.trim()).filter(title => title);
-
-            if (titles.length === 0) {
-                showMessage("At least one assignment title is required.");
-                state.isProcessing = false;
-                renderUI();
-                return;
-            }
-            
-            try {
-                const assignmentsRef = collection(db, `artifacts/${appId}/users/${userId}/assignments`);
-                for (const title of titles) {
-                     await addDoc(assignmentsRef, {
-                        title,
-                        dueDate,
-                        completions: [],
-                        createdAt: new Date().toISOString(),
-                    });
-                }
-                form.reset();
-                showMessage("Assignments added!");
-            } catch (error) {
-                console.error("Error adding documents:", error);
-                showMessage("Error adding assignments.");
-            } finally {
-                state.isProcessing = false;
-                renderUI();
-            }
-        };
-
-        const handleAddStudents = async (event) => {
-            event.preventDefault();
-            if (state.isProcessing) return;
-            state.isProcessing = true;
-            renderUI();
-
-            const form = event.target;
-            const studentDataText = form.elements['studentData'].value;
-            const lines = studentDataText.split('\n').map(line => line.trim()).filter(line => line);
-            
-            if (lines.length === 0) {
-                showMessage("Please enter at least one student.");
-                state.isProcessing = false;
-                renderUI();
-                return;
-            }
-            
-            try {
-                const studentsRef = collection(db, `artifacts/${appId}/users/${userId}/students`);
-                for (const line of lines) {
-                    const parts = line.split(',').map(part => part.trim());
-                    const name = parts[0];
-                    const studentId = parts[1];
-
-                    if (!name || !studentId) {
-                        showMessage(`Skipping invalid format on line: ${line}. Format should be "Name, ID#"`);
-                        continue;
-                    }
-                    
-                    await addDoc(studentsRef, {
-                        name: name,
-                        isSeatEmpty: false,
-                        studentId: studentId,
-                        createdAt: new Date().toISOString(),
-                        orderIndex: state.students.length + 1,
-                        helpRequested: false,
-                        queuePosition: null,
-                    });
-                }
-                form.reset();
-                showMessage("Students added successfully!");
-            } catch (error) {
-                console.error("Error adding student:", error);
-                showMessage("Error adding students.");
-            } finally {
-                state.isProcessing = false;
-                renderUI();
-            }
-        };
-
-        const handleAddEmptySeat = async () => {
-            if (state.isProcessing) return;
-            state.isProcessing = true;
-            renderUI();
-            try {
-                const studentsRef = collection(db, `artifacts/${appId}/users/${userId}/students`);
-                await addDoc(studentsRef, {
-                    name: 'Empty Seat',
-                    isSeatEmpty: true,
-                    studentId: null, // No token for empty seats
-                    createdAt: new Date().toISOString(),
-                    orderIndex: state.students.length + 1,
-                    helpRequested: false,
-                    queuePosition: null,
-                });
-                showMessage("Empty seat added!");
-            } catch (error) {
-                console.error("Error adding empty seat:", error);
-                showMessage("Error adding empty seat.");
-            } finally {
-                state.isProcessing = false;
-                renderUI();
-            }
-        };
-        
-        const handleScoreAssignment = async (assignmentId, studentId, score, isChecked) => {
-            if (state.isProcessing) return;
-            state.isProcessing = true;
-            renderUI();
-
-            try {
-                const assignmentDocRef = doc(db, `artifacts/${appId}/users/${userId}/assignments`, assignmentId);
-                const assignment = state.instructorAssignments.find(a => a.id === assignmentId);
-                let newCompletions = [...assignment.completions];
-                const now = new Date().toISOString();
-                const existingCompletionIndex = newCompletions.findIndex(c => c.studentId === studentId);
-                
-                let newScore = 0;
-                if (isChecked) {
-                    newScore = score;
-                } else {
-                    newScore = score - 1;
-                }
-
-                if (newScore > 0) {
-                    // Update or add completion with new score
-                    if (existingCompletionIndex > -1) {
-                        newCompletions[existingCompletionIndex] = { ...newCompletions[existingCompletionIndex], completedAt: now, score: newScore };
-                    } else {
-                        newCompletions.push({ studentId: studentId, completedAt: now, score: newScore });
-                    }
-                } else {
-                    // Remove completion if new score is 0
-                    newCompletions = newCompletions.filter(c => c.studentId !== studentId);
-                }
-
-                await updateDoc(assignmentDocRef, {
-                    completions: newCompletions,
-                });
-                showMessage(newScore > 0 ? "Score updated!" : "Assignment marked as incomplete.");
-            } catch (error) {
-                console.error("Error updating document:", error);
-                showMessage("Error updating assignment status.");
-            } finally {
-                state.isProcessing = false;
-                renderUI();
-            }
-        };
-        
-        const handleDeleteAssignment = async (assignmentId) => {
-            if (state.isProcessing) return;
-            state.isProcessing = true;
-            renderUI();
-            
-            try {
-                const assignmentDocRef = doc(db, `artifacts/${appId}/users/${userId}/assignments`, assignmentId);
-                await deleteDoc(assignmentDocRef);
-                showMessage("Assignment deleted!");
-            } catch (error) {
-                console.error("Error deleting document:", error);
-                showMessage("Error deleting assignment.");
-            } finally {
-                state.isProcessing = false;
-                renderUI();
-            }
-        };
-        
-        const handleAcknowledgeHelp = async (studentId) => {
-            if (state.isProcessing) return;
-            state.isProcessing = true;
-            renderUI();
-
-            try {
-                const studentDocRef = doc(db, `artifacts/${appId}/users/${userId}/students`, studentId);
-                await updateDoc(studentDocRef, {
-                    helpRequested: false,
-                    queuePosition: null,
-                });
-                showMessage("Help request acknowledged!");
-            } catch (error) {
-                console.error("Error acknowledging help:", error);
-                showMessage("Error acknowledging help.");
-            } finally {
-                state.isProcessing = false;
-                renderUI();
-            }
-        };
-
-        const handleStudentClick = (studentId) => {
-            state.selectedStudentId = studentId;
-            renderUI();
-        };
-
-        const handleSortChange = (event) => {
-            state.sortOrder = event.target.value;
-            renderUI();
-        };
-
-        const handleCopyLink = (studentToken) => {
-            const studentUrl = `${window.location.origin}/student.html?studentId=${studentToken}`;
-            
-            // Create a temporary text area to copy the URL from
-            const tempInput = document.createElement('textarea');
-            tempInput.value = studentUrl;
-            document.body.appendChild(tempInput);
-            tempInput.select();
-            
-            try {
-                // Use the older but more reliable execCommand for cross-browser support in iframes
-                const successful = document.execCommand('copy');
-                if (successful) {
-                    showMessage("Student link copied to clipboard!");
-                } else {
-                    throw new Error('Copy command failed.');
-                }
-            } catch (err) {
-                console.error('Failed to copy text:', err);
-                showMessage("Failed to copy link. Please copy manually.");
-            } finally {
-                document.body.removeChild(tempInput);
-            }
-        }
-
-        // Drag and drop functions
-        const handleDragStart = (event, studentId) => {
-            dragSrcEl = event.target;
-            event.dataTransfer.effectAllowed = 'move';
-            event.dataTransfer.setData('text/plain', studentId);
-            dragSrcEl.classList.add('opacity-50');
-        };
-
-        const handleDragOver = (event) => {
-            event.preventDefault(); 
-            event.dataTransfer.dropEffect = 'move';
-        };
-
-        const handleDrop = async (event, targetStudentId) => {
-            event.preventDefault();
-            event.stopPropagation();
-            
-            const draggedStudentId = event.dataTransfer.getData('text/plain');
-            
-            if (draggedStudentId === targetStudentId) {
-                return;
-            }
-
-            const draggedStudent = state.students.find(s => s.id === draggedStudentId);
-            const targetStudent = state.students.find(s => s.id === targetStudentId);
-            
-            if (!draggedStudent || !targetStudent || state.isProcessing) {
-                return;
-            }
-
-            state.isProcessing = true;
-            try {
-                const draggedStudentRef = doc(db, `artifacts/${appId}/users/${userId}/students`, draggedStudent.id);
-                const targetStudentRef = doc(db, `artifacts/${appId}/users/${userId}/students`, targetStudent.id);
-                
-                const draggedOrder = draggedStudent.orderIndex;
-                const targetOrder = targetStudent.orderIndex;
-                
-                await updateDoc(draggedStudentRef, { orderIndex: targetOrder });
-                await updateDoc(targetStudentRef, { orderIndex: draggedOrder });
-
-                showMessage("Student order updated!");
-            } catch (error) {
-                console.error("Error updating student order:", error);
-                showMessage("Error updating student order.");
-            } finally {
-                state.isProcessing = false;
-                renderUI();
-            }
-        };
-
-        const getSortedStudents = () => {
-            if (state.sortOrder === 'alphabetical') {
-                return [...state.students].sort((a, b) => a.name.localeCompare(b.name));
-            }
-            return [...state.students].sort((a, b) => a.orderIndex - b.orderIndex);
-        };
-        
-        const renderInstructorDashboard = () => {
-            const app = document.getElementById('app');
-            const sortedStudents = getSortedStudents();
-            const studentGrid = sortedStudents.map((s, index) => {
-                const isSelected = s.id === state.selectedStudentId;
-                const hasPending = s.isSeatEmpty ? false : state.instructorAssignments.some(a => !a.completions.some(c => c.studentId === s.id));
-                const isDraggable = state.sortOrder === 'seat';
-                
-                let cardClasses = 'bg-white p-4 rounded-lg shadow-md cursor-pointer transition-all duration-200 hover:bg-gray-100';
-                if (isSelected) {
-                    cardClasses += ' border-4 border-blue-500';
-                } else if (s.helpRequested) {
-                    cardClasses = 'bg-red-100 p-4 rounded-lg shadow-md cursor-pointer transition-all duration-200 border-2 border-red-500 hover:bg-red-200';
-                }
-                
-                if (s.isSeatEmpty) {
-                    return `
-                        <div draggable="${isDraggable}" 
-                             ondragstart="handleDragStart(event, '${s.id}')" 
-                             ondragover="handleDragOver(event)" 
-                             ondrop="handleDrop(event, '${s.id}')"
-                             class="bg-gray-200 p-4 rounded-lg shadow-inner">
-                            <span class="text-gray-500 font-medium text-sm">Empty Seat</span>
-                        </div>
-                    `;
-                }
-
-                return `
-                    <div draggable="${isDraggable}" 
-                         onclick="handleStudentClick('${s.id}')" 
-                         ondragstart="handleDragStart(event, '${s.id}')" 
-                         ondragover="handleDragOver(event)" 
-                         ondrop="handleDrop(event, '${s.id}')"
-                         class="${cardClasses}">
-                        <div class="flex justify-between items-center mb-2">
-                            <h3 class="font-bold text-lg text-blue-800">${s.name}</h3>
-                            <div class="flex items-center space-x-2">
-                                ${s.helpRequested ? `<span class="bg-red-500 text-white font-bold text-xs rounded-full h-5 w-5 flex items-center justify-center">${s.queuePosition}</span>` : ''}
-                                ${hasPending ? `<div class="w-3 h-3 bg-red-500 rounded-full" title="Has pending assignments"></div>` : ''}
+        const renderLoginPage = () => {
+             const app = document.getElementById('app');
+             app.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-full p-6">
+                    <div class="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 w-full max-w-md text-center">
+                        <h2 class="text-2xl font-bold text-blue-800 mb-6">Student Login</h2>
+                        <form onsubmit="handleLogin(event)">
+                            <div class="mb-4">
+                                <input type="text" id="studentName" name="studentName" placeholder="Enter your full name" required
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                             </div>
-                        </div>
+                            <div class="mb-6">
+                                <input type="text" id="studentId" name="studentId" placeholder="Enter your Student ID" required
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <button type="submit" 
+                                class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-blue-700 transition-colors duration-200 shadow-lg ${state.isProcessing ? 'opacity-50 cursor-not-allowed' : ''}"
+                                ${state.isProcessing ? 'disabled' : ''}>
+                                ${state.isProcessing ? 'Logging in...' : 'Login'}
+                            </button>
+                        </form>
                     </div>
-                `;
-            }).join('');
+                </div>
+            `;
+        };
 
-            const selectedStudent = state.students.find(s => s.id === state.selectedStudentId);
-            const assignmentsList = selectedStudent ? state.instructorAssignments.map(a => {
-                const completion = a.completions.find(c => c.studentId === selectedStudent.studentId); // Use student's unique ID
+        const renderStudentDashboard = () => {
+            const app = document.getElementById('app');
+            const helpRequested = state.student?.helpRequested || false;
+            
+            const assignmentsList = state.assignments.map(a => {
+                const completion = a.completions.find(c => c.studentId === state.student.studentId); // Use studentId for lookup
                 const isCompleted = !!completion;
-                const completionDate = isCompleted ? new Date(completion.completedAt).toLocaleDateString() : 'N/A';
+                const completionDate = isCompleted ? new Date(completion.completedAt).toLocaleDateString() : 'Not Completed';
                 const score = isCompleted ? (completion.score || 0) : 0;
                 
                 return `
@@ -504,147 +144,130 @@
                                 ${isCompleted ? `<span class="text-xs text-gray-500 font-bold">Score: ${score}/4</span>` : ''}
                             </div>
                         </div>
-                        <div class="flex items-center space-x-2">
-                            <div class="flex space-x-2 p-2 rounded-lg bg-white shadow-inner">
-                                <label class="flex items-center space-x-1 cursor-pointer text-gray-700 font-medium">
-                                    <input type="checkbox" onchange="handleScoreAssignment('${a.id}', '${selectedStudent.studentId}', 1, this.checked)" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" ${score >= 1 ? 'checked' : ''}>
-                                    <span>1</span>
-                                </label>
-                                <label class="flex items-center space-x-1 cursor-pointer text-gray-700 font-medium">
-                                    <input type="checkbox" onchange="handleScoreAssignment('${a.id}', '${selectedStudent.studentId}', 2, this.checked)" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" ${score >= 2 ? 'checked' : ''}>
-                                    <span>2</span>
-                                </label>
-                                <label class="flex items-center space-x-1 cursor-pointer text-gray-700 font-medium">
-                                    <input type="checkbox" onchange="handleScoreAssignment('${a.id}', '${selectedStudent.studentId}', 3, this.checked)" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" ${score >= 3 ? 'checked' : ''}>
-                                    <span>3</span>
-                                </label>
-                                <label class="flex items-center space-x-1 cursor-pointer text-gray-700 font-medium">
-                                    <input type="checkbox" onchange="handleScoreAssignment('${a.id}', '${selectedStudent.studentId}', 4, this.checked)" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" ${score >= 4 ? 'checked' : ''}>
-                                    <span>4</span>
-                                </label>
-                            </div>
-                        </div>
                     </div>
                 `;
-            }).join('') : '';
-
-            const assignmentsSection = selectedStudent ? `
-                <div class="space-y-4">
-                    ${selectedStudent.helpRequested ? `
-                        <button onclick="handleAcknowledgeHelp('${selectedStudent.id}')"
-                            class="w-full bg-green-500 text-white py-3 rounded-lg font-bold text-lg hover:bg-green-600 transition-colors duration-200 shadow-lg ${state.isProcessing ? 'opacity-50 cursor-not-allowed' : ''}"
-                            ${state.isProcessing ? 'disabled' : ''}>
-                            Acknowledge Help Request
-                        </button>
-                    ` : ''}
-                    <button onclick="handleCopyLink('${selectedStudent.studentId}')"
-                        class="w-full bg-blue-500 text-white py-3 rounded-lg font-bold text-lg hover:bg-blue-600 transition-colors duration-200 shadow-lg mt-4">
-                        Share Student Link
-                    </button>
-                    ${state.instructorAssignments.length > 0 ? assignmentsList : `
-                         <div class="text-center py-10 text-gray-500">
-                            <p>No assignments to display for ${selectedStudent.name}.</p>
-                         </div>
-                    `}
-                </div>
-            ` : `
-                <div class="text-center py-10 text-gray-500">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a5.25 5.25 0 017.424 7.424L12 18.001l-1.414 1.414a2 2 0 01-2.828-2.828L12 11.172l3.232-3.232a2 2 0 012.828 0z" />
-                    </svg>
-                    <p class="mt-2 font-medium">Click on a student to see their assignments.</p>
-                </div>
-            `;
+            }).join('');
             
             app.innerHTML = `
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <!-- Column 1: Add New Assignment and Student -->
-                    <div class="bg-white p-8 rounded-2xl shadow-lg lg:col-span-1 border border-gray-100 h-fit">
-                        <h2 class="text-2xl font-bold text-blue-800 mb-6">Add New Assignment</h2>
-                        <form id="add-assignment-form" onsubmit="handleFormSubmit(event)">
-                            <div class="mb-4">
-                                <label for="titles" class="block text-gray-700 font-semibold mb-2">Paste Assignment Titles</label>
-                                <textarea id="titles" name="titles" rows="6" placeholder="Paste assignment titles here, one per line."
-                                           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
-                            </div>
-                            <div class="mb-6">
-                                <label for="dueDate" class="block text-gray-700 font-semibold mb-2">Due Date</label>
-                                <input type="date" id="dueDate" name="dueDate"
-                                       class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                            </div>
-                            <button type="submit" 
-                                class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-blue-700 transition-colors duration-200 shadow-lg ${state.isProcessing ? 'opacity-50 cursor-not-allowed' : ''}"
-                                ${state.isProcessing ? 'disabled' : ''}>
-                                ${state.isProcessing ? 'Adding...' : 'Add Assignment'}
-                            </button>
-                        </form>
-                        
-                        <div class="mt-8 pt-6 border-t border-gray-200">
-                            <h2 class="text-2xl font-bold text-blue-800 mb-6">Add Students & Seats</h2>
-                            <form id="add-students-form" onsubmit="handleAddStudents(event)">
-                                <div class="mb-4">
-                                    <label for="studentData" class="block text-gray-700 font-semibold mb-2">Paste Student Name & ID#</label>
-                                    <textarea id="studentData" name="studentData" rows="6" placeholder="Name, ID# (one student per line)"
-                                           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
-                                </div>
-                                <button type="submit" 
-                                    class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-blue-700 transition-colors duration-200 shadow-lg ${state.isProcessing ? 'opacity-50 cursor-not-allowed' : ''}"
-                                    ${state.isProcessing ? 'disabled' : ''}>
-                                    ${state.isProcessing ? 'Adding...' : 'Add Students'}
-                                </button>
-                            </form>
-                            <button onclick="handleAddEmptySeat()"
-                                class="w-full bg-gray-400 text-white py-3 mt-4 rounded-lg font-bold text-lg hover:bg-gray-500 transition-colors duration-200 shadow-lg ${state.isProcessing ? 'opacity-50 cursor-not-allowed' : ''}"
-                                ${state.isProcessing ? 'disabled' : ''}>
-                                ${state.isProcessing ? 'Adding...' : 'Add Empty Seat'}
-                            </button>
-                        </div>
+                <div class="space-y-6">
+                    <div class="flex justify-between items-center bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
+                        <h2 class="text-2xl font-bold text-blue-800">Hello, ${state.student.name}!</h2>
                     </div>
-                    
-                    <!-- Column 2 & 3: Class Layout and Assignments -->
-                    <div class="lg:col-span-2 space-y-6">
-                        <div class="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
-                            <div class="flex justify-between items-center mb-6">
-                                <h2 class="text-2xl font-bold text-blue-800">Class Layout</h2>
-                                <div class="flex items-center space-x-4">
-                                    <label for="sort-select" class="text-gray-700 font-medium text-sm">Sort by:</label>
-                                    <select id="sort-select" onchange="handleSortChange(event)" class="px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                                        <option value="seat" ${state.sortOrder === 'seat' ? 'selected' : ''}>Assigned Seat</option>
-                                        <option value="alphabetical" ${state.sortOrder === 'alphabetical' ? 'selected' : ''}>Alphabetical</option>
-                                    </select>
-                                </div>
+                    <div class="bg-gray-50 p-6 rounded-lg shadow-sm border border-gray-200 text-center">
+                        <h3 class="text-xl font-semibold mb-4 text-gray-700">Need Help?</h3>
+                        <button onclick="handleRequestHelp()" class="bg-red-500 text-white py-3 px-6 rounded-lg font-bold text-lg hover:bg-red-600 transition-colors duration-200 shadow-lg ${helpRequested ? 'opacity-50 cursor-not-allowed' : ''}" ${helpRequested ? 'disabled' : ''}>
+                            Request Help
+                        </button>
+                        <p class="mt-2 text-sm text-gray-500">${helpRequested ? 'Your request has been sent!' : ''}</p>
+                    </div>
+                    <div class="space-y-4">
+                        ${state.assignments.length > 0 ? assignmentsList : `
+                            <div class="text-center py-10 text-gray-500">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 002 2h4a2 2 0 002-2v-4a2 2 0 012-2h2a2 2 0 012 2v6m-12 5h14a2 2 0 002-2v-2a2 2 0 00-2-2h-2a2 2 0 01-2-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 01-2 2H5a2 2 0 00-2 2v2a2 2 0 002 2z" />
+                                </svg>
+                                <p class="mt-2 text-gray-500 font-medium">No assignments for you.</p>
                             </div>
-                            <div class="grid grid-cols-6 gap-4">
-                                ${state.students.length > 0 ? studentGrid : `
-                                     <div class="col-span-6 text-center py-10 text-gray-500">
-                                         <p>No students have been added yet.</p>
-                                     </div>
-                                `}
-                            </div>
-                        </div>
-                        <div class="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
-                            <h2 class="text-2xl font-bold text-blue-800 mb-6">${selectedStudent ? `${selectedStudent.name}'s Assignments` : 'Assignments'}</h2>
-                            ${assignmentsSection}
-                        </div>
+                        `}
                     </div>
                 </div>
             `;
         };
         
-        window.handleFormSubmit = handleFormSubmit;
-        window.handleAddStudents = handleAddStudents;
-        window.handleAddEmptySeat = handleAddEmptySeat;
-        window.handleScoreAssignment = handleScoreAssignment;
-        window.handleDeleteAssignment = handleDeleteAssignment;
-        window.handleAcknowledgeHelp = handleAcknowledgeHelp;
-        window.handleStudentClick = handleStudentClick;
-        window.handleSortChange = handleSortChange;
-        window.handleDragStart = handleDragStart;
-        window.handleDragOver = handleDragOver;
-        window.handleDrop = handleDrop;
-        window.handleCopyLink = handleCopyLink;
+        const handleLogin = async (event) => {
+            event.preventDefault();
+            if (state.isProcessing) return;
+            state.isProcessing = true;
+            renderUI();
 
-        document.addEventListener('DOMContentLoaded', renderUI);
+            const studentName = event.target.studentName.value;
+            const studentId = event.target.studentId.value;
+            
+            try {
+                // Find the instructor's user ID (this assumes a collaboration context)
+                // In a real-world app, you'd need a way to look up the instructor.
+                const instructorId = window.parent.__app_owner_id;
+
+                const studentsRef = collection(db, `artifacts/${appId}/users/${instructorId}/students`);
+                const q = query(studentsRef, where("studentId", "==", studentId), where("name", "==", studentName));
+                const querySnapshot = await getDocs(q);
+
+                if (!querySnapshot.empty) {
+                    const studentDoc = querySnapshot.docs[0];
+                    state.student = { id: studentDoc.id, ...studentDoc.data() };
+                    state.instructorUserId = instructorId;
+                    startStudentListeners();
+                    showMessage("Login successful!");
+                } else {
+                    showMessage("Login failed. Please check your name and ID.");
+                }
+            } catch (error) {
+                console.error("Login error:", error);
+                showMessage("An error occurred during login.");
+            } finally {
+                state.isProcessing = false;
+                renderUI();
+            }
+        };
+
+        const startStudentListeners = () => {
+            const assignmentsRef = collection(db, `artifacts/${appId}/users/${state.instructorUserId}/assignments`);
+            onSnapshot(assignmentsRef, (snapshot) => {
+                const assignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                state.assignments = assignments;
+                renderUI();
+            });
+
+            const studentsRef = doc(db, `artifacts/${appId}/users/${state.instructorUserId}/students`, state.student.id);
+            onSnapshot(studentsRef, (docSnapshot) => {
+                if (docSnapshot.exists()) {
+                    state.student = { id: docSnapshot.id, ...docSnapshot.data() };
+                    renderUI();
+                }
+            });
+        };
+        
+        const handleRequestHelp = async () => {
+            if (state.isProcessing) return;
+            state.isProcessing = true;
+            
+            try {
+                const studentsRef = collection(db, `artifacts/${appId}/users/${state.instructorUserId}/students`);
+                const helpQueue = [];
+                const querySnapshot = await getDocs(studentsRef);
+                querySnapshot.forEach(doc => {
+                    const student = doc.data();
+                    if (student.helpRequested) {
+                        helpQueue.push(student);
+                    }
+                });
+
+                helpQueue.sort((a, b) => a.queuePosition - b.queuePosition);
+                const newQueuePosition = helpQueue.length > 0 ? helpQueue[helpQueue.length - 1].queuePosition + 1 : 1;
+
+                const studentDocRef = doc(db, `artifacts/${appId}/users/${state.instructorUserId}/students`, state.student.id);
+                await updateDoc(studentDocRef, {
+                    helpRequested: true,
+                    queuePosition: newQueuePosition,
+                });
+                showMessage("Help request sent!");
+            } catch (error) {
+                console.error("Error requesting help:", error);
+                showMessage("Error requesting help.");
+            } finally {
+                state.isProcessing = false;
+            }
+        };
+
+        const init = () => {
+            // Check if there's a logged-in user or a way to determine their identity.
+            // For this app, we simply render the login page.
+            renderUI();
+        };
+
+        window.handleLogin = handleLogin;
+        window.handleRequestHelp = handleRequestHelp;
+        document.addEventListener('DOMContentLoaded', init);
     </script>
     <style>
         body {
