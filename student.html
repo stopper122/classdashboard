@@ -8,7 +8,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, collection, query, where, addDoc, updateDoc, deleteDoc, getDoc, arrayUnion, arrayRemove, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, collection, query, where, addDoc, updateDoc, deleteDoc, getDoc, getDocs, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // IMPORTANT: These global variables are provided by the canvas environment.
@@ -141,31 +141,38 @@
         };
 
         const normalizeName = (name) => {
-            return name.trim().toLowerCase().replace(/[\W_]+/g, '').replace(/,/g, '');
+            return name.trim().toLowerCase().replace(/\s+/g, '').replace(/,/g, '');
         }
-
+        
         const handleLogin = async (event) => {
             event.preventDefault();
             const name = document.getElementById('student-name').value.trim();
             const studentId = document.getElementById('student-id').value.trim();
             const messageEl = document.getElementById('login-message');
-
+        
             if (!name || !studentId) {
                 messageEl.textContent = 'Please enter both name and student ID.';
                 return;
             }
-
+        
             try {
                 const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
                 const q = query(studentsRef, where("studentId", "==", studentId));
                 const querySnapshot = await getDocs(q);
-
+        
                 if (querySnapshot.empty) {
                     messageEl.textContent = 'Login failed. The ID you entered was not found.';
                 } else {
                     const studentDoc = querySnapshot.docs[0];
                     const dbName = studentDoc.data().name;
-                    if (normalizeName(dbName) === normalizeName(name)) {
+                    // Improved name comparison
+                    const typedNameParts = normalizeName(name).split('');
+                    const dbNameParts = normalizeName(dbName).split('');
+
+                    const matchCount = typedNameParts.filter(part => dbNameParts.includes(part)).length;
+                    const matchRatio = matchCount / Math.max(typedNameParts.length, dbNameParts.length);
+        
+                    if (matchRatio > 0.75) { // A threshold of 75% for a match
                         state.student = { id: studentDoc.id, ...studentDoc.data() };
                         state.isLoggedIn = true;
                         startDataListeners();
@@ -178,6 +185,7 @@
                 messageEl.textContent = 'An error occurred. Please try again.';
             }
         };
+
 
         const startDataListeners = async () => {
             if (!state.student) return;
@@ -200,32 +208,36 @@
 
         const handleHelpRequest = async (assignmentId, studentId) => {
             const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
-            const existingRequest = state.requests.find(r => r.assignmentId === assignmentId && r.studentId === studentId && r.type === 'help');
+            const existingRequest = state.requests.find(r => r.assignmentId === assignmentId && r.studentId === state.student.studentId && r.type === 'help');
             
             if (existingRequest) {
                 await deleteDoc(doc(db, `artifacts/${appId}/public/data/requests`, existingRequest.id));
             } else {
                  await addDoc(requestsRef, {
-                    studentId,
+                    studentId: state.student.studentId,
                     assignmentId,
                     type: 'help',
-                    timestamp: new Date().toISOString()
+                    timestamp: new Date().toISOString(),
+                    studentName: state.student.name,
+                    periodId: state.student.periodId
                 });
             }
         };
 
         const handleCheckRequest = async (assignmentId, studentId) => {
             const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
-            const existingRequest = state.requests.find(r => r.assignmentId === assignmentId && r.studentId === studentId && r.type === 'check');
+            const existingRequest = state.requests.find(r => r.assignmentId === assignmentId && r.studentId === state.student.studentId && r.type === 'check');
             
             if (existingRequest) {
                 await deleteDoc(doc(db, `artifacts/${appId}/public/data/requests`, existingRequest.id));
             } else {
                  await addDoc(requestsRef, {
-                    studentId,
+                    studentId: state.student.studentId,
                     assignmentId,
                     type: 'check',
-                    timestamp: new Date().toISOString()
+                    timestamp: new Date().toISOString(),
+                    studentName: state.student.name,
+                    periodId: state.student.periodId
                 });
             }
         };
