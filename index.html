@@ -413,32 +413,31 @@
             
             const lines = rosterText.split('\n').map(line => line.trim()).filter(line => line);
             const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
+            const promises = [];
             
             const existingStudentsCount = state.students.filter(s => s.periodId === state.selectedPeriodId && !s.isPlaceholder).length;
             const existingEmptySeatsCount = state.students.filter(s => s.periodId === state.selectedPeriodId && s.isPlaceholder).length;
 
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i];
-                const parts = line.split(',');
-                const studentId = parts.pop().trim();
-                const name = parts.join(',').trim();
-                
+                const lastCommaIndex = line.lastIndexOf(',');
+                let name = line.substring(0, lastCommaIndex).trim();
+                let studentId = line.substring(lastCommaIndex + 1).trim();
+
                 let firstName = '';
                 let lastName = '';
-                const nameParts = name.split(' ');
-                if (nameParts.length > 1) {
-                    firstName = nameParts[0];
-                    lastName = nameParts.slice(1).join(' ');
-                } else if (name.includes(',')) {
+                if (name.includes(',')) {
                     const commaParts = name.split(',').map(p => p.trim());
                     lastName = commaParts[0];
                     firstName = commaParts[1];
                 } else {
-                    firstName = name;
+                    const nameParts = name.split(' ');
+                    firstName = nameParts[0];
+                    lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
                 }
 
                 if (name && studentId) {
-                    await addDoc(studentsRef, {
+                    promises.push(addDoc(studentsRef, {
                         periodId: state.selectedPeriodId,
                         name,
                         firstName,
@@ -446,9 +445,10 @@
                         studentId,
                         seatOrder: existingStudentsCount + existingEmptySeatsCount + i,
                         isPlaceholder: false
-                    });
+                    }));
                 }
             }
+            await Promise.all(promises);
             document.getElementById('student-roster').value = '';
         };
 
