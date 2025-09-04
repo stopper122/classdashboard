@@ -8,7 +8,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, updateDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, updateDoc, collection, query, where, getDocs, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // IMPORTANT: These global variables are provided by the canvas environment.
@@ -38,6 +38,7 @@
             studentInfo: null,
             assignments: [],
             helpQueuePosition: null,
+            requests: [], // New state to store pending requests
             message: '',
             isProcessing: false,
         };
@@ -94,6 +95,15 @@
                 const filteredAssignments = assignments.filter(a => a.periodId === state.studentInfo?.periodId);
                 state.assignments = filteredAssignments;
                 sortAssignments();
+                renderUI();
+            });
+
+            // Listen to all help and check requests for this student
+            const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
+            const requestsQuery = query(requestsRef, where("studentId", "==", state.studentInfo.studentId));
+            onSnapshot(requestsQuery, (snapshot) => {
+                const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                state.requests = requests;
                 renderUI();
             });
         };
@@ -205,10 +215,35 @@
                 const isCompleted = !!completion;
                 const score = isCompleted ? (completion.score || 0) : 0;
                 
-                const helpBtnText = state.studentInfo.helpRequested ? `In Queue #${state.studentInfo.queuePosition}` : 'Request Help';
-                const helpBtnClasses = state.studentInfo.helpRequested ? 'bg-red-600 text-white' : 'bg-red-500 text-white';
-                const checkBtnText = state.studentInfo.checkRequested ? `In Queue #${state.studentInfo.queuePosition}` : 'Ready for Check';
-                const checkBtnClasses = state.studentInfo.checkRequested ? 'bg-blue-600 text-white' : 'bg-blue-500 text-white';
+                const pendingRequest = state.requests.find(r => r.assignmentId === a.id);
+                
+                let helpBtnText = 'Request Help';
+                let helpBtnClasses = 'bg-red-500 text-white hover:bg-red-600';
+                let checkBtnText = 'Ready for Check';
+                let checkBtnClasses = 'bg-blue-500 text-white hover:bg-blue-600';
+                let buttonAction = ``;
+
+                if (pendingRequest) {
+                    buttonAction = `onclick="handleCancelRequest('${pendingRequest.id}')"`;
+                    if (pendingRequest.type === 'help') {
+                        helpBtnText = `Cancel Help`;
+                        helpBtnClasses = 'bg-red-600 text-white hover:bg-red-700';
+                        checkBtnClasses = 'bg-gray-400 text-gray-800 cursor-not-allowed';
+                    } else if (pendingRequest.type === 'check') {
+                        checkBtnText = `Cancel Check`;
+                        checkBtnClasses = 'bg-blue-600 text-white hover:bg-blue-700';
+                        helpBtnClasses = 'bg-gray-400 text-gray-800 cursor-not-allowed';
+                    }
+                } else {
+                    helpBtnText = 'Request Help';
+                    helpBtnClasses = 'bg-red-500 text-white hover:bg-red-600';
+                    checkBtnText = 'Ready for Check';
+                    checkBtnClasses = 'bg-blue-500 text-white hover:bg-blue-600';
+                    buttonAction = '';
+                }
+
+                // Get pending requests of both types to disable buttons if any exist
+                const anyPendingRequests = state.requests.length > 0;
                 
                 return `
                     <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
@@ -222,16 +257,32 @@
                             </span>
                         </div>
                         <div class="flex flex-col space-y-2">
-                             <button onclick="handleHelpRequest('${a.id}', '${state.studentInfo.id}')"
-                                class="w-full ${helpBtnClasses} py-2 rounded-lg font-semibold hover:bg-red-600 transition-colors duration-200 ${state.studentInfo.helpRequested || state.studentInfo.checkRequested ? 'opacity-50 cursor-not-allowed' : ''}"
-                                ${state.studentInfo.helpRequested || state.studentInfo.checkRequested ? 'disabled' : ''}>
-                                ${helpBtnText}
-                             </button>
-                             <button onclick="handleCheckRequest('${a.id}', '${state.studentInfo.id}')"
-                                 class="w-full ${checkBtnClasses} py-2 rounded-lg font-semibold hover:bg-blue-600 transition-colors duration-200 ${state.studentInfo.helpRequested || state.studentInfo.checkRequested ? 'opacity-50 cursor-not-allowed' : ''}"
-                                 ${state.studentInfo.helpRequested || state.studentInfo.checkRequested ? 'disabled' : ''}>
-                                ${checkBtnText}
-                             </button>
+                             ${pendingRequest && pendingRequest.type === 'help' ? `
+                                 <button onclick="handleCancelRequest('${pendingRequest.id}')"
+                                     class="w-full ${helpBtnClasses} py-2 rounded-lg font-semibold transition-colors duration-200">
+                                     Cancel Help Request
+                                 </button>
+                                 <button disabled class="w-full bg-gray-400 text-gray-800 py-2 rounded-lg font-semibold cursor-not-allowed">
+                                    Ready for Check
+                                 </button>
+                             ` : pendingRequest && pendingRequest.type === 'check' ? `
+                                <button disabled class="w-full bg-gray-400 text-gray-800 py-2 rounded-lg font-semibold cursor-not-allowed">
+                                    Request Help
+                                </button>
+                                <button onclick="handleCancelRequest('${pendingRequest.id}')"
+                                    class="w-full ${checkBtnClasses} py-2 rounded-lg font-semibold transition-colors duration-200">
+                                    Cancel Check Request
+                                </button>
+                             ` : `
+                                <button onclick="handleHelpRequest('${a.id}', '${state.studentInfo.studentId}')"
+                                    class="w-full bg-red-500 text-white py-2 rounded-lg font-semibold hover:bg-red-600 transition-colors duration-200">
+                                    Request Help
+                                </button>
+                                <button onclick="handleCheckRequest('${a.id}', '${state.studentInfo.studentId}')"
+                                    class="w-full bg-blue-500 text-white py-2 rounded-lg font-semibold hover:bg-blue-600 transition-colors duration-200">
+                                    Ready for Check
+                                </button>
+                             `}
                         </div>
                     </div>
                 `;
@@ -241,13 +292,7 @@
                 <div class="p-6">
                     <div class="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 text-center mb-8">
                         <h2 class="text-3xl font-bold text-blue-800">Welcome, ${state.studentInfo.name}!</h2>
-                        ${state.helpQueuePosition !== null ? `
-                            <div class="mt-4 bg-red-500 text-white py-3 px-6 rounded-full font-bold shadow-md inline-block">
-                                You are #${state.helpQueuePosition} in the help queue.
-                            </div>
-                        ` : `
-                             <p class="mt-2 text-gray-500">Your current assignments are listed below.</p>
-                        `}
+                        <p class="mt-2 text-gray-500">Your current assignments are listed below.</p>
                     </div>
                     <div class="space-y-4">
                         ${state.assignments.length > 0 ? assignmentsList : `
@@ -260,23 +305,19 @@
             `;
         };
         
-        const handleHelpRequest = async (assignmentId, studentDocId) => {
+        const handleHelpRequest = async (assignmentId, studentId) => {
             if (state.isProcessing) return;
             state.isProcessing = true;
             showMessage("Requesting help...");
             
             try {
-                // Get current queue count
-                const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
-                const helpQueueQuery = query(studentsRef, where("helpRequested", "==", true));
-                const helpQueueSnapshot = await getDocs(helpQueueQuery);
-                const queueCount = helpQueueSnapshot.docs.length;
-                
-                const studentDocRef = doc(db, `artifacts/${appId}/public/data/students`, studentDocId);
-                await updateDoc(studentDocRef, {
-                    helpRequested: true,
-                    checkRequested: false, // Ensure checkRequested is false
-                    queuePosition: queueCount + 1,
+                const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
+                await addDoc(requestsRef, {
+                    studentId: studentId,
+                    assignmentId: assignmentId,
+                    type: 'help',
+                    timestamp: new Date().toISOString(),
+                    periodId: state.studentInfo.periodId,
                 });
             } catch (error) {
                 console.error("Error requesting help:", error);
@@ -286,26 +327,39 @@
             }
         };
 
-        const handleCheckRequest = async (assignmentId, studentDocId) => {
+        const handleCheckRequest = async (assignmentId, studentId) => {
              if (state.isProcessing) return;
             state.isProcessing = true;
             showMessage("Requesting check...");
             
             try {
-                // Get current queue count
-                const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
-                const checkQueueQuery = query(studentsRef, where("checkRequested", "==", true));
-                const checkQueueSnapshot = await getDocs(checkQueueQuery);
-                const queueCount = checkQueueSnapshot.docs.length;
-                
-                const studentDocRef = doc(db, `artifacts/${appId}/public/data/students`, studentDocId);
-                await updateDoc(studentDocRef, {
-                    helpRequested: false, // Ensure helpRequested is false
-                    checkRequested: true,
-                    queuePosition: queueCount + 1,
+                const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
+                await addDoc(requestsRef, {
+                    studentId: studentId,
+                    assignmentId: assignmentId,
+                    type: 'check',
+                    timestamp: new Date().toISOString(),
+                    periodId: state.studentInfo.periodId,
                 });
             } catch (error) {
                 console.error("Error requesting check:", error);
+                showMessage("An error occurred. Please try again.");
+            } finally {
+                state.isProcessing = false;
+            }
+        };
+
+        const handleCancelRequest = async (requestId) => {
+            if (state.isProcessing) return;
+            state.isProcessing = true;
+            showMessage("Cancelling request...");
+
+            try {
+                const requestDocRef = doc(db, `artifacts/${appId}/public/data/requests`, requestId);
+                await deleteDoc(requestDocRef);
+                showMessage("Request cancelled.");
+            } catch (error) {
+                console.error("Error cancelling request:", error);
                 showMessage("An error occurred. Please try again.");
             } finally {
                 state.isProcessing = false;
@@ -345,6 +399,7 @@
 
         window.handleHelpRequest = handleHelpRequest;
         window.handleCheckRequest = handleCheckRequest;
+        window.handleCancelRequest = handleCancelRequest;
 
         document.addEventListener('DOMContentLoaded', renderUI);
     </script>
