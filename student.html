@@ -141,7 +141,8 @@
         };
 
         const normalizeName = (name) => {
-            return name.trim().toLowerCase().replace(/\s+/g, '').replace(/,/g, '');
+            const parts = name.trim().toLowerCase().split(/\s*,\s*|\s+/);
+            return parts.sort().join('');
         }
         
         const handleLogin = async (event) => {
@@ -166,16 +167,11 @@
                     const studentDoc = querySnapshot.docs[0];
                     const dbName = studentDoc.data().name;
                     // Improved name comparison
-                    const typedNameParts = normalizeName(name).split('');
-                    const dbNameParts = normalizeName(dbName).split('');
-
-                    const matchCount = typedNameParts.filter(part => dbNameParts.includes(part)).length;
-                    const matchRatio = matchCount / Math.max(typedNameParts.length, dbNameParts.length);
-        
-                    if (matchRatio > 0.75) { // A threshold of 75% for a match
+                    if (normalizeName(name) === normalizeName(dbName)) {
                         state.student = { id: studentDoc.id, ...studentDoc.data() };
                         state.isLoggedIn = true;
                         startDataListeners();
+                        renderUI(); // Re-render UI after successful login
                     } else {
                         messageEl.textContent = 'Login failed. The name does not match the provided ID.';
                     }
