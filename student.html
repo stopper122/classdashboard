@@ -7,21 +7,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, updateDoc, collection, query, where, getDocs, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, updateDoc, collection, getDocs, where, query, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // IMPORTANT: These global variables are provided by the canvas environment.
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        // const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-        setLogLevel('debug');
-
-        // --- START: PASTE YOUR FIREBASE CONFIG HERE ---
-        // You can find this by going to your Firebase project, clicking the gear icon
-        // next to "Project overview," selecting "Project settings," and then scrolling down to
-        // "Your apps."
         const firebaseConfig = {
   apiKey: "AIzaSyBX96xDY5ThDAZn-SckmsnfynMnQjvUc2I",
   authDomain: "helprequest-469c0.firebaseapp.com",
@@ -30,376 +19,204 @@
   messagingSenderId: "1092775554304",
   appId: "1:1092775554304:web:e771c3ebac1e6ba4f597e5"
 };
-        // --- END: PASTE YOUR FIREBASE CONFIG HERE ---
 
-        let auth, db;
+        setLogLevel('debug');
+
+        let db;
         let state = {
-            view: 'login',
-            studentInfo: null,
+            student: null,
             assignments: [],
-            helpQueuePosition: null,
-            requests: [], // New state to store pending requests
+            requests: [],
             message: '',
             isProcessing: false,
         };
 
         const app = initializeApp(firebaseConfig);
         db = getFirestore(app);
-        auth = getAuth(app);
 
-        // Sign in user anonymously to access public data
-        const signIn = async () => {
-            try {
-                await signInAnonymously(auth);
-            } catch (error) {
-                console.error("Authentication error:", error);
-                showMessage("Authentication failed. Please refresh the page.");
-            }
-        };
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlStudentId = urlParams.get('studentId');
 
-        auth.onAuthStateChanged(async (user) => {
-            if (user) {
-                const urlParams = new URLSearchParams(window.location.search);
-                const studentId = urlParams.get('studentId');
-                
-                if (studentId) {
-                    state.view = 'student_dashboard';
-                    await startDataListeners(studentId);
-                } else {
-                    state.view = 'login';
-                }
-            } else {
-                await signIn();
-            }
-            renderUI();
-        });
-
-        const startDataListeners = async (studentId) => {
-            // Listen to student info
-            const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
-            const studentQuery = query(studentsRef, where("studentId", "==", studentId));
-            onSnapshot(studentQuery, (snapshot) => {
-                if (!snapshot.empty) {
-                    state.studentInfo = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
-                    state.helpQueuePosition = state.studentInfo.queuePosition;
-                } else {
-                    state.studentInfo = null;
-                    showMessage("Invalid student ID.");
-                }
-                renderUI();
-            });
-
-            // Listen to assignments for the student's period
-            onSnapshot(collection(db, `artifacts/${appId}/public/data/assignments`), (snapshot) => {
-                const assignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                const filteredAssignments = assignments.filter(a => a.periodId === state.studentInfo?.periodId);
-                state.assignments = filteredAssignments;
-                sortAssignments();
-                renderUI();
-            });
-
-            // Listen to all help and check requests for this student
-            const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
-            const requestsQuery = query(requestsRef, where("studentId", "==", state.studentInfo.studentId));
-            onSnapshot(requestsQuery, (snapshot) => {
-                const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                state.requests = requests;
-                renderUI();
-            });
-        };
-
-        const sortAssignments = () => {
-             state.assignments.sort((a, b) => {
-                const dateA = a.dueDate ? new Date(a.dueDate) : new Date(0);
-                const dateB = b.dueDate ? new Date(b.dueDate) : new Date(0);
-                return dateA - dateB;
-            });
-        }
-        
         const renderUI = () => {
             const app = document.getElementById('app');
             app.innerHTML = '';
-            renderHeader();
-            renderMessage(state.message);
-            if (state.view === 'login') {
-                renderLogin();
-            } else if (state.view === 'student_dashboard') {
+            if (state.student) {
                 renderStudentDashboard();
+            } else {
+                renderLogin();
             }
         };
 
-        const renderHeader = () => {
-            const header = document.getElementById('header');
-            header.innerHTML = `
-                <div class="flex justify-between items-center py-4 px-6 bg-white shadow-md rounded-b-xl">
-                    <h1 class="text-3xl font-extrabold text-blue-800 tracking-tight">Student Portal</h1>
-                </div>
-            `;
-        }
-        
         const renderLogin = () => {
             const app = document.getElementById('app');
             app.innerHTML = `
-                <div class="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
-                    <div class="bg-white p-8 rounded-2xl shadow-lg w-full max-w-sm">
-                        <h2 class="text-2xl font-bold text-center text-blue-800 mb-6">Student Login</h2>
+                <div class="flex items-center justify-center min-h-screen bg-gray-100">
+                    <div class="p-8 bg-white rounded-xl shadow-lg w-full max-w-md text-center">
+                        <h2 class="text-3xl font-bold text-blue-800 mb-6">Student Login</h2>
                         <form id="login-form" class="space-y-4">
                             <div>
-                                <label for="studentName" class="block text-gray-700 font-semibold mb-2">Full Name</label>
-                                <input type="text" id="studentName" name="studentName" required
-                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <input type="text" id="student-name" placeholder="Full Name" required
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                             </div>
                             <div>
-                                <label for="studentId" class="block text-gray-700 font-semibold mb-2">Student ID</label>
-                                <input type="text" id="studentId" name="studentId" required
-                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <input type="text" id="student-id" placeholder="Student ID" required
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                             </div>
-                            <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-blue-700 transition-colors duration-200 shadow-lg">
+                            <button type="submit" class="w-full bg-blue-600 text-white font-bold py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">
                                 Login
                             </button>
                         </form>
-                        <p id="login-message" class="text-center text-sm text-red-500 mt-4"></p>
+                        <p id="login-message" class="mt-4 text-sm text-red-500"></p>
                     </div>
                 </div>
             `;
             document.getElementById('login-form').addEventListener('submit', handleLogin);
         };
-        
-        const handleLogin = async (event) => {
-            event.preventDefault();
-            const form = event.target;
-            const studentName = form.elements['studentName'].value.trim();
-            const studentId = form.elements['studentId'].value.trim();
-            const messageEl = document.getElementById('login-message');
-            
-            if (!studentName || !studentId) {
-                messageEl.textContent = "Please enter both name and ID.";
-                return;
-            }
 
-            try {
-                const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
-                const q = query(studentsRef, where("name", "==", studentName), where("studentId", "==", studentId));
-                const querySnapshot = await getDocs(q);
-
-                if (!querySnapshot.empty) {
-                    const studentDoc = querySnapshot.docs[0];
-                    const periodId = studentDoc.data().periodId;
-                    
-                    if (!periodId) {
-                        messageEl.textContent = "Your account is not assigned to a period. Please contact your instructor.";
-                        return;
-                    }
-
-                    const newUrl = new URL(window.location.href);
-                    newUrl.searchParams.set('studentId', studentId);
-                    window.location.href = newUrl.href;
-                } else {
-                    messageEl.textContent = "Invalid name or ID. Please try again.";
-                }
-            } catch (error) {
-                console.error("Login error:", error);
-                messageEl.textContent = "An error occurred during login. Please try again later.";
-            }
-        };
-        
         const renderStudentDashboard = () => {
-            if (!state.studentInfo) {
-                renderLoading();
-                return;
-            }
-            
             const app = document.getElementById('app');
-            const assignmentsList = state.assignments.map(a => {
-                const completion = a.completions.find(c => c.studentId === state.studentInfo.studentId);
-                const isCompleted = !!completion;
-                const score = isCompleted ? (completion.score || 0) : 0;
-                
-                const pendingRequest = state.requests.find(r => r.assignmentId === a.id);
-                
-                let helpBtnText = 'Request Help';
-                let helpBtnClasses = 'bg-red-500 text-white hover:bg-red-600';
-                let checkBtnText = 'Ready for Check';
-                let checkBtnClasses = 'bg-blue-500 text-white hover:bg-blue-600';
-                let buttonAction = ``;
+            const studentName = state.student ? state.student.name : 'Student';
+            app.innerHTML = `
+                <div class="flex flex-col min-h-screen bg-gray-100 p-4">
+                    <div class="bg-white p-6 rounded-xl shadow-lg mb-4">
+                        <div class="flex justify-between items-center">
+                            <h2 class="text-3xl font-extrabold text-blue-800">${studentName}'s Dashboard</h2>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-lg flex-grow">
+                        <h3 class="text-2xl font-bold text-blue-800 mb-4">My Assignments</h3>
+                        <div id="assignments-list" class="space-y-4">
+                            <!-- Assignments will be rendered here -->
+                        </div>
+                    </div>
+                </div>
+            `;
+            renderAssignments();
+        };
 
-                if (pendingRequest) {
-                    buttonAction = `onclick="handleCancelRequest('${pendingRequest.id}')"`;
-                    if (pendingRequest.type === 'help') {
-                        helpBtnText = `Cancel Help`;
-                        helpBtnClasses = 'bg-red-600 text-white hover:bg-red-700';
-                        checkBtnClasses = 'bg-gray-400 text-gray-800 cursor-not-allowed';
-                    } else if (pendingRequest.type === 'check') {
-                        checkBtnText = `Cancel Check`;
-                        checkBtnClasses = 'bg-blue-600 text-white hover:bg-blue-700';
-                        helpBtnClasses = 'bg-gray-400 text-gray-800 cursor-not-allowed';
-                    }
+        const renderAssignments = () => {
+            const assignmentsList = document.getElementById('assignments-list');
+            if (!assignmentsList) return;
+            
+            const helpRequests = state.requests.filter(r => r.type === 'help').sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            const checkRequests = state.requests.filter(r => r.type === 'check').sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+            assignmentsList.innerHTML = state.assignments.map(a => {
+                const completion = a.completions.find(c => c.studentId === state.student.studentId);
+                const score = completion ? (completion.score || 0) : null;
+                const isCompleted = completion !== undefined;
+                
+                const helpRequest = state.requests.find(r => r.studentId === state.student.studentId && r.assignmentId === a.id && r.type === 'help');
+                const checkRequest = state.requests.find(r => r.studentId === state.student.studentId && r.assignmentId === a.id && r.type === 'check');
+                
+                let buttonHtml = '';
+                if (helpRequest) {
+                     const position = helpRequests.findIndex(r => r.id === helpRequest.id) + 1;
+                    buttonHtml = `
+                        <button onclick="handleCancelRequest('${helpRequest.id}')" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 transition-colors duration-200 text-sm">
+                            Cancel Help (#${position})
+                        </button>
+                    `;
+                } else if (checkRequest) {
+                    const position = checkRequests.findIndex(r => r.id === checkRequest.id) + 1;
+                    buttonHtml = `
+                        <button onclick="handleCancelRequest('${checkRequest.id}')" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors duration-200 text-sm">
+                            Cancel Check (#${position})
+                        </button>
+                    `;
                 } else {
-                    helpBtnText = 'Request Help';
-                    helpBtnClasses = 'bg-red-500 text-white hover:bg-red-600';
-                    checkBtnText = 'Ready for Check';
-                    checkBtnClasses = 'bg-blue-500 text-white hover:bg-blue-600';
-                    buttonAction = '';
+                    buttonHtml = `
+                        <button onclick="handleRequest('help', '${a.id}')" class="bg-red-200 text-red-800 font-bold py-2 px-4 rounded-lg hover:bg-red-300 transition-colors duration-200 text-sm">
+                            Request Help
+                        </button>
+                        <button onclick="handleRequest('check', '${a.id}')" class="bg-blue-200 text-blue-800 font-bold py-2 px-4 rounded-lg hover:bg-blue-300 transition-colors duration-200 text-sm">
+                            Ready for Check
+                        </button>
+                    `;
                 }
 
-                // Get pending requests of both types to disable buttons if any exist
-                const anyPendingRequests = state.requests.length > 0;
-                
                 return `
-                    <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-                        <div class="flex justify-between items-center mb-4">
-                            <div>
-                                <h3 class="font-bold text-lg text-blue-800">${a.title}</h3>
-                                <p class="text-sm text-gray-500">Due: ${a.dueDate ? new Date(a.dueDate).toLocaleDateString() : 'N/A'}</p>
-                            </div>
-                            <span class="text-sm font-semibold ${isCompleted ? 'text-green-600' : 'text-red-500'}">
-                                Status: ${isCompleted ? `Completed (${score}/4)` : 'Pending'}
-                            </span>
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center">
+                        <div>
+                            <p class="font-semibold text-gray-700">${a.title}</p>
+                            ${isCompleted ? `<p class="text-sm text-gray-500">Status: Completed - Score: ${score || 'N/A'}</p>` : `<p class="text-sm text-gray-500">Status: In Progress</p>`}
                         </div>
-                        <div class="flex flex-col space-y-2">
-                             ${pendingRequest && pendingRequest.type === 'help' ? `
-                                 <button onclick="handleCancelRequest('${pendingRequest.id}')"
-                                     class="w-full ${helpBtnClasses} py-2 rounded-lg font-semibold transition-colors duration-200">
-                                     Cancel Help Request
-                                 </button>
-                                 <button disabled class="w-full bg-gray-400 text-gray-800 py-2 rounded-lg font-semibold cursor-not-allowed">
-                                    Ready for Check
-                                 </button>
-                             ` : pendingRequest && pendingRequest.type === 'check' ? `
-                                <button disabled class="w-full bg-gray-400 text-gray-800 py-2 rounded-lg font-semibold cursor-not-allowed">
-                                    Request Help
-                                </button>
-                                <button onclick="handleCancelRequest('${pendingRequest.id}')"
-                                    class="w-full ${checkBtnClasses} py-2 rounded-lg font-semibold transition-colors duration-200">
-                                    Cancel Check Request
-                                </button>
-                             ` : `
-                                <button onclick="handleHelpRequest('${a.id}', '${state.studentInfo.studentId}')"
-                                    class="w-full bg-red-500 text-white py-2 rounded-lg font-semibold hover:bg-red-600 transition-colors duration-200">
-                                    Request Help
-                                </button>
-                                <button onclick="handleCheckRequest('${a.id}', '${state.studentInfo.studentId}')"
-                                    class="w-full bg-blue-500 text-white py-2 rounded-lg font-semibold hover:bg-blue-600 transition-colors duration-200">
-                                    Ready for Check
-                                </button>
-                             `}
+                        <div class="flex space-x-2">
+                            ${buttonHtml}
                         </div>
                     </div>
                 `;
             }).join('');
-            
-            app.innerHTML = `
-                <div class="p-6">
-                    <div class="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 text-center mb-8">
-                        <h2 class="text-3xl font-bold text-blue-800">Welcome, ${state.studentInfo.name}!</h2>
-                        <p class="mt-2 text-gray-500">Your current assignments are listed below.</p>
-                    </div>
-                    <div class="space-y-4">
-                        ${state.assignments.length > 0 ? assignmentsList : `
-                            <div class="text-center py-10 text-gray-500">
-                                <p>You have no assignments to display for this period.</p>
-                            </div>
-                        `}
-                    </div>
-                </div>
-            `;
         };
         
-        const handleHelpRequest = async (assignmentId, studentId) => {
-            if (state.isProcessing) return;
-            state.isProcessing = true;
-            showMessage("Requesting help...");
-            
-            try {
-                const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
-                await addDoc(requestsRef, {
-                    studentId: studentId,
-                    assignmentId: assignmentId,
-                    type: 'help',
-                    timestamp: new Date().toISOString(),
-                    periodId: state.studentInfo.periodId,
-                });
-            } catch (error) {
-                console.error("Error requesting help:", error);
-                showMessage("An error occurred. Please try again.");
-            } finally {
-                state.isProcessing = false;
+        const handleLogin = async (event) => {
+            event.preventDefault();
+            const name = document.getElementById('student-name').value.trim();
+            const studentId = document.getElementById('student-id').value.trim();
+            const messageDiv = document.getElementById('login-message');
+
+            if (!name || !studentId) {
+                messageDiv.textContent = 'Please enter both name and student ID.';
+                return;
+            }
+
+            const q = query(collection(db, `artifacts/${appId}/public/data/students`), where("name", "==", name), where("studentId", "==", studentId));
+            const studentDocs = await getDocs(q);
+
+            if (studentDocs.empty) {
+                messageDiv.textContent = 'Invalid name or student ID. Please try again.';
+            } else {
+                state.student = studentDocs.docs[0].data();
+                state.student.docId = studentDocs.docs[0].id; // Store doc ID for updates
+                await startDataListeners();
+                renderUI();
             }
         };
 
-        const handleCheckRequest = async (assignmentId, studentId) => {
-             if (state.isProcessing) return;
-            state.isProcessing = true;
-            showMessage("Requesting check...");
-            
-            try {
-                const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
-                await addDoc(requestsRef, {
-                    studentId: studentId,
-                    assignmentId: assignmentId,
-                    type: 'check',
-                    timestamp: new Date().toISOString(),
-                    periodId: state.studentInfo.periodId,
-                });
-            } catch (error) {
-                console.error("Error requesting check:", error);
-                showMessage("An error occurred. Please try again.");
-            } finally {
-                state.isProcessing = false;
-            }
+        const startDataListeners = async () => {
+             // Listen for assignments
+            const assignmentsRef = collection(db, `artifacts/${appId}/public/data/assignments`);
+            onSnapshot(assignmentsRef, (snapshot) => {
+                state.assignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderUI();
+            });
+
+            // Listen for requests
+            const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
+            onSnapshot(requestsRef, (snapshot) => {
+                state.requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderUI();
+            });
         };
 
+        const handleRequest = async (type, assignmentId) => {
+            if (!state.student) return;
+
+            const existingRequests = state.requests.filter(r => r.studentId === state.student.studentId);
+            const isRequestExist = existingRequests.some(r => r.assignmentId === assignmentId && r.type === type);
+
+            if (!isRequestExist) {
+                 await addDoc(collection(db, `artifacts/${appId}/public/data/requests`), {
+                    studentId: state.student.studentId,
+                    assignmentId: assignmentId,
+                    type: type,
+                    timestamp: new Date().toISOString(),
+                });
+            }
+        };
+        
         const handleCancelRequest = async (requestId) => {
-            if (state.isProcessing) return;
-            state.isProcessing = true;
-            showMessage("Cancelling request...");
-
-            try {
-                const requestDocRef = doc(db, `artifacts/${appId}/public/data/requests`, requestId);
-                await deleteDoc(requestDocRef);
-                showMessage("Request cancelled.");
-            } catch (error) {
-                console.error("Error cancelling request:", error);
-                showMessage("An error occurred. Please try again.");
-            } finally {
-                state.isProcessing = false;
-            }
+             await deleteDoc(doc(db, `artifacts/${appId}/public/data/requests`, requestId));
         };
 
-        const renderMessage = (message) => {
-            const messageDiv = document.getElementById('message');
-            messageDiv.innerHTML = '';
-            if (message) {
-                messageDiv.innerHTML = `
-                    <div class="fixed top-20 left-1/2 -translate-x-1/2 bg-blue-500 text-white px-6 py-3 rounded-full shadow-lg z-50 transition-all duration-300 transform scale-100">
-                        ${message}
-                    </div>
-                `;
-                setTimeout(() => {
-                    messageDiv.innerHTML = '';
-                    state.message = '';
-                }, 3000);
-            }
-        };
-
-        const showMessage = (message) => {
-            state.message = message;
-            renderMessage(message);
-        };
-        
-        const renderLoading = () => {
-            const app = document.getElementById('app');
-            app.innerHTML = `
-                <div class="flex flex-col items-center justify-center min-h-screen">
-                    <div class="w-16 h-16 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div>
-                    <p class="mt-4 text-gray-600">Loading...</p>
-                </div>
-            `;
-        };
-
-        window.handleHelpRequest = handleHelpRequest;
-        window.handleCheckRequest = handleCheckRequest;
+        window.handleLogin = handleLogin;
+        window.handleRequest = handleRequest;
         window.handleCancelRequest = handleCancelRequest;
+
+        if (urlStudentId) {
+            // Optional: Auto-login based on URL for a simpler flow if preferred
+            // This part is currently not active in the UI, but the logic is here.
+        }
 
         document.addEventListener('DOMContentLoaded', renderUI);
     </script>
@@ -412,8 +229,6 @@
     </style>
 </head>
 <body>
-    <header id="header"></header>
-    <div id="message"></div>
-    <main id="app" class="mt-6 md:mt-10"></main>
+    <div id="app"></div>
 </body>
 </html>
