@@ -383,6 +383,7 @@
                 const completion = a.completions.find(c => c.studentId === activeStudent.studentId);
                 const isCompleted = !!completion;
                 const score = isCompleted ? (completion.score || 0) : 0;
+                const isExcused = isCompleted && completion.isExcused;
                 
                 return `
                     <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center">
@@ -401,10 +402,21 @@
                                         <input type="checkbox" data-assignment-id="${a.id}" data-score="${s}"
                                             onclick="handleScoreUpdate(event, '${activeStudent.id}')"
                                             ${s <= score ? 'checked' : ''}
+                                            ${isExcused ? 'disabled' : ''}
                                             class="form-checkbox h-5 w-5 text-blue-600 rounded-md">
                                         <span class="ml-1 text-sm text-gray-700">${s}</span>
                                     </label>
                                 `).join('')}
+                                <label class="inline-flex items-center cursor-pointer ml-4">
+                                    <input type="checkbox" data-assignment-id="${a.id}" data-excused="true"
+                                        onclick="handleExcusedUpdate(event, '${activeStudent.id}')"
+                                        ${isExcused ? 'checked' : ''}
+                                        class="form-checkbox h-5 w-5 text-purple-600 rounded-md">
+                                    <span class="ml-1 text-sm text-gray-700">Excused</span>
+                                </label>
+                                <button onclick="handleClearUpdate(event, '${activeStudent.id}', '${a.id}')" class="text-sm text-gray-500 hover:text-red-500 ml-4">
+                                     Clear
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -615,27 +627,51 @@
             const newScore = parseInt(event.target.dataset.score, 10);
             
             const studentDocRef = doc(db, `artifacts/${appId}/public/data/students`, studentDocId);
-            const studentDoc = await getDoc(studentDocRef);
-            const currentStudentData = studentDoc.data();
-            const currentCompletions = currentStudentData.completions || [];
-
-            const existingCompletion = currentCompletions.find(c => c.assignmentId === assignmentId);
-            const currentScore = existingCompletion ? (existingCompletion.score || 0) : 0;
-
-            const finalScore = (currentScore === newScore) ? 0 : newScore;
-            
             const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
-
-            if (finalScore > 0) {
-                 await updateDoc(assignmentRef, {
-                    completions: arrayUnion({ studentId: currentStudentData.studentId, score: finalScore, dateCompleted: new Date().toISOString() })
-                });
-            } else {
-                 await updateDoc(assignmentRef, {
-                    completions: arrayRemove({ studentId: currentStudentData.studentId, score: currentScore, dateCompleted: existingCompletion.dateCompleted })
-                });
+            const assignmentDoc = await getDoc(assignmentRef);
+            let currentCompletions = assignmentDoc.data().completions || [];
+            
+            const existingCompletion = currentCompletions.find(c => c.studentId === studentDocId);
+            
+            if (existingCompletion) {
+                currentCompletions = currentCompletions.filter(c => c.studentId !== studentDocId);
             }
             
+            currentCompletions.push({ studentId: studentDocId, score: newScore, dateCompleted: new Date().toISOString(), isExcused: false });
+            await updateDoc(assignmentRef, { completions: currentCompletions });
+            renderUI();
+        };
+
+        const handleExcusedUpdate = async (event, studentDocId) => {
+            const assignmentId = event.target.dataset.assignmentId;
+            const isExcused = event.target.checked;
+            
+            const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
+            const assignmentDoc = await getDoc(assignmentRef);
+            let currentCompletions = assignmentDoc.data().completions || [];
+
+            const existingCompletion = currentCompletions.find(c => c.studentId === studentDocId);
+            
+            if (existingCompletion) {
+                currentCompletions = currentCompletions.filter(c => c.studentId !== studentDocId);
+            }
+            
+            if (isExcused) {
+                 currentCompletions.push({ studentId: studentDocId, score: null, dateCompleted: new Date().toISOString(), isExcused: true });
+            }
+           
+            await updateDoc(assignmentRef, { completions: currentCompletions });
+            renderUI();
+        };
+
+        const handleClearUpdate = async (event, studentDocId, assignmentId) => {
+            const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
+            const assignmentDoc = await getDoc(assignmentRef);
+            let currentCompletions = assignmentDoc.data().completions || [];
+
+            currentCompletions = currentCompletions.filter(c => c.studentId !== studentDocId);
+            
+            await updateDoc(assignmentRef, { completions: currentCompletions });
             renderUI();
         };
 
@@ -777,6 +813,8 @@
         window.handleDragStart = handleDragStart;
         window.handleAssignmentUpdate = handleAssignmentUpdate;
         window.handleDeleteAssignment = handleDeleteAssignment;
+        window.handleExcusedUpdate = handleExcusedUpdate;
+        window.handleClearUpdate = handleClearUpdate;
 
         document.addEventListener('DOMContentLoaded', renderUI);
     </script>
