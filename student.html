@@ -30,7 +30,7 @@
             requests: [],
             loading: true,
             loginMessage: '',
-            assignmentSortOption: 'assignmentOrder',
+            assignmentSortOption: 'assignmentOrderAsc',
             assignmentSortAscending: true,
         };
 
@@ -66,7 +66,7 @@
                 if (studentDoc) {
                     state.student = { id: studentDoc.id, ...studentDoc.data() };
                     state.loginMessage = '';
-                    startDataListeners();
+                    await startDataListeners();
                 } else {
                     state.loginMessage = 'Invalid Student ID. Please try again.';
                 }
@@ -95,15 +95,16 @@
         };
 
         const sortAssignments = () => {
-            const direction = state.assignmentSortAscending ? 1 : -1;
             const filteredAssignments = state.assignments;
-            if (state.assignmentSortOption === 'assignmentOrder') {
-                return filteredAssignments.sort((a,b) => direction * ((a.assignmentOrder || 0) - (b.assignmentOrder || 0)));
+            if (state.assignmentSortOption === 'assignmentOrderAsc') {
+                return filteredAssignments.sort((a,b) => (a.assignmentOrder || 0) - (b.assignmentOrder || 0));
+            } else if (state.assignmentSortOption === 'assignmentOrderDesc') {
+                return filteredAssignments.sort((a,b) => (b.assignmentOrder || 0) - (a.assignmentOrder || 0));
             } else if (state.assignmentSortOption === 'dueDate') {
                 return filteredAssignments.sort((a, b) => {
                     const dateA = a.dueDate ? new Date(a.dueDate).getTime() : 0;
                     const dateB = b.dueDate ? new Date(b.dueDate).getTime() : 0;
-                    return direction * (dateA - dateB);
+                    return dateA - dateB;
                 });
             }
             return filteredAssignments;
@@ -139,16 +140,16 @@
                             <span class="text-sm font-medium text-gray-700">Sort By:</span>
                             <div class="flex items-center space-x-2">
                                 <label class="inline-flex items-center">
-                                    <input type="radio" name="assignment-sort-option" value="assignmentOrder" class="form-radio" ${state.assignmentSortOption === 'assignmentOrder' ? 'checked' : ''}>
+                                    <input type="radio" name="assignment-sort-option" value="assignmentOrderAsc" class="form-radio" ${state.assignmentSortOption === 'assignmentOrderAsc' ? 'checked' : ''}>
                                     <span class="ml-2 text-gray-700">Number Ascending</span>
-                                </label>
-                                <label class="inline-flex items-center">
-                                    <input type="radio" name="assignment-sort-option" value="dueDate" class="form-radio" ${state.assignmentSortOption === 'dueDate' ? 'checked' : ''}>
-                                    <span class="ml-2 text-gray-700">Due Date</span>
                                 </label>
                                 <label class="inline-flex items-center">
                                     <input type="radio" name="assignment-sort-option" value="assignmentOrderDesc" class="form-radio" ${state.assignmentSortOption === 'assignmentOrderDesc' ? 'checked' : ''}>
                                     <span class="ml-2 text-gray-700">Number Descending</span>
+                                </label>
+                                <label class="inline-flex items-center">
+                                    <input type="radio" name="assignment-sort-option" value="dueDate" class="form-radio" ${state.assignmentSortOption === 'dueDate' ? 'checked' : ''}>
+                                    <span class="ml-2 text-gray-700">Due Date</span>
                                 </label>
                             </div>
                         </div>
@@ -210,16 +211,10 @@
             document.querySelectorAll('input[name="assignment-sort-option"]').forEach(radio => {
                 radio.addEventListener('change', (e) => {
                     state.assignmentSortOption = e.target.value;
-                    state.assignmentSortAscending = (e.target.value === 'assignmentOrder' || e.target.value === 'dueDate');
                     renderUI();
                 });
             });
             
-            document.getElementById('assignment-sort-order-toggle').addEventListener('change', (e) => {
-                state.assignmentSortAscending = !e.target.checked;
-                renderUI();
-            });
-
             window.handleRequest = async (assignmentId, type) => {
                 if (state.student) {
                     const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
@@ -269,7 +264,7 @@
                             <p id="login-message" class="mt-4 text-red-500">${state.loginMessage}</p>
                             <input type="text" id="student-id" placeholder="Your Student ID"
                                 class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <button type="submit" class="bg-red-600 text-white font-bold py-2 rounded-lg hover:bg-red-700 transition-colors duration-200">
+                            <button type="submit" class="bg-green-600 text-white font-bold py-2 rounded-lg hover:bg-green-700 transition-colors duration-200">
                                 Log In
                             </button>
                         </form>
