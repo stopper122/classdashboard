@@ -78,7 +78,7 @@
             renderUI();
         };
 
-        const startDataListeners = async () => {
+        const startDataListeners = () => {
             const publicDataPath = `artifacts/${appId}/public/data`;
 
             // Listen for assignments
@@ -164,7 +164,7 @@
                                 const checkRequest = state.requests.find(r => r.studentId === state.student.id && r.assignmentId === a.id && r.type === 'check');
                                 const helpQueuePosition = helpRequest ? state.requests.filter(r => r.type === 'help').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).findIndex(r => r.studentId === state.student.id && r.assignmentId === a.id) + 1 : null;
                                 const checkQueuePosition = checkRequest ? state.requests.filter(r => r.type === 'check').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).findIndex(r => r.studentId === state.student.id && r.assignmentId === a.id) + 1 : null;
-
+                                
                                 return `
                                     <div class="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200">
                                         <div class="flex items-center justify-between mb-2">
