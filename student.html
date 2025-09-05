@@ -100,11 +100,11 @@
                         ${statusBadge}
                     </div>
                     <div class="flex space-x-2 mt-4">
-                        <button class="flex-1 font-semibold text-sm py-1 px-2 rounded-lg transition-colors duration-200 ${helpButtonClasses}"
+                        <button class="flex-1 font-semibold text-xs py-1 px-2 rounded-lg transition-colors duration-200 ${helpButtonClasses}"
                                 onclick="handleRequest('help', '${a.id}')" ${hasHelpRequest || hasCheckRequest || isExcused ? 'disabled' : ''}>
                             ${hasHelpRequest ? `Help Requested (#${helpQueuePosition})` : 'Request Help'}
                         </button>
-                        <button class="flex-1 font-semibold text-sm py-1 px-2 rounded-lg transition-colors duration-200 ${checkButtonClasses}"
+                        <button class="flex-1 font-semibold text-xs py-1 px-2 rounded-lg transition-colors duration-200 ${checkButtonClasses}"
                                 onclick="handleRequest('check', '${a.id}')" ${hasCheckRequest || hasHelpRequest || isExcused ? 'disabled' : ''}>
                             ${hasCheckRequest ? `Check Requested (#${checkQueuePosition})` : 'Request Check'}
                         </button>
