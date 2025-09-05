@@ -1,298 +1,293 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Portal</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, collection, query, where, addDoc, updateDoc, deleteDoc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, collection, query, where, addDoc, updateDoc, deleteDoc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // IMPORTANT: These global variables are provided by the canvas environment.
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = {
-  apiKey: "AIzaSyBX96xDY5ThDAZn-SckmsnfynMnQjvUc2I",
-  authDomain: "helprequest-469c0.firebaseapp.com",
-  projectId: "helprequest-469c0",
-  storageBucket: "helprequest-469c0.firebasestorage.app",
-  messagingSenderId: "1092775554304",
-  appId: "1:1092775554304:web:e771c3ebac1e6ba4f597e5"
+        // IMPORTANT: These global variables are provided by the canvas environment.
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = {
+  apiKey: "AIzaSyBX96xDY5ThDAZn-SckmsnfynMnQjvUc2I",
+  authDomain: "helprequest-469c0.firebaseapp.com",
+  projectId: "helprequest-469c0",
+  storageBucket: "helprequest-469c0.firebasestorage.app",
+  messagingSenderId: "1092775554304",
+  appId: "1:1092775554304:web:e771c3ebac1e6ba4f597e5"
 };
-        setLogLevel('debug');
+        setLogLevel('debug');
 
-        let auth, db;
-        let state = {
-            student: null,
-            assignments: [],
-            requests: [],
-            loading: true,
-            loginMessage: '',
-            assignmentSortOption: 'assignmentOrderAsc',
-            assignmentSortAscending: true,
-        };
+        let auth, db;
+        let state = {
+            student: null,
+            assignments: [],
+            requests: [],
+            loading: true,
+            loginMessage: '',
+            assignmentSortOption: 'assignmentOrderAsc',
+            assignmentSortAscending: true,
+        };
 
-        const app = initializeApp(firebaseConfig);
-        db = getFirestore(app);
-        auth = getAuth(app);
+        const app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        auth = getAuth(app);
 
-        // Sign in anonymously to get a user ID
-        auth.onAuthStateChanged(async (user) => {
-            if (user) {
-                const params = new URLSearchParams(window.location.search);
-                const studentIdFromUrl = params.get('studentId');
-                if (studentIdFromUrl) {
-                    await handleLogin({ studentId: studentIdFromUrl });
-                }
-                state.loading = false;
-                renderUI();
-            } else {
-                await signInAnonymously(auth);
-            }
-        });
+        // Sign in anonymously to get a user ID
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                const params = new URLSearchParams(window.location.search);
+                const studentIdFromUrl = params.get('studentId');
+                if (studentIdFromUrl) {
+                    await handleLogin({ studentId: studentIdFromUrl });
+                }
+                state.loading = false;
+                renderUI();
+            } else {
+                await signInAnonymously(auth);
+            }
+        });
 
-        const handleLogin = async ({ studentId }) => {
-            state.loading = true;
-            renderUI();
-            const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
-            let q = query(studentsRef, where('studentId', '==', studentId));
+        const handleLogin = async ({ studentId }) => {
+            state.loading = true;
+            renderUI();
+            const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
+            let q = query(studentsRef, where('studentId', '==', studentId));
 
-            try {
-                const studentSnapshot = await getDocs(q);
-                const studentDoc = studentSnapshot.docs[0];
+            try {
+                const studentSnapshot = await getDocs(q);
+                const studentDoc = studentSnapshot.docs[0];
 
-                if (studentDoc) {
-                    state.student = { id: studentDoc.id, ...studentDoc.data() };
-                    state.loginMessage = '';
-                    startDataListeners();
-                } else {
-                    state.loginMessage = 'Invalid Student ID. Please try again.';
-                }
-            } catch (error) {
-                console.error("Login failed:", error);
-                state.loginMessage = 'Failed to connect. Please check your credentials and network connection.';
-            }
-            state.loading = false;
-            renderUI();
-        };
+                if (studentDoc) {
+                    state.student = { id: studentDoc.id, ...studentDoc.data() };
+                    state.loginMessage = '';
+                    startDataListeners();
+                } else {
+                    state.loginMessage = 'Invalid Student ID. Please try again.';
+                }
+            } catch (error) {
+                console.error("Login failed:", error);
+                state.loginMessage = 'Failed to connect. Please check your credentials and network connection.';
+            }
+            state.loading = false;
+            renderUI();
+        };
 
-        const startDataListeners = () => {
-            const publicDataPath = `artifacts/${appId}/public/data`;
+        const startDataListeners = () => {
+            const publicDataPath = `artifacts/${appId}/public/data`;
 
-            // Listen for assignments
-            onSnapshot(query(collection(db, `${publicDataPath}/assignments`), where('periodId', '==', state.student.periodId)), (snapshot) => {
-                state.assignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderUI();
-            });
+            // Listen for assignments
+            onSnapshot(query(collection(db, `${publicDataPath}/assignments`), where('periodId', '==', state.student.periodId)), (snapshot) => {
+                state.assignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderUI();
+            });
 
-            // Listen for requests
-            onSnapshot(collection(db, `${publicDataPath}/requests`), (snapshot) => {
-                state.requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderUI();
-            });
-        };
+            // Listen for requests
+            onSnapshot(collection(db, `${publicDataPath}/requests`), (snapshot) => {
+                state.requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderUI();
+            });
+        };
 
-        const sortAssignments = () => {
-            const filteredAssignments = state.assignments;
-            if (state.assignmentSortOption === 'assignmentOrderAsc') {
-                return filteredAssignments.sort((a,b) => (a.assignmentOrder || 0) - (b.assignmentOrder || 0));
-            } else if (state.assignmentSortOption === 'assignmentOrderDesc') {
-                return filteredAssignments.sort((a,b) => (b.assignmentOrder || 0) - (a.assignmentOrder || 0));
-            } else if (state.assignmentSortOption === 'dueDate') {
-                return filteredAssignments.sort((a, b) => {
-                    const dateA = a.dueDate ? new Date(a.dueDate).getTime() : 0;
-                    const dateB = b.dueDate ? new Date(b.dueDate).getTime() : 0;
-                    return dateA - dateB;
-                });
-            }
-            return filteredAssignments;
-        };
+        const sortAssignments = () => {
+            const filteredAssignments = state.assignments;
+            if (state.assignmentSortOption === 'assignmentOrderAsc') {
+                return filteredAssignments.sort((a,b) => (a.assignmentOrder || 0) - (b.assignmentOrder || 0));
+            } else if (state.assignmentSortOption === 'assignmentOrderDesc') {
+                return filteredAssignments.sort((a,b) => (b.assignmentOrder || 0) - (a.assignmentOrder || 0));
+            } else if (state.assignmentSortOption === 'dueDate') {
+                return filteredAssignments.sort((a, b) => {
+                    const dateA = a.dueDate ? new Date(a.dueDate).getTime() : 0;
+                    const dateB = b.dueDate ? new Date(b.dueDate).getTime() : 0;
+                    return dateA - dateB;
+                });
+            }
+            return filteredAssignments;
+        };
 
-        const renderUI = () => {
-            const app = document.getElementById('app');
+        const renderUI = () => {
+            const app = document.getElementById('app');
 
-            if (state.loading) {
-                app.innerHTML = `<div class="flex items-center justify-center h-screen"><div class="text-xl font-semibold">Loading...</div></div>`;
-                return;
-            }
+            if (state.loading) {
+                app.innerHTML = `<div class="flex items-center justify-center h-screen"><div class="text-xl font-semibold">Loading...</div></div>`;
+                return;
+            }
 
-            if (!state.student) {
-                renderLogin();
-                return;
-            }
-            
-            const sortedAssignments = sortAssignments();
+            if (!state.student) {
+                renderLogin();
+                return;
+            }
+            
+            const sortedAssignments = sortAssignments();
 
-            app.innerHTML = `
-                <div class="min-h-screen bg-gray-100 p-4 font-sans">
-                    <div class="max-w-4xl mx-auto bg-white p-6 rounded-xl shadow-lg">
-                        <div class="flex justify-between items-center mb-6">
-                            <h1 class="text-3xl font-bold text-gray-800">Welcome, ${state.student.name}!</h1>
-                            <button id="refresh-btn" class="text-sm bg-gray-300 px-3 py-1 rounded-lg hover:bg-gray-400 transition-colors duration-200">
-                                Refresh
-                            </button>
-                        </div>
-                        <p class="text-sm text-gray-500 mb-4">Student ID: ${state.student.studentId}</p>
+            app.innerHTML = `
+                <div class="min-h-screen bg-gray-100 p-4 font-sans">
+                    <div class="max-w-4xl mx-auto bg-white p-6 rounded-xl shadow-lg">
+                        <div class="flex justify-between items-center mb-6">
+                            <h1 class="text-3xl font-bold text-gray-800">Welcome, ${state.student.firstName} ${state.student.lastName}!</h1>
+                            <button id="refresh-btn" class="text-sm bg-gray-300 px-3 py-1 rounded-lg hover:bg-gray-400 transition-colors duration-200">
+                                Refresh
+                            </button>
+                        </div>
+                        <p class="text-sm text-gray-500 mb-4">Student ID: ${state.student.studentId}</p>
 
-                        <div class="flex items-center space-x-4 mb-4">
-                            <span class="text-sm font-medium text-gray-700">Sort By:</span>
-                            <div class="flex items-center space-x-2">
-                                <label class="inline-flex items-center">
-                                    <input type="radio" name="assignment-sort-option" value="assignmentOrderAsc" class="form-radio" ${state.assignmentSortOption === 'assignmentOrderAsc' ? 'checked' : ''}>
-                                    <span class="ml-2 text-gray-700">Number Ascending</span>
-                                </label>
-                                <label class="inline-flex items-center">
-                                    <input type="radio" name="assignment-sort-option" value="assignmentOrderDesc" class="form-radio" ${state.assignmentSortOption === 'assignmentOrderDesc' ? 'checked' : ''}>
-                                    <span class="ml-2 text-gray-700">Number Descending</span>
-                                </label>
-                                <label class="inline-flex items-center">
-                                    <input type="radio" name="assignment-sort-option" value="dueDate" class="form-radio" ${state.assignmentSortOption === 'dueDate' ? 'checked' : ''}>
-                                    <span class="ml-2 text-gray-700">Due Date</span>
-                                </label>
-                            </div>
-                        </div>
+                        <div class="flex items-center space-x-4 mb-4">
+                            <span class="text-sm font-medium text-gray-700">Sort By:</span>
+                            <div class="flex items-center space-x-2">
+                                <label class="inline-flex items-center">
+                                    <input type="radio" name="assignment-sort-option" value="assignmentOrderAsc" class="form-radio" ${state.assignmentSortOption === 'assignmentOrderAsc' ? 'checked' : ''}>
+                                    <span class="ml-2 text-gray-700">Number Ascending</span>
+                                </label>
+                                <label class="inline-flex items-center">
+                                    <input type="radio" name="assignment-sort-option" value="assignmentOrderDesc" class="form-radio" ${state.assignmentSortOption === 'assignmentOrderDesc' ? 'checked' : ''}>
+                                    <span class="ml-2 text-gray-700">Number Descending</span>
+                                </label>
+                            </div>
+                        </div>
 
-                        <div class="space-y-4">
-                            ${sortedAssignments.map(a => {
-                                const completion = a.completions.find(c => c.studentId === state.student.id);
-                                const isExcused = completion ? completion.isExcused : false;
-                                const isCompleted = completion && completion.score > 0;
-                                const score = completion ? completion.score : null;
-                                const helpRequest = state.requests.find(r => r.studentId === state.student.id && r.assignmentId === a.id && r.type === 'help');
-                                const checkRequest = state.requests.find(r => r.studentId === state.student.id && r.assignmentId === a.id && r.type === 'check');
-                                const helpQueuePosition = helpRequest ? state.requests.filter(r => r.type === 'help').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).findIndex(r => r.studentId === state.student.id && r.assignmentId === a.id) + 1 : null;
-                                const checkQueuePosition = checkRequest ? state.requests.filter(r => r.type === 'check').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).findIndex(r => r.studentId === state.student.id && r.assignmentId === a.id) + 1 : null;
-                                
-                                return `
-                                    <div class="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200">
-                                        <div class="flex items-center justify-between mb-2">
-                                            <h2 class="text-lg font-semibold text-gray-800">${a.assignmentOrder !== undefined ? `${a.assignmentOrder + 1}. ` : ''}${a.title}</h2>
-                                            ${isExcused ? `<span class="bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded-full">Excused</span>` : ''}
-                                            ${isCompleted ? `<span class="text-sm font-bold text-blue-600">Score: ${score}/4</span>` : ''}
-                                        </div>
-                                        <p class="text-sm text-gray-500 mb-4">Due: ${a.dueDate ? new Date(a.dueDate).toLocaleDateString() : 'N/A'}</p>
-                                        
-                                        <div class="flex space-x-2">
-                                            ${helpRequest ? `
-                                                <button onclick="handleCancelRequest('${helpRequest.id}')" class="flex-1 bg-red-500 text-white font-bold py-2 rounded-lg hover:bg-red-600 transition-colors duration-200" ${isExcused ? 'disabled' : ''}>
-                                                    Cancel Help (#${helpQueuePosition})
-                                                </button>
-                                            ` : `
-                                                <button onclick="handleRequest('${a.id}', 'help')" class="flex-1 bg-gray-300 text-gray-800 font-bold py-2 rounded-lg hover:bg-gray-400 transition-colors duration-200" ${isExcused ? 'disabled' : ''}>
-                                                    Request Help
-                                                </button>
-                                            `}
+                        <div class="space-y-4">
+                            ${sortedAssignments.map(a => {
+                                const completion = a.completions.find(c => c.studentId === state.student.id);
+                                const isExcused = completion ? completion.isExcused : false;
+                                const isCompleted = completion && completion.score > 0;
+                                const score = completion ? completion.score : null;
+                                const helpRequest = state.requests.find(r => r.studentId === state.student.id && r.assignmentId === a.id && r.type === 'help');
+                                const checkRequest = state.requests.find(r => r.studentId === state.student.id && r.assignmentId === a.id && r.type === 'check');
+                                const helpQueuePosition = helpRequest ? state.requests.filter(r => r.type === 'help').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).findIndex(r => r.studentId === state.student.id && r.assignmentId === a.id) + 1 : null;
+                                const checkQueuePosition = checkRequest ? state.requests.filter(r => r.type === 'check').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).findIndex(r => r.studentId === state.student.id && r.assignmentId === a.id) + 1 : null;
+                                
+                                return `
+                                    <div class="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <h2 class="text-lg font-semibold text-gray-800">${a.assignmentOrder !== undefined ? `${a.assignmentOrder + 1}. ` : ''}${a.title}</h2>
+                                            ${isExcused ? `<span class="bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded-full">Excused</span>` : ''}
+                                            ${isCompleted ? `<span class="text-sm font-bold text-blue-600">Score: ${score}/4</span>` : ''}
+                                        </div>
+                                        <p class="text-sm text-gray-500 mb-4">Due: ${a.dueDate ? new Date(a.dueDate).toLocaleDateString() : 'N/A'}</p>
+                                        
+                                        <div class="flex space-x-2">
+                                            ${helpRequest ? `
+                                                <button onclick="handleCancelRequest('${helpRequest.id}')" class="flex-1 bg-red-500 text-white font-bold py-2 rounded-lg hover:bg-red-600 transition-colors duration-200" ${isExcused ? 'disabled' : ''}>
+                                                    Cancel Help (#${helpQueuePosition})
+                                                </button>
+                                            ` : `
+                                                <button onclick="handleRequest('${a.id}', 'help')" class="flex-1 bg-gray-300 text-gray-800 font-bold py-2 rounded-lg hover:bg-gray-400 transition-colors duration-200" ${isExcused ? 'disabled' : ''}>
+                                                    Request Help
+                                                </button>
+                                            `}
 
-                                            ${checkRequest ? `
-                                                <button onclick="handleCancelRequest('${checkRequest.id}')" class="flex-1 bg-blue-500 text-white font-bold py-2 rounded-lg hover:bg-blue-600 transition-colors duration-200" ${isExcused ? 'disabled' : ''}>
-                                                    Cancel Check (#${checkQueuePosition})
-                                                </button>
-                                            ` : `
-                                                <button onclick="handleRequest('${a.id}', 'check')" class="flex-1 bg-gray-300 text-gray-800 font-bold py-2 rounded-lg hover:bg-gray-400 transition-colors duration-200" ${isExcused ? 'disabled' : ''}>
-                                                    Ready for Check
-                                                </button>
-                                            `}
-                                        </div>
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
-                        <button onclick="handleClearStudentProgress()" class="mt-4 w-full bg-red-500 text-white font-bold py-2 rounded-lg hover:bg-red-600 transition-colors duration-200">Clear All My Progress</button>
-                    </div>
-                </div>
-            `;
-            
-            document.getElementById('refresh-btn').addEventListener('click', () => {
-                startDataListeners();
-            });
+                                            ${checkRequest ? `
+                                                <button onclick="handleCancelRequest('${checkRequest.id}')" class="flex-1 bg-blue-500 text-white font-bold py-2 rounded-lg hover:bg-blue-600 transition-colors duration-200" ${isExcused ? 'disabled' : ''}>
+                                                    Cancel Check (#${checkQueuePosition})
+                                                </button>
+                                            ` : `
+                                                <button onclick="handleRequest('${a.id}', 'check')" class="flex-1 bg-gray-300 text-gray-800 font-bold py-2 rounded-lg hover:bg-gray-400 transition-colors duration-200" ${isExcused ? 'disabled' : ''}>
+                                                    Ready for Check
+                                                </button>
+                                            `}
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                        <button onclick="handleClearStudentProgress()" class="mt-4 w-full bg-red-500 text-white font-bold py-2 rounded-lg hover:bg-red-600 transition-colors duration-200">Clear All My Progress</button>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('refresh-btn').addEventListener('click', () => {
+                startDataListeners();
+            });
 
-            document.querySelectorAll('input[name="assignment-sort-option"]').forEach(radio => {
-                radio.addEventListener('change', (e) => {
-                    state.assignmentSortOption = e.target.value;
-                    renderUI();
-                });
-            });
-            
-            window.handleRequest = async (assignmentId, type) => {
-                if (state.student) {
-                    const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
-                    await addDoc(requestsRef, {
-                        studentId: state.student.id,
-                        assignmentId,
-                        type,
-                        timestamp: new Date().toISOString()
-                    });
-                }
-            };
+            document.querySelectorAll('input[name="assignment-sort-option"]').forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    state.assignmentSortOption = e.target.value;
+                    renderUI();
+                });
+            });
+            
+            window.handleRequest = async (assignmentId, type) => {
+                if (state.student) {
+                    const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
+                    await addDoc(requestsRef, {
+                        studentId: state.student.id,
+                        assignmentId,
+                        type,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+            };
 
-            window.handleCancelRequest = async (requestId) => {
-                const requestRef = doc(db, `artifacts/${appId}/public/data/requests`, requestId);
-                await deleteDoc(requestRef);
-            };
+            window.handleCancelRequest = async (requestId) => {
+                const requestRef = doc(db, `artifacts/${appId}/public/data/requests`, requestId);
+                await deleteDoc(requestRef);
+            };
 
-            window.handleClearStudentProgress = async () => {
-                const confirmClear = confirm("Are you sure you want to clear all your progress? This will delete all your scores and requests. This action cannot be undone.");
-                if (confirmClear) {
-                    const assignmentsRef = collection(db, `artifacts/${appId}/public/data/assignments`);
-                    const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
+            window.handleClearStudentProgress = async () => {
+                const confirmClear = confirm("Are you sure you want to clear all your progress? This will delete all your scores and requests. This action cannot be undone.");
+                if (confirmClear) {
+                    const assignmentsRef = collection(db, `artifacts/${appId}/public/data/assignments`);
+                    const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
 
-                    const studentAssignments = state.assignments.filter(a => a.completions.some(c => c.studentId === state.student.id));
-                    for (const assignment of studentAssignments) {
-                        const updatedCompletions = assignment.completions.filter(c => c.studentId !== state.student.id);
-                        const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignment.id);
-                        await updateDoc(assignmentRef, { completions: updatedCompletions });
-                    }
+                    const studentAssignments = state.assignments.filter(a => a.completions.some(c => c.studentId === state.student.id));
+                    for (const assignment of studentAssignments) {
+                        const updatedCompletions = assignment.completions.filter(c => c.studentId !== state.student.id);
+                        const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignment.id);
+                        await updateDoc(assignmentRef, { completions: updatedCompletions });
+                    }
 
-                    const studentRequests = state.requests.filter(r => r.studentId === state.student.id);
-                    for (const request of studentRequests) {
-                        const requestRef = doc(db, `artifacts/${appId}/public/data/requests`, request.id);
-                        await deleteDoc(requestRef);
-                    }
-                }
-            };
-        };
+                    const studentRequests = state.requests.filter(r => r.studentId === state.student.id);
+                    for (const request of studentRequests) {
+                        const requestRef = doc(db, `artifacts/${appId}/public/data/requests`, request.id);
+                        await deleteDoc(requestRef);
+                    }
+                }
+            };
+        };
 
-        const renderLogin = () => {
-            const app = document.getElementById('app');
-            app.innerHTML = `
-                <div class="flex items-center justify-center min-h-screen bg-gray-100">
-                    <div class="p-8 bg-white rounded-xl shadow-lg w-full max-w-lg text-center">
-                        <h2 class="text-2xl font-bold text-gray-800 mb-4">Student Login</h2>
-                        <form id="student-login-form" class="flex flex-col space-y-4">
-                            <p id="login-message" class="mt-4 text-red-500">${state.loginMessage}</p>
-                            <input type="text" id="student-id" placeholder="Your Student ID"
-                                class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <button type="submit" class="bg-red-600 text-white font-bold py-2 rounded-lg hover:bg-red-700 transition-colors duration-200">
-                                Log In
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            `;
-            document.getElementById('student-login-form').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const studentId = document.getElementById('student-id').value;
-                state.loading = true;
-                renderUI();
-                await handleLogin({ studentId });
-            });
-        };
+        const renderLogin = () => {
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="flex items-center justify-center min-h-screen bg-gray-100">
+                    <div class="p-8 bg-white rounded-xl shadow-lg w-full max-w-lg text-center">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-4">Student Login</h2>
+                        <form id="student-login-form" class="flex flex-col space-y-4">
+                            <p id="login-message" class="mt-4 text-red-500">${state.loginMessage}</p>
+                            <input type="text" id="student-id" placeholder="Your Student ID"
+                                class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <button type="submit" class="bg-red-600 text-white font-bold py-2 rounded-lg hover:bg-red-700 transition-colors duration-200">
+                                Log In
+                            </button>
+                    </div>
+                </div>
+            `;
+            document.getElementById('student-login-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const studentId = document.getElementById('student-id').value;
+                state.loading = true;
+                renderUI();
+                await handleLogin({ studentId });
+            });
+        };
 
-        document.addEventListener('DOMContentLoaded', () => {
-            renderUI();
-        });
-    </script>
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
-            color: #1f2937;
-        }
-    </style>
+        document.addEventListener('DOMContentLoaded', () => {
+            renderUI();
+        });
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            color: #1f2937;
+        }
+    </style>
 </head>
 <body>
-    <div id="app"></div>
+    <div id="app"></div>
 </body>
 </html>
