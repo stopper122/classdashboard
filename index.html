@@ -76,6 +76,7 @@
             // Listen for assignments
             onSnapshot(collection(db, `${publicDataPath}/assignments`), (snapshot) => {
                 state.assignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                state.assignments.sort((a, b) => (a.order || 0) - (b.order || 0));
                 renderUI();
             });
 
@@ -384,13 +385,19 @@
             const dueDate = document.getElementById('assignment-due-date').value;
             if (!titles.length || !state.selectedPeriodId) return;
             
-            for (const title of titles) {
-                const assignmentsRef = collection(db, `artifacts/${appId}/public/data/assignments`);
+            const assignmentsRef = collection(db, `artifacts/${appId}/public/data/assignments`);
+            const q = query(assignmentsRef, where('periodId', '==', state.selectedPeriodId));
+            const existingAssignments = (await getDocs(q)).docs.map(doc => doc.data());
+            const lastOrder = existingAssignments.reduce((max, a) => Math.max(max, a.order || 0), -1);
+
+            for (let i = 0; i < titles.length; i++) {
+                const title = titles[i];
                 await addDoc(assignmentsRef, {
                     periodId: state.selectedPeriodId,
                     title,
                     dueDate,
-                    completions: []
+                    completions: [],
+                    order: lastOrder + 1 + i
                 });
             }
             document.getElementById('new-assignment-titles').value = '';
@@ -487,7 +494,7 @@
                     return `
                         <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                             <div class="flex justify-between items-center">
-                                <span contenteditable="true" onblur="handleAssignmentEdit('${a.id}', this.innerText)" class="text-lg font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md p-1">${a.title}</span>
+                                <span class="text-lg font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md p-1">${a.order + 1}. ${a.title}</span>
                                 <button onclick="handleDeleteAssignment('${a.id}')" class="text-gray-600 hover:text-red-500 transition-colors ml-2">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
                                         <path d="M18.3 5.71a.996.996 0 0 0-1.41 0L12 10.59 7.11 5.7A.996.996 0 1 0 5.7 7.11L10.59 12 5.7 16.89A.996.996 0 1 0 7.11 18.3L12 13.41l4.89 4.89a.996.996 0 1 0 1.41-1.41L13.41 12l4.89-4.89a.996.996 0 0 0 0-1.4z"/>
