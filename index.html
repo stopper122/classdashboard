@@ -36,10 +36,8 @@
             isDragging: false,
             draggedId: null,
             draggedIndex: null,
-            isTeacherLoggedIn: false,
+            isTeacherLoggedIn: true,
         };
-
-        const TEACHER_PASSWORD = 'Rocket_22!!';
 
         const app = initializeApp(firebaseConfig);
         db = getFirestore(app);
@@ -107,10 +105,6 @@
 
         const renderUI = () => {
             const app = document.getElementById('app');
-            if (!state.isTeacherLoggedIn) {
-                renderLogin();
-                return;
-            }
             if (state.loading) {
                 app.innerHTML = `<div class="flex items-center justify-center h-screen"><div class="text-xl font-semibold">Loading...</div></div>`;
                 return;
