@@ -334,38 +334,6 @@
             }
         };
 
-        const renderLogin = () => {
-            const app = document.getElementById('app');
-            app.innerHTML = `
-                <div class="flex items-center justify-center min-h-screen bg-gray-100">
-                    <div class="p-8 bg-white rounded-xl shadow-lg w-full max-w-lg text-center">
-                        <h2 class="text-2xl font-bold text-gray-800 mb-4">Teacher Login</h2>
-                        <form id="teacher-login-form" class="flex flex-col space-y-4">
-                            <input type="password" id="password" placeholder="Password"
-                                class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <button type="submit" class="bg-blue-600 text-white font-bold py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">
-                                Log In
-                            </button>
-                        </form>
-                        <p id="login-message" class="mt-4 text-red-500"></p>
-                    </div>
-                </div>
-            `;
-            document.getElementById('teacher-login-form').addEventListener('submit', handleTeacherLogin);
-        };
-        
-        const handleTeacherLogin = (e) => {
-            e.preventDefault();
-            const password = document.getElementById('password').value;
-            const messageEl = document.getElementById('login-message');
-            if (password === TEACHER_PASSWORD) {
-                state.isTeacherLoggedIn = true;
-                renderUI();
-            } else {
-                messageEl.textContent = 'Incorrect password.';
-            }
-        };
-
         const handleAddPeriod = async () => {
             const name = document.getElementById('new-period-name').value.trim();
             if (name) {
@@ -443,49 +411,91 @@
         };
 
         const handleAddStudents = async () => {
-            const rosterText = document.getElementById('student-roster').value.trim();
-            if (!rosterText || !state.selectedPeriodId) return;
-            
-            const lines = rosterText.split('\n').map(line => line.trim()).filter(line => line);
-            const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
-            const promises = [];
-            
-            const existingStudentsCount = state.students.filter(s => s.periodId === state.selectedPeriodId && !s.isPlaceholder).length;
-            const existingEmptySeatsCount = state.students.filter(s => s.periodId === state.selectedPeriodId && s.isPlaceholder).length;
+            const button = document.getElementById('add-students-btn');
+            const originalButtonText = button.textContent;
+            button.textContent = 'Processing...';
+            button.disabled = true;
 
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i];
-                const lastCommaIndex = line.lastIndexOf(',');
-                let name = line.substring(0, lastCommaIndex).trim();
-                let studentId = line.substring(lastCommaIndex + 1).trim();
+            try {
+                const rosterText = document.getElementById('student-roster').value.trim();
+                if (!rosterText || !state.selectedPeriodId) return;
+                
+                const lines = rosterText.split('\n').map(line => line.trim()).filter(line => line);
+                const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
+                const assignmentsRef = collection(db, `artifacts/${appId}/public/data/assignments`);
+                
+                const existingStudentsCount = state.students.filter(s => s.periodId === state.selectedPeriodId && !s.isPlaceholder).length;
+                const existingEmptySeatsCount = state.students.filter(s => s.periodId === state.selectedPeriodId && s.isPlaceholder).length;
+                
+                // Fetch existing assignments for the current period
+                const assignmentsQuery = query(assignmentsRef, where('periodId', '==', state.selectedPeriodId));
+                const assignmentsSnapshot = await getDocs(assignmentsQuery);
 
-                let firstName = '';
-                let lastName = '';
-                if (name.includes(',')) {
-                    const commaParts = name.split(',').map(p => p.trim());
-                    lastName = commaParts[0];
-                    firstName = commaParts[1];
-                } else {
-                    const nameParts = name.split(' ');
-                    firstName = nameParts[0];
-                    lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+                const newStudentsData = [];
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    const lastCommaIndex = line.lastIndexOf(',');
+                    let name = line.substring(0, lastCommaIndex).trim();
+                    let studentId = line.substring(lastCommaIndex + 1).trim();
+
+                    let firstName = '';
+                    let lastName = '';
+                    if (name.includes(',')) {
+                        const commaParts = name.split(',').map(p => p.trim());
+                        lastName = commaParts[0];
+                        firstName = commaParts[1];
+                    } else {
+                        const nameParts = name.split(' ');
+                        firstName = nameParts[0];
+                        lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+                    }
+
+                    if (name && studentId) {
+                        newStudentsData.push({
+                            periodId: state.selectedPeriodId,
+                            name,
+                            firstName,
+                            lastName,
+                            studentId,
+                            seatOrder: existingStudentsCount + existingEmptySeatsCount + i,
+                            isPlaceholder: false
+                        });
+                    }
                 }
+                
+                await runTransaction(db, async (transaction) => {
+                    const newStudentDocs = [];
+                    for (const student of newStudentsData) {
+                        const newStudentRef = doc(studentsRef);
+                        transaction.set(newStudentRef, student);
+                        newStudentDocs.push({ ...student, id: newStudentRef.id });
+                    }
+                    
+                    // Add empty completion records to all assignments for the new students
+                    assignmentsSnapshot.forEach(assignmentDoc => {
+                        const completions = assignmentDoc.data().completions || [];
+                        const updatedCompletions = [...completions];
+                        newStudentDocs.forEach(newStudent => {
+                            updatedCompletions.push({
+                                studentId: newStudent.studentId,
+                                score: null,
+                                isExcused: false,
+                                timestamp: new Date().toISOString()
+                            });
+                        });
+                        transaction.update(assignmentDoc.ref, { completions: updatedCompletions });
+                    });
+                });
 
-                if (name && studentId) {
-                    promises.push(addDoc(studentsRef, {
-                        periodId: state.selectedPeriodId,
-                        name,
-                        firstName,
-                        lastName,
-                        studentId,
-                        seatOrder: existingStudentsCount + existingEmptySeatsCount + i,
-                        isPlaceholder: false
-                    }));
-                }
+                document.getElementById('student-roster').value = '';
+            } catch (error) {
+                console.error("Error adding students:", error);
+            } finally {
+                button.textContent = originalButtonText;
+                button.disabled = false;
             }
-            await Promise.all(promises);
-            document.getElementById('student-roster').value = '';
         };
+        window.handleAddStudents = handleAddStudents;
 
         const handleAddEmptySeat = async () => {
             if (!state.selectedPeriodId) return;
@@ -935,6 +945,7 @@
         window.handleAssignmentSelectionForDeletion = handleAssignmentSelectionForDeletion;
         window.clearSpecificRequest = clearSpecificRequest;
         window.handleClearAllRequests = handleClearAllRequests;
+        window.handleDeleteAllStudents = handleDeleteAllStudents;
 
         document.addEventListener('DOMContentLoaded', () => {
             renderUI();
