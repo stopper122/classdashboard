@@ -487,6 +487,7 @@
                     });
                 });
                 
+                // Update local state after successful transaction
                 state.students = [...state.students, ...newStudentsData];
                 document.getElementById('student-roster').value = '';
 
@@ -517,16 +518,38 @@
         const handleDeleteAllStudents = async () => {
             if (!state.selectedPeriodId) return;
             const publicDataPath = `artifacts/${appId}/public/data`;
+            
+            // Get all students for the current period
             const studentsRef = collection(db, `${publicDataPath}/students`);
             const studentsQuery = query(studentsRef, where('periodId', '==', state.selectedPeriodId));
             const studentsSnapshot = await getDocs(studentsQuery);
 
+            // Get all assignments for the current period
+            const assignmentsRef = collection(db, `${publicDataPath}/assignments`);
+            const assignmentsQuery = query(assignmentsRef, where('periodId', '==', state.selectedPeriodId));
+            const assignmentsSnapshot = await getDocs(assignmentsQuery);
+
             await runTransaction(db, async (transaction) => {
+                // Delete all student documents
                 studentsSnapshot.forEach(doc => {
+                    transaction.delete(doc.ref);
+                });
+
+                // Clear all completions from assignments
+                assignmentsSnapshot.forEach(doc => {
+                    transaction.update(doc.ref, { completions: [] });
+                });
+
+                // Delete all requests related to this period's students
+                const requestsRef = collection(db, `${publicDataPath}/requests`);
+                const requestsQuery = query(requestsRef, where('periodId', '==', state.selectedPeriodId));
+                const requestsSnapshot = await getDocs(requestsQuery);
+                requestsSnapshot.forEach(doc => {
                     transaction.delete(doc.ref);
                 });
             });
         };
+        window.handleDeleteAllStudents = handleDeleteAllStudents;
 
         const deleteStudent = async (studentId) => {
             const publicDataPath = `artifacts/${appId}/public/data`;
@@ -728,9 +751,20 @@
                 const completions = assignmentDoc.data().completions || [];
                 const existingCompletionIndex = completions.findIndex(c => c.studentId === state.selectedStudent.studentId);
                 
-                let newScore = isChecked ? score : score -1;
-                if (!isChecked && newScore === 0) newScore = null;
-                if (!isChecked && score < newScore) newScore = score -1;
+                // Determine the new score based on the clicked checkbox
+                let newScore = null;
+                if (isChecked) {
+                    newScore = score;
+                } else {
+                    // When unchecking, set the score to the one below, or null if it's the first checkbox
+                    const prevScore = score > 1 ? score - 1 : null;
+                    const currentDbScore = completion ? completion.score : null;
+                    if (currentDbScore === score) {
+                        newScore = prevScore;
+                    } else {
+                        newScore = currentDbScore;
+                    }
+                }
 
                 if (existingCompletionIndex !== -1) {
                     const updatedCompletions = [...completions];
