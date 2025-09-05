@@ -155,7 +155,7 @@
                                     <h2 class="text-xl font-bold text-gray-700 mb-2">Assignments</h2>
                                     <textarea id="new-assignment-titles" rows="4" placeholder="Paste assignment titles here (one per line)" class="w-full px-3 py-2 border rounded-lg mb-2"></textarea>
                                     <div class="flex space-x-2">
-                                        <input type="date" id="assignment-due-date" class="flex-1 px-3 py-2 border rounded-lg">
+                                        
                                         <button id="add-assignments-btn" class="flex-1 bg-blue-500 text-white font-bold py-2 rounded-lg hover:bg-blue-600 transition-colors duration-200">
                                             Add Assignments
                                         </button>
@@ -386,9 +386,9 @@
                 const assignmentsQuery = query(collection(db, `${publicDataPath}/assignments`), where('periodId', '==', periodIdToDelete));
                 const requestsQuery = query(collection(db, `${publicDataPath}/requests`), where('periodId', '==', periodIdToDelete));
                 
-                const studentsSnapshot = await transaction.get(studentsQuery);
-                const assignmentsSnapshot = await transaction.get(assignmentsQuery);
-                const requestsSnapshot = await transaction.get(requestsQuery);
+                const studentsSnapshot = await getDocs(studentsQuery);
+                const assignmentsSnapshot = await getDocs(assignmentsQuery);
+                const requestsSnapshot = await getDocs(requestsQuery);
 
                 // Delete all students in the period
                 studentsSnapshot.forEach(doc => {
@@ -418,7 +418,7 @@
 
         const handleAddAssignments = async () => {
             const titles = document.getElementById('new-assignment-titles').value.split('\n').map(t => t.trim()).filter(t => t);
-            const dueDate = document.getElementById('assignment-due-date').value;
+            
             if (!titles.length || !state.selectedPeriodId) return;
             
             const assignmentsRef = collection(db, `artifacts/${appId}/public/data/assignments`);
@@ -429,7 +429,6 @@
                 await addDoc(assignmentsRef, {
                     periodId: state.selectedPeriodId,
                     title,
-                    dueDate,
                     datePosted: new Date().toISOString(),
                     assignmentOrder: assignmentsInPeriodCount + i,
                     completions: []
