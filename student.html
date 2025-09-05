@@ -29,7 +29,8 @@
             requests: [],
             loading: true,
             loginFailed: false,
-            loginMessage: '' // Initializing loginMessage to an empty string
+            loginMessage: '',
+            sortOption: 'number'
         };
 
         const app = initializeApp(firebaseConfig);
@@ -58,16 +59,16 @@
                 const studentSnapshot = await getDocs(q);
                 const studentDoc = studentSnapshot.docs[0];
 
-                if (studentDoc && (studentName === undefined || studentDoc.data().name.toLowerCase().replace(/,/, '').replace(/\s/g, '') === studentName.toLowerCase().replace(/,/, '').replace(/\s/g, ''))) {
+                if (studentDoc) {
                     state.student = { id: studentDoc.id, ...studentDoc.data() };
                     state.loginMessage = '';
                     await startDataListeners();
                 } else {
-                    state.loginMessage = 'Invalid name or ID. Please try again.';
+                    state.loginMessage = 'Invalid Student ID. Please try again.';
                 }
             } catch (error) {
                 console.error("Login failed:", error);
-                state.loginMessage = 'Failed to connect. Please check your credentials and network connection.';
+                state.loginMessage = 'Failed to connect. Please check your network connection.';
             }
             renderUI();
         };
@@ -75,22 +76,29 @@
         const startDataListeners = async () => {
             const publicDataPath = `artifacts/${appId}/public/data`;
             
-            // Listen for assignments
             onSnapshot(query(collection(db, `${publicDataPath}/assignments`), where('periodId', '==', state.student.periodId)), (snapshot) => {
                 state.assignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                sortAssignments();
                 renderUI();
             });
 
-            // Listen for requests
             onSnapshot(collection(db, `${publicDataPath}/requests`), (snapshot) => {
                 state.requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderUI();
             });
+
             state.loading = false;
             renderUI();
         };
+
+        const sortAssignments = () => {
+            if (state.sortOption === 'number') {
+                state.assignments.sort((a, b) => (a.order || 0) - (b.order || 0));
+            } else if (state.sortOption === 'dueDate') {
+                state.assignments.sort((a, b) => (new Date(a.dueDate) || 0) - (new Date(b.dueDate) || 0));
+            }
+        };
         
-        // New function to manually refresh data
         const refreshData = async () => {
             state.loading = true;
             renderUI();
@@ -138,22 +146,39 @@
                             </button>
                         </div>
                         <p class="text-sm text-gray-500 mb-6">Student ID: ${state.student.studentId}</p>
+
+                        <div class="mb-4">
+                            <h2 class="text-xl font-bold text-gray-700 mb-2">My Assignments</h2>
+                            <div class="flex items-center space-x-4 mb-4">
+                                <span class="text-sm font-medium text-gray-700">Sort By:</span>
+                                <div class="flex space-x-2">
+                                    <label class="inline-flex items-center">
+                                        <input type="radio" name="sort-option" value="number" class="form-radio" ${state.sortOption === 'number' ? 'checked' : ''}>
+                                        <span class="ml-2 text-gray-700">Number</span>
+                                    </label>
+                                    <label class="inline-flex items-center">
+                                        <input type="radio" name="sort-option" value="dueDate" class="form-radio" ${state.sortOption === 'dueDate' ? 'checked' : ''}>
+                                        <span class="ml-2 text-gray-700">Due Date</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
                         
                         <div class="space-y-4">
                             ${state.assignments.map(a => {
-                                const completion = a.completions.find(c => c.studentId === state.student.studentId);
+                                const completion = a.completions.find(c => c.studentId === state.student.id);
                                 const isExcused = completion ? completion.isExcused : false;
                                 const isCompleted = completion && !isExcused;
                                 const score = completion ? completion.score : null;
-                                const helpRequest = state.requests.find(r => r.studentId === state.student.studentId && r.assignmentId === a.id && r.type === 'help');
-                                const checkRequest = state.requests.find(r => r.studentId === state.student.studentId && r.assignmentId === a.id && r.type === 'check');
-                                const helpQueuePosition = helpRequest ? state.requests.filter(r => r.type === 'help').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).findIndex(r => r.studentId === state.student.studentId && r.assignmentId === a.id) + 1 : null;
-                                const checkQueuePosition = checkRequest ? state.requests.filter(r => r.type === 'check').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).findIndex(r => r.studentId === state.student.studentId && r.assignmentId === a.id) + 1 : null;
+                                const helpRequest = state.requests.find(r => r.studentId === state.student.id && r.assignmentId === a.id && r.type === 'help');
+                                const checkRequest = state.requests.find(r => r.studentId === state.student.id && r.assignmentId === a.id && r.type === 'check');
+                                const helpQueuePosition = helpRequest ? state.requests.filter(r => r.type === 'help').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).findIndex(r => r.studentId === state.student.id && r.assignmentId === a.id) + 1 : null;
+                                const checkQueuePosition = checkRequest ? state.requests.filter(r => r.type === 'check').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).findIndex(r => r.studentId === state.student.id && r.assignmentId === a.id) + 1 : null;
 
                                 return `
                                     <div class="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200">
                                         <div class="flex items-center justify-between mb-2">
-                                            <h2 class="text-lg font-semibold text-gray-800">${a.title}</h2>
+                                            <h2 class="text-lg font-semibold text-gray-800">${a.order + 1}. ${a.title}</h2>
                                             ${isExcused ? `<span class="bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded-full">Excused</span>` : ''}
                                             ${score ? `<span class="text-sm font-bold text-blue-600">Score: ${score}/4</span>` : ''}
                                         </div>
@@ -189,12 +214,19 @@
             `;
             
             document.getElementById('refresh-btn').addEventListener('click', refreshData);
+            document.querySelectorAll('input[name="sort-option"]').forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    state.sortOption = e.target.value;
+                    sortAssignments();
+                    renderUI();
+                });
+            });
 
             window.handleRequest = async (assignmentId, type) => {
                 if (state.student) {
                     const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
                     await addDoc(requestsRef, {
-                        studentId: state.student.studentId,
+                        studentId: state.student.id,
                         assignmentId,
                         type,
                         timestamp: new Date().toISOString()
@@ -215,8 +247,6 @@
                     <div class="p-8 bg-white rounded-xl shadow-lg w-full max-w-lg text-center">
                         <h2 class="text-2xl font-bold text-gray-800 mb-4">Student Login</h2>
                         <form id="student-login-form" class="flex flex-col space-y-4">
-                            <input type="text" id="student-name" placeholder="Your Full Name"
-                                class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <input type="text" id="student-id" placeholder="Your Student ID"
                                 class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <button type="submit" class="bg-blue-600 text-white font-bold py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">
@@ -229,9 +259,8 @@
             `;
             document.getElementById('student-login-form').addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const studentName = document.getElementById('student-name').value;
                 const studentId = document.getElementById('student-id').value;
-                await handleLogin({ studentId, studentName });
+                await handleLogin({ studentId });
             });
         };
 
