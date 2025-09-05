@@ -750,17 +750,15 @@
                 const assignmentDoc = await transaction.get(assignmentRef);
                 const completions = assignmentDoc.data().completions || [];
                 const existingCompletionIndex = completions.findIndex(c => c.studentId === state.selectedStudent.studentId);
-                
-                // Determine the new score based on the clicked checkbox
+                const completion = existingCompletionIndex !== -1 ? completions[existingCompletionIndex] : null;
+
                 let newScore = null;
                 if (isChecked) {
                     newScore = score;
                 } else {
-                    // When unchecking, set the score to the one below, or null if it's the first checkbox
-                    const prevScore = score > 1 ? score - 1 : null;
                     const currentDbScore = completion ? completion.score : null;
                     if (currentDbScore === score) {
-                        newScore = prevScore;
+                        newScore = score > 1 ? score - 1 : null;
                     } else {
                         newScore = currentDbScore;
                     }
@@ -775,6 +773,8 @@
                     transaction.update(assignmentRef, { completions: [...completions, newCompletion] });
                 }
             });
+            // Re-render the UI after the transaction
+            renderUI();
         };
         window.handleScoreChange = handleScoreChange;
         
@@ -796,6 +796,8 @@
                     transaction.update(assignmentRef, { completions: [...completions, newCompletion] });
                 }
             });
+            // Re-render the UI after the transaction
+            renderUI();
         };
         window.handleExcusedToggle = handleExcusedToggle;
 
@@ -882,9 +884,13 @@
             const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
             const q = query(requestsRef, where('studentId', '==', state.selectedStudent.studentId));
             const requestsSnapshot = await getDocs(q);
-            requestsSnapshot.forEach(async (doc) => {
-                await deleteDoc(doc.ref);
+            
+            await runTransaction(db, async (transaction) => {
+                requestsSnapshot.forEach(doc => {
+                    transaction.delete(doc.ref);
+                });
             });
+            renderUI();
         };
         window.handleClearAllRequests = handleClearAllRequests;
         
