@@ -36,11 +36,8 @@
             isDragging: false,
             draggedId: null,
             draggedIndex: null,
-            isTeacherLoggedIn: false,
             selectedAssignmentsForDeletion: []
         };
-
-        const TEACHER_PASSWORD = 'Rocket_22!!';
 
         const app = initializeApp(firebaseConfig);
         db = getFirestore(app);
@@ -108,10 +105,6 @@
 
         const renderUI = () => {
             const app = document.getElementById('app');
-            if (!state.isTeacherLoggedIn) {
-                renderLogin();
-                return;
-            }
             if (state.loading) {
                 app.innerHTML = `<div class="flex items-center justify-center h-screen"><div class="text-xl font-semibold">Loading...</div></div>`;
                 return;
@@ -589,13 +582,14 @@
         window.handleAssignmentEdit = handleAssignmentEdit;
 
         const handleDeleteAssignment = async (assignmentId) => {
+            const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
+            const q = query(requestsRef, where('assignmentId', '==', assignmentId));
+            const requestsSnapshot = await getDocs(q);
+            
             await runTransaction(db, async (transaction) => {
                 const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
                 transaction.delete(assignmentRef);
 
-                const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
-                const q = query(requestsRef, where('assignmentId', '==', assignmentId));
-                const requestsSnapshot = await getDocs(q);
                 requestsSnapshot.forEach(doc => {
                     transaction.delete(doc.ref);
                 });
@@ -607,18 +601,29 @@
             const assignmentsToDelete = [...state.selectedAssignmentsForDeletion];
             state.selectedAssignmentsForDeletion = [];
             
+            // First, get all the requests related to the assignments to be deleted
+            const requestsPromises = assignmentsToDelete.map(assignmentId => {
+                const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
+                const q = query(requestsRef, where('assignmentId', '==', assignmentId));
+                return getDocs(q);
+            });
+            
+            const requestsSnapshots = await Promise.all(requestsPromises);
+            const allRequestsToDelete = requestsSnapshots.flatMap(snapshot => snapshot.docs);
+
             await runTransaction(db, async (transaction) => {
                 const publicDataPath = `artifacts/${appId}/public/data`;
+                
+                // Delete the assignments
                 for (const assignmentId of assignmentsToDelete) {
                     const assignmentRef = doc(db, `${publicDataPath}/assignments`, assignmentId);
                     transaction.delete(assignmentRef);
-
-                    const requestsQuery = query(collection(db, `${publicDataPath}/requests`), where('assignmentId', '==', assignmentId));
-                    const requestsSnapshot = await getDocs(requestsQuery);
-                    requestsSnapshot.forEach(requestDoc => {
-                        transaction.delete(requestDoc.ref);
-                    });
                 }
+                
+                // Delete the associated requests
+                allRequestsToDelete.forEach(requestDoc => {
+                    transaction.delete(requestDoc.ref);
+                });
             });
             renderUI();
         };
