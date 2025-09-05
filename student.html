@@ -72,6 +72,9 @@
             const hasHelpRequest = state.requests.some(r => r.assignmentId === a.id && r.type === 'help');
             const hasCheckRequest = state.requests.some(r => r.assignmentId === a.id && r.type === 'check');
             
+            const helpQueuePosition = hasHelpRequest ? state.requests.filter(r => r.type === 'help').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).findIndex(r => r.studentId === state.student.studentId && r.assignmentId === a.id) + 1 : null;
+            const checkQueuePosition = hasCheckRequest ? state.requests.filter(r => r.type === 'check').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).findIndex(r => r.studentId === state.student.studentId && r.assignmentId === a.id) + 1 : null;
+
             let statusBadge;
             if (isExcused) {
                 statusBadge = `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">Excused</span>`;
@@ -95,11 +98,11 @@
                     <div class="flex space-x-2 mt-4">
                         <button class="flex-1 bg-red-500 text-white font-semibold text-sm py-1 px-2 rounded-lg hover:bg-red-600 transition-colors duration-200"
                                 onclick="handleRequest('help', '${a.id}')" ${hasHelpRequest || hasCheckRequest || isExcused ? 'disabled' : ''}>
-                            ${hasHelpRequest ? 'Help Requested' : 'Request Help'}
+                            ${hasHelpRequest ? `Help Requested (#${helpQueuePosition})` : 'Request Help'}
                         </button>
                         <button class="flex-1 bg-blue-500 text-white font-semibold text-sm py-1 px-2 rounded-lg hover:bg-blue-600 transition-colors duration-200"
                                 onclick="handleRequest('check', '${a.id}')" ${hasCheckRequest || hasHelpRequest || isExcused ? 'disabled' : ''}>
-                            ${hasCheckRequest ? 'Check Requested' : 'Request Check'}
+                            ${hasCheckRequest ? `Check Requested (#${checkQueuePosition})` : 'Request Check'}
                         </button>
                     </div>
                     ${(hasHelpRequest || hasCheckRequest) ? `
