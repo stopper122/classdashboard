@@ -10,7 +10,7 @@
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, collection, query, where, addDoc, updateDoc, deleteDoc, getDoc, getDocs, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-//
+
         // IMPORTANT: These global variables are provided by the canvas environment.
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = {
@@ -117,8 +117,8 @@
                         <div class="flex justify-between items-center mb-6">
                             <h1 class="text-4xl font-extrabold text-gray-800 tracking-tight">Assignment Tracker</h1>
                             <div class="flex items-center space-x-2">
-                                <button id="clear-all-app-data-btn" class="bg-gray-200 px-3 py-1 rounded-lg hover:bg-red-300 transition-colors duration-200 text-sm font-bold">Clear All Data</button>
                                 <span class="text-sm text-gray-500">${auth.currentUser?.uid}</span>
+                                <button id="clear-all-data-btn" class="text-sm bg-red-500 px-3 py-1 rounded-lg hover:bg-red-600 text-white font-bold">Clear All App Data</button>
                             </div>
                         </div>
 
@@ -303,7 +303,7 @@
             document.getElementById('add-students-btn').addEventListener('click', handleAddStudents);
             document.getElementById('add-empty-seat-btn').addEventListener('click', handleAddEmptySeat);
             document.getElementById('delete-all-students-btn').addEventListener('click', handleDeleteAllStudents);
-            document.getElementById('clear-all-app-data-btn').addEventListener('click', handleClearAllAppData);
+            document.getElementById('clear-all-data-btn').addEventListener('click', handleClearAllAppData);
 
             document.querySelectorAll('input[name="sort-option"]').forEach(radio => {
                 radio.addEventListener('change', (e) => {
@@ -334,6 +334,38 @@
             }
         };
 
+        const renderLogin = () => {
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="flex items-center justify-center min-h-screen bg-gray-100">
+                    <div class="p-8 bg-white rounded-xl shadow-lg w-full max-w-lg text-center">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-4">Teacher Login</h2>
+                        <form id="teacher-login-form" class="flex flex-col space-y-4">
+                            <input type="password" id="password" placeholder="Password"
+                                class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <button type="submit" class="bg-blue-600 text-white font-bold py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">
+                                Log In
+                            </button>
+                        </form>
+                        <p id="login-message" class="mt-4 text-red-500"></p>
+                    </div>
+                </div>
+            `;
+            document.getElementById('teacher-login-form').addEventListener('submit', handleTeacherLogin);
+        };
+        
+        const handleTeacherLogin = (e) => {
+            e.preventDefault();
+            const password = document.getElementById('password').value;
+            const messageEl = document.getElementById('login-message');
+            if (password === TEACHER_PASSWORD) {
+                state.isTeacherLoggedIn = true;
+                renderUI();
+            } else {
+                messageEl.textContent = 'Incorrect password.';
+            }
+        };
+
         const handleAddPeriod = async () => {
             const name = document.getElementById('new-period-name').value.trim();
             if (name) {
@@ -345,32 +377,18 @@
         
         const handleDeletePeriod = async () => {
             if (!state.selectedPeriodId) return;
-
+            const periodIdToDelete = state.selectedPeriodId;
             const publicDataPath = `artifacts/${appId}/public/data`;
-            const periodDocRef = doc(db, `${publicDataPath}/periods`, state.selectedPeriodId);
-
-            // Get all students and assignments to be deleted beforehand
-            const studentsQuery = query(collection(db, `${publicDataPath}/students`), where('periodId', '==', state.selectedPeriodId));
-            const studentsSnapshot = await getDocs(studentsQuery);
-            const studentIds = studentsSnapshot.docs.map(doc => doc.id);
-
-            const assignmentsQuery = query(collection(db, `${publicDataPath}/assignments`), where('periodId', '==', state.selectedPeriodId));
-            const assignmentsSnapshot = await getDocs(assignmentsQuery);
-            const assignmentIds = assignmentsSnapshot.docs.map(doc => doc.id);
             
-            // Collect all requests for these students and assignments
-            const requestsPromises = studentIds.map(studentId => {
-                const requestsRef = collection(db, `${publicDataPath}/requests`);
-                const q = query(requestsRef, where('studentId', '==', studentId));
-                return getDocs(q);
-            });
-
-            const allRequestsSnapshots = await Promise.all(requestsPromises);
-            const allRequestsToDelete = allRequestsSnapshots.flatMap(snapshot => snapshot.docs);
-
             await runTransaction(db, async (transaction) => {
-                // Delete the period document
-                transaction.delete(periodDocRef);
+                // Get all students, assignments, and requests for the period
+                const studentsQuery = query(collection(db, `${publicDataPath}/students`), where('periodId', '==', periodIdToDelete));
+                const assignmentsQuery = query(collection(db, `${publicDataPath}/assignments`), where('periodId', '==', periodIdToDelete));
+                const requestsQuery = query(collection(db, `${publicDataPath}/requests`), where('periodId', '==', periodIdToDelete));
+                
+                const studentsSnapshot = await transaction.get(studentsQuery);
+                const assignmentsSnapshot = await transaction.get(assignmentsQuery);
+                const requestsSnapshot = await transaction.get(requestsQuery);
 
                 // Delete all students in the period
                 studentsSnapshot.forEach(doc => {
@@ -382,15 +400,20 @@
                     transaction.delete(doc.ref);
                 });
 
-                // Delete all associated requests
-                allRequestsToDelete.forEach(requestDoc => {
-                    transaction.delete(requestDoc.ref);
+                // Delete all requests in the period
+                requestsSnapshot.forEach(doc => {
+                    transaction.delete(doc.ref);
                 });
+
+                // Finally, delete the period itself
+                const periodRef = doc(db, `${publicDataPath}/periods`, periodIdToDelete);
+                transaction.delete(periodRef);
             });
 
-            // Reset selected student and trigger a re-render
-            state.selectedStudent = null;
-            renderUI();
+            // After deletion, reset selected period if the deleted one was selected
+            if (state.selectedPeriodId === periodIdToDelete) {
+                state.selectedPeriodId = null;
+            }
         };
 
         const handleAddAssignments = async () => {
@@ -398,12 +421,17 @@
             const dueDate = document.getElementById('assignment-due-date').value;
             if (!titles.length || !state.selectedPeriodId) return;
             
-            for (const title of titles) {
-                const assignmentsRef = collection(db, `artifacts/${appId}/public/data/assignments`);
+            const assignmentsRef = collection(db, `artifacts/${appId}/public/data/assignments`);
+            const assignmentsInPeriodCount = state.assignments.filter(a => a.periodId === state.selectedPeriodId).length;
+
+            for (let i = 0; i < titles.length; i++) {
+                const title = titles[i];
                 await addDoc(assignmentsRef, {
                     periodId: state.selectedPeriodId,
                     title,
                     dueDate,
+                    datePosted: new Date().toISOString(),
+                    assignmentOrder: assignmentsInPeriodCount + i,
                     completions: []
                 });
             }
@@ -411,94 +439,45 @@
         };
 
         const handleAddStudents = async () => {
-            const button = document.getElementById('add-students-btn');
-            const originalButtonText = button.textContent;
-            button.textContent = 'Processing...';
-            button.disabled = true;
-
-            try {
-                const rosterText = document.getElementById('student-roster').value.trim();
-                if (!rosterText || !state.selectedPeriodId) return;
-                
-                const lines = rosterText.split('\n').map(line => line.trim()).filter(line => line);
-                const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
-                const assignmentsRef = collection(db, `artifacts/${appId}/public/data/assignments`);
-                
-                const existingStudentsCount = state.students.filter(s => s.periodId === state.selectedPeriodId && !s.isPlaceholder).length;
-                const existingEmptySeatsCount = state.students.filter(s => s.periodId === state.selectedPeriodId && s.isPlaceholder).length;
-                
-                // Fetch existing assignments for the current period
-                const assignmentsQuery = query(assignmentsRef, where('periodId', '==', state.selectedPeriodId));
-                const assignmentsSnapshot = await getDocs(assignmentsQuery);
-
-                const newStudentsData = [];
-                for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i];
-                    const lastCommaIndex = line.lastIndexOf(',');
-                    let name = line.substring(0, lastCommaIndex).trim();
-                    let studentId = line.substring(lastCommaIndex + 1).trim();
-
-                    let firstName = '';
-                    let lastName = '';
-                    if (name.includes(',')) {
-                        const commaParts = name.split(',').map(p => p.trim());
-                        lastName = commaParts[0];
-                        firstName = commaParts[1];
-                    } else {
-                        const nameParts = name.split(' ');
-                        firstName = nameParts[0];
-                        lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
-                    }
-
-                    if (name && studentId) {
-                        newStudentsData.push({
-                            periodId: state.selectedPeriodId,
-                            name,
-                            firstName,
-                            lastName,
-                            studentId,
-                            seatOrder: existingStudentsCount + existingEmptySeatsCount + i,
-                            isPlaceholder: false
-                        });
-                    }
-                }
-                
-                await runTransaction(db, async (transaction) => {
-                    const newStudentDocs = [];
-                    for (const student of newStudentsData) {
-                        const newStudentRef = doc(studentsRef);
-                        transaction.set(newStudentRef, student);
-                        newStudentDocs.push({ ...student, id: newStudentRef.id });
-                    }
-                    
-                    // Add empty completion records to all assignments for the new students
-                    assignmentsSnapshot.forEach(assignmentDoc => {
-                        const completions = assignmentDoc.data().completions || [];
-                        const updatedCompletions = [...completions];
-                        newStudentDocs.forEach(newStudent => {
-                            updatedCompletions.push({
-                                studentId: newStudent.studentId,
-                                score: null,
-                                isExcused: false,
-                                timestamp: new Date().toISOString()
-                            });
-                        });
-                        transaction.update(assignmentDoc.ref, { completions: updatedCompletions });
-                    });
-                });
-                
-                // Update local state after successful transaction
-                state.students = [...state.students, ...newStudentsData];
-                document.getElementById('student-roster').value = '';
-
-            } catch (error) {
-                console.error("Error adding students:", error);
-            } finally {
-                button.textContent = originalButtonText;
-                button.disabled = false;
+            const rosterText = document.getElementById('student-roster').value.trim();
+            if (!rosterText || !state.selectedPeriodId) return;
+            
+            const lines = rosterText.split('\n').map(line => line.trim()).filter(line => line);
+            const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
+            const promises = [];
+            
+            const existingStudentsInPeriod = state.students.filter(s => s.periodId === state.selectedPeriodId);
+            const existingAssignmentsInPeriod = state.assignments.filter(a => a.periodId === state.selectedPeriodId);
+            
+            let lastSeatOrder = -1;
+            if (existingStudentsInPeriod.length > 0) {
+                lastSeatOrder = Math.max(...existingStudentsInPeriod.map(s => s.seatOrder || 0));
             }
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                const parts = line.split(',').map(p => p.trim());
+                if (parts.length < 2) continue; // Skip malformed lines
+                
+                let lastName = parts[0];
+                let firstName = parts[1];
+                let studentId = parts[2];
+                let name = `${firstName} ${lastName}`;
+
+                promises.push(addDoc(studentsRef, {
+                    periodId: state.selectedPeriodId,
+                    name,
+                    firstName,
+                    lastName,
+                    studentId,
+                    seatOrder: lastSeatOrder + 1 + i,
+                    isPlaceholder: false
+                }));
+            }
+            
+            await Promise.all(promises);
+            document.getElementById('student-roster').value = '';
         };
-        window.handleAddStudents = handleAddStudents;
 
         const handleAddEmptySeat = async () => {
             if (!state.selectedPeriodId) return;
@@ -514,78 +493,89 @@
                 lastName: ""
             });
         };
+        
+        const handleClearAllAppData = async () => {
+            const publicDataPath = `artifacts/${appId}/public/data`;
+            await runTransaction(db, async (transaction) => {
+                const periodsRef = collection(db, `${publicDataPath}/periods`);
+                const periodsSnapshot = await transaction.get(periodsRef);
+                periodsSnapshot.forEach(doc => transaction.delete(doc.ref));
+
+                const studentsRef = collection(db, `${publicDataPath}/students`);
+                const studentsSnapshot = await transaction.get(studentsRef);
+                studentsSnapshot.forEach(doc => transaction.delete(doc.ref));
+                
+                const assignmentsRef = collection(db, `${publicDataPath}/assignments`);
+                const assignmentsSnapshot = await transaction.get(assignmentsRef);
+                assignmentsSnapshot.forEach(doc => transaction.delete(doc.ref));
+                
+                const requestsRef = collection(db, `${publicDataPath}/requests`);
+                const requestsSnapshot = await transaction.get(requestsRef);
+                requestsSnapshot.forEach(doc => transaction.delete(doc.ref));
+            });
+            state.selectedPeriodId = null;
+            state.selectedStudent = null;
+        };
 
         const handleDeleteAllStudents = async () => {
             if (!state.selectedPeriodId) return;
             const publicDataPath = `artifacts/${appId}/public/data`;
+            const studentsToDelete = state.students.filter(s => s.periodId === state.selectedPeriodId);
             
-            // Get all students for the current period
-            const studentsRef = collection(db, `${publicDataPath}/students`);
-            const studentsQuery = query(studentsRef, where('periodId', '==', state.selectedPeriodId));
-            const studentsSnapshot = await getDocs(studentsQuery);
-
-            // Get all assignments for the current period
-            const assignmentsRef = collection(db, `${publicDataPath}/assignments`);
-            const assignmentsQuery = query(assignmentsRef, where('periodId', '==', state.selectedPeriodId));
-            const assignmentsSnapshot = await getDocs(assignmentsQuery);
-
             await runTransaction(db, async (transaction) => {
-                // Delete all student documents
-                studentsSnapshot.forEach(doc => {
-                    transaction.delete(doc.ref);
-                });
+                for (const student of studentsToDelete) {
+                    const studentRef = doc(db, `${publicDataPath}/students`, student.id);
+                    transaction.delete(studentRef);
 
-                // Clear all completions from assignments
-                assignmentsSnapshot.forEach(doc => {
-                    transaction.update(doc.ref, { completions: [] });
-                });
+                    // Delete all requests for this student
+                    const requestsQuery = query(collection(db, `${publicDataPath}/requests`), where('studentId', '==', student.studentId));
+                    const requestsSnapshot = await transaction.get(requestsQuery);
+                    requestsSnapshot.forEach(requestDoc => {
+                        transaction.delete(requestDoc.ref);
+                    });
 
-                // Delete all requests related to this period's students
-                const requestsRef = collection(db, `${publicDataPath}/requests`);
-                const requestsQuery = query(requestsRef, where('periodId', '==', state.selectedPeriodId));
-                const requestsSnapshot = await getDocs(requestsQuery);
-                requestsSnapshot.forEach(doc => {
-                    transaction.delete(doc.ref);
-                });
+                    // Remove completions for this student from all assignments
+                    const assignmentsQuery = query(collection(db, `${publicDataPath}/assignments`), where('periodId', '==', state.selectedPeriodId));
+                    const assignmentsSnapshot = await transaction.get(assignmentsQuery);
+                    assignmentsSnapshot.forEach(assignmentDoc => {
+                        const completions = assignmentDoc.data().completions || [];
+                        const updatedCompletions = completions.filter(c => c.studentId !== student.studentId);
+                        transaction.update(assignmentDoc.ref, { completions: updatedCompletions });
+                    });
+                }
             });
         };
-        window.handleDeleteAllStudents = handleDeleteAllStudents;
 
         const deleteStudent = async (studentId) => {
+            const student = state.students.find(s => s.id === studentId);
+            if (!student) return;
+
             const publicDataPath = `artifacts/${appId}/public/data`;
-            const studentDocRef = doc(db, `${publicDataPath}/students`, studentId);
-            const studentData = state.students.find(s => s.id === studentId);
-            if (!studentData) {
-                console.error("Student not found in state:", studentId);
-                return;
-            }
-
-            const assignmentsQuery = query(collection(db, `${publicDataPath}/assignments`), where('periodId', '==', studentData.periodId));
-            const assignmentsSnapshot = await getDocs(assignmentsQuery);
-
-            const requestsQuery = query(collection(db, `${publicDataPath}/requests`), where('studentId', '==', studentData.studentId));
-            const requestsSnapshot = await getDocs(requestsQuery);
-
+            
             await runTransaction(db, async (transaction) => {
                 // Delete the student document
-                transaction.delete(studentDocRef);
-
-                // Update assignments to remove the student's completion data
-                assignmentsSnapshot.forEach(assignmentDoc => {
-                    const completions = assignmentDoc.data().completions || [];
-                    const updatedCompletions = completions.filter(c => c.studentId !== studentData.studentId);
-                    transaction.update(assignmentDoc.ref, { completions: updatedCompletions });
-                });
+                const studentRef = doc(db, `${publicDataPath}/students`, studentId);
+                transaction.delete(studentRef);
 
                 // Delete all requests for this student
+                const requestsQuery = query(collection(db, `${publicDataPath}/requests`), where('studentId', '==', student.studentId));
+                const requestsSnapshot = await transaction.get(requestsQuery);
                 requestsSnapshot.forEach(requestDoc => {
                     transaction.delete(requestDoc.ref);
                 });
+
+                // Remove completions for this student from all assignments
+                const assignmentsQuery = query(collection(db, `${publicDataPath}/assignments`), where('periodId', '==', student.periodId));
+                const assignmentsSnapshot = await transaction.get(assignmentsQuery);
+                assignmentsSnapshot.forEach(assignmentDoc => {
+                    const completions = assignmentDoc.data().completions || [];
+                    const updatedCompletions = completions.filter(c => c.studentId !== student.studentId);
+                    transaction.update(assignmentDoc.ref, { completions: updatedCompletions });
+                });
             });
-            
+
             if (state.selectedStudent && state.selectedStudent.id === studentId) {
                 state.selectedStudent = null;
-                renderUI();
             }
         };
         window.deleteStudent = deleteStudent;
@@ -677,6 +667,17 @@
                 deleteButton.disabled = state.selectedAssignmentsForDeletion.length === 0;
             }
         };
+        window.handleAssignmentSelectionForDeletion = (assignmentId, event) => {
+            if (event.target.checked) {
+                state.selectedAssignmentsForDeletion.push(assignmentId);
+            } else {
+                state.selectedAssignmentsForDeletion = state.selectedAssignmentsForDeletion.filter(id => id !== assignmentId);
+            }
+            const deleteButton = document.getElementById('delete-selected-assignments-btn');
+            if (deleteButton) {
+                deleteButton.disabled = state.selectedAssignmentsForDeletion.length === 0;
+            }
+        };
 
         const handleAssignmentEdit = async (assignmentId, newTitle) => {
             const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
@@ -685,17 +686,16 @@
         window.handleAssignmentEdit = handleAssignmentEdit;
 
         const handleDeleteAssignment = async (assignmentId) => {
-            const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
-            const q = query(requestsRef, where('assignmentId', '==', assignmentId));
-            const requestsSnapshot = await getDocs(q);
+            const publicDataPath = `artifacts/${appId}/public/data`;
+            const assignmentRef = doc(db, `${publicDataPath}/assignments`, assignmentId);
             
             await runTransaction(db, async (transaction) => {
-                const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
-                transaction.delete(assignmentRef);
-
+                const requestsQuery = query(collection(db, `${publicDataPath}/requests`), where('assignmentId', '==', assignmentId));
+                const requestsSnapshot = await transaction.get(requestsQuery);
                 requestsSnapshot.forEach(doc => {
                     transaction.delete(doc.ref);
                 });
+                transaction.delete(assignmentRef);
             });
         };
         window.handleDeleteAssignment = handleDeleteAssignment;
@@ -704,76 +704,50 @@
             const assignmentsToDelete = [...state.selectedAssignmentsForDeletion];
             state.selectedAssignmentsForDeletion = [];
             
-            // First, get all the requests related to the assignments to be deleted
-            const requestsPromises = assignmentsToDelete.map(assignmentId => {
-                const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
-                const q = query(requestsRef, where('assignmentId', '==', assignmentId));
-                return getDocs(q);
-            });
-            
-            const requestsSnapshots = await Promise.all(requestsPromises);
-            const allRequestsToDelete = requestsSnapshots.flatMap(snapshot => snapshot.docs);
-
             await runTransaction(db, async (transaction) => {
                 const publicDataPath = `artifacts/${appId}/public/data`;
-                
-                // Delete the assignments
                 for (const assignmentId of assignmentsToDelete) {
                     const assignmentRef = doc(db, `${publicDataPath}/assignments`, assignmentId);
                     transaction.delete(assignmentRef);
+
+                    const requestsQuery = query(collection(db, `${publicDataPath}/requests`), where('assignmentId', '==', assignmentId));
+                    const requestsSnapshot = await transaction.get(requestsQuery);
+                    requestsSnapshot.forEach(doc => {
+                        transaction.delete(doc.ref);
+                    });
                 }
-                
-                // Delete the associated requests
-                allRequestsToDelete.forEach(requestDoc => {
-                    transaction.delete(requestDoc.ref);
-                });
             });
-            renderUI();
+            state.selectedStudent = null;
         };
         window.handleDeleteMultipleAssignments = handleDeleteMultipleAssignments;
-
-        const handleAssignmentSelectionForDeletion = (assignmentId, event) => {
-            if (event.target.checked) {
-                state.selectedAssignmentsForDeletion.push(assignmentId);
-            } else {
-                state.selectedAssignmentsForDeletion = state.selectedAssignmentsForDeletion.filter(id => id !== assignmentId);
-            }
-            renderUI();
-        };
-        window.handleAssignmentSelectionForDeletion = handleAssignmentSelectionForDeletion;
 
         const handleScoreChange = async (assignmentId, score, event) => {
             const isChecked = event.target.checked;
             const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
+            const studentId = state.selectedStudent.studentId;
 
             await runTransaction(db, async (transaction) => {
                 const assignmentDoc = await transaction.get(assignmentRef);
                 const completions = assignmentDoc.data().completions || [];
-                const existingCompletionIndex = completions.findIndex(c => c.studentId === state.selectedStudent.studentId);
-                const completion = existingCompletionIndex !== -1 ? completions[existingCompletionIndex] : null;
-
-                let newScore = null;
-                if (isChecked) {
-                    newScore = score;
-                } else {
-                    const currentDbScore = completion ? completion.score : null;
-                    if (currentDbScore === score) {
-                        newScore = score > 1 ? score - 1 : null;
-                    } else {
-                        newScore = currentDbScore;
-                    }
-                }
-
+                const existingCompletionIndex = completions.findIndex(c => c.studentId === studentId);
+                
+                let newScore = isChecked ? score : score -1;
+                
                 if (existingCompletionIndex !== -1) {
                     const updatedCompletions = [...completions];
-                    updatedCompletions[existingCompletionIndex] = { ...updatedCompletions[existingCompletionIndex], score: newScore, isExcused: false, timestamp: new Date().toISOString() };
+                    if (!isChecked && newScore < 1) { // If the user unchecks the 1-star box
+                         updatedCompletions.splice(existingCompletionIndex, 1);
+                    } else {
+                         updatedCompletions[existingCompletionIndex] = { ...updatedCompletions[existingCompletionIndex], score: newScore, isExcused: false, timestamp: new Date().toISOString() };
+                    }
                     transaction.update(assignmentRef, { completions: updatedCompletions });
                 } else {
-                    const newCompletion = { studentId: state.selectedStudent.studentId, score: newScore, isExcused: false, timestamp: new Date().toISOString() };
-                    transaction.update(assignmentRef, { completions: [...completions, newCompletion] });
+                    if (isChecked) {
+                        const newCompletion = { studentId, score: newScore, isExcused: false, timestamp: new Date().toISOString() };
+                        transaction.update(assignmentRef, { completions: [...completions, newCompletion] });
+                    }
                 }
             });
-            // Re-render the UI after the transaction
             renderUI();
         };
         window.handleScoreChange = handleScoreChange;
@@ -781,22 +755,28 @@
         const handleExcusedToggle = async (assignmentId, event) => {
             const isChecked = event.target.checked;
             const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
+            const studentId = state.selectedStudent.studentId;
 
             await runTransaction(db, async (transaction) => {
                 const assignmentDoc = await transaction.get(assignmentRef);
                 const completions = assignmentDoc.data().completions || [];
-                const existingCompletionIndex = completions.findIndex(c => c.studentId === state.selectedStudent.studentId);
+                const existingCompletionIndex = completions.findIndex(c => c.studentId === studentId);
                 
                 if (existingCompletionIndex !== -1) {
                     const updatedCompletions = [...completions];
-                    updatedCompletions[existingCompletionIndex] = { ...updatedCompletions[existingCompletionIndex], score: null, isExcused: isChecked, timestamp: new Date().toISOString() };
+                    if (isChecked) {
+                        updatedCompletions[existingCompletionIndex] = { ...updatedCompletions[existingCompletionIndex], score: null, isExcused: isChecked, timestamp: new Date().toISOString() };
+                    } else {
+                        updatedCompletions.splice(existingCompletionIndex, 1);
+                    }
                     transaction.update(assignmentRef, { completions: updatedCompletions });
                 } else {
-                    const newCompletion = { studentId: state.selectedStudent.studentId, score: null, isExcused: isChecked, timestamp: new Date().toISOString() };
-                    transaction.update(assignmentRef, { completions: [...completions, newCompletion] });
+                    if (isChecked) {
+                        const newCompletion = { studentId, score: null, isExcused: isChecked, timestamp: new Date().toISOString() };
+                        transaction.update(assignmentRef, { completions: [...completions, newCompletion] });
+                    }
                 }
             });
-            // Re-render the UI after the transaction
             renderUI();
         };
         window.handleExcusedToggle = handleExcusedToggle;
@@ -811,6 +791,7 @@
                 const updatedCompletions = completions.filter(c => c.studentId !== studentId);
                 transaction.update(assignmentRef, { completions: updatedCompletions });
             });
+            renderUI();
         };
         window.clearCompletion = clearCompletion;
         
@@ -818,49 +799,30 @@
             if (!state.selectedStudent) return;
             const studentId = state.selectedStudent.studentId;
             const publicDataPath = `artifacts/${appId}/public/data`;
+            const studentPeriodId = state.selectedStudent.periodId;
 
             await runTransaction(db, async (transaction) => {
-                // Find and update all assignments for this student
-                const assignmentsQuery = query(collection(db, `${publicDataPath}/assignments`), where('periodId', '==', state.selectedStudent.periodId));
-                const assignmentsSnapshot = await getDocs(assignmentsQuery);
-                
-                assignmentsSnapshot.forEach(assignmentDoc => {
-                    const completions = assignmentDoc.data().completions;
-                    const updatedCompletions = completions.filter(c => c.studentId !== studentId);
-                    transaction.update(doc(db, `${publicDataPath}/assignments`, assignmentDoc.id), {
-                        completions: updatedCompletions
-                    });
+                // Find all requests for this student
+                const requestsQuery = query(collection(db, `${publicDataPath}/requests`), where('studentId', '==', studentId));
+                const requestsSnapshot = await transaction.get(requestsQuery);
+                requestsSnapshot.forEach(doc => {
+                    transaction.delete(doc.ref);
                 });
 
-                // Delete all requests for this student
-                const requestsQuery = query(collection(db, `${publicDataPath}/requests`), where('studentId', '==', studentId));
-                const requestsSnapshot = await getDocs(requestsQuery);
-                requestsSnapshot.forEach(requestDoc => {
-                    transaction.delete(doc(db, `${publicDataPath}/requests`, requestDoc.id));
+                // Find all assignments for the student's period
+                const assignmentsQuery = query(collection(db, `${publicDataPath}/assignments`), where('periodId', '==', studentPeriodId));
+                const assignmentsSnapshot = await transaction.get(assignmentsQuery);
+                
+                // For each assignment, remove the completion record for the student
+                assignmentsSnapshot.forEach(assignmentDoc => {
+                    const completions = assignmentDoc.data().completions || [];
+                    const updatedCompletions = completions.filter(c => c.studentId !== studentId);
+                    transaction.update(doc(db, `${publicDataPath}/assignments`, assignmentDoc.id), { completions: updatedCompletions });
                 });
             });
+            state.selectedStudent = null;
         };
         window.handleClearAllStudentData = handleClearAllStudentData;
-
-        const handleClearAllAppData = async () => {
-            const publicDataPath = `artifacts/${appId}/public/data`;
-            const collections = ['periods', 'students', 'assignments', 'requests'];
-
-            const collectionPromises = collections.map(col => getDocs(collection(db, `${publicDataPath}/${col}`)));
-            const snapshots = await Promise.all(collectionPromises);
-
-            await runTransaction(db, async (transaction) => {
-                snapshots.forEach(snapshot => {
-                    snapshot.docs.forEach(doc => {
-                        transaction.delete(doc.ref);
-                    });
-                });
-            });
-            state.selectedPeriodId = null;
-            state.selectedStudent = null;
-            renderUI();
-        };
-        window.handleClearAllAppData = handleClearAllAppData;
 
         const handleCopyLink = () => {
             const link = `${window.location.origin}/student.html?studentId=${state.selectedStudent.studentId}`;
@@ -884,13 +846,9 @@
             const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
             const q = query(requestsRef, where('studentId', '==', state.selectedStudent.studentId));
             const requestsSnapshot = await getDocs(q);
-            
-            await runTransaction(db, async (transaction) => {
-                requestsSnapshot.forEach(doc => {
-                    transaction.delete(doc.ref);
-                });
+            requestsSnapshot.forEach(async (doc) => {
+                await deleteDoc(doc.ref);
             });
-            renderUI();
         };
         window.handleClearAllRequests = handleClearAllRequests;
         
@@ -977,17 +935,6 @@
                 card.addEventListener('dragend', handleDragEnd);
             });
         };
-        window.deleteStudent = deleteStudent;
-        window.clearCompletion = clearCompletion;
-        window.handleExcusedToggle = handleExcusedToggle;
-        window.handleScoreChange = handleScoreChange;
-        window.handleAssignmentEdit = handleAssignmentEdit;
-        window.handleDeleteAssignment = handleDeleteAssignment;
-        window.handleDeleteMultipleAssignments = handleDeleteMultipleAssignments;
-        window.handleAssignmentSelectionForDeletion = handleAssignmentSelectionForDeletion;
-        window.clearSpecificRequest = clearSpecificRequest;
-        window.handleClearAllRequests = handleClearAllRequests;
-        window.handleDeleteAllStudents = handleDeleteAllStudents;
 
         document.addEventListener('DOMContentLoaded', () => {
             renderUI();
