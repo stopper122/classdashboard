@@ -54,6 +54,8 @@
         });
 
         const handleLogin = async ({ studentId }) => {
+            state.loading = true;
+            renderUI();
             const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
             let q = query(studentsRef, where('studentId', '==', studentId));
 
@@ -72,6 +74,7 @@
                 console.error("Login failed:", error);
                 state.loginMessage = 'Failed to connect. Please check your credentials and network connection.';
             }
+            state.loading = false;
             renderUI();
         };
 
