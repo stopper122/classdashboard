@@ -38,6 +38,7 @@
         db = getFirestore(app);
         auth = getAuth(app);
 
+        // Sign in anonymously to get a user ID
         auth.onAuthStateChanged(async (user) => {
             if (user) {
                 const params = new URLSearchParams(window.location.search);
@@ -52,7 +53,7 @@
             }
         });
 
-        const handleLogin = async ({ studentId, studentName }) => {
+        const handleLogin = async ({ studentId }) => {
             const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
             let q = query(studentsRef, where('studentId', '==', studentId));
 
@@ -60,18 +61,16 @@
                 const studentSnapshot = await getDocs(q);
                 const studentDoc = studentSnapshot.docs[0];
 
-                if (studentDoc && (studentName === undefined || studentDoc.data().name.toLowerCase().replace(/,/, '').replace(/\s/g, '') === studentName.toLowerCase().replace(/\s/g, ''))) {
+                if (studentDoc) {
                     state.student = { id: studentDoc.id, ...studentDoc.data() };
                     state.loginMessage = '';
                     startDataListeners();
-                } else if (studentDoc) {
-                     state.loginMessage = 'Invalid name. Please try again.';
                 } else {
-                    state.loginMessage = 'Invalid ID. Please try again.';
+                    state.loginMessage = 'Invalid Student ID. Please try again.';
                 }
             } catch (error) {
                 console.error("Login failed:", error);
-                state.loginMessage = 'Failed to connect. Please check your network connection.';
+                state.loginMessage = 'Failed to connect. Please check your credentials and network connection.';
             }
             renderUI();
         };
@@ -98,7 +97,11 @@
             if (state.assignmentSortOption === 'assignmentOrder') {
                 return filteredAssignments.sort((a,b) => direction * ((a.assignmentOrder || 0) - (b.assignmentOrder || 0)));
             } else if (state.assignmentSortOption === 'dueDate') {
-                return filteredAssignments.sort((a, b) => direction * (new Date(a.dueDate || 0) - new Date(b.dueDate || 0)));
+                return filteredAssignments.sort((a, b) => {
+                    const dateA = a.dueDate ? new Date(a.dueDate).getTime() : 0;
+                    const dateB = b.dueDate ? new Date(b.dueDate).getTime() : 0;
+                    return direction * (dateA - dateB);
+                });
             }
             return filteredAssignments;
         };
@@ -149,14 +152,14 @@
 
                         <div class="space-y-4">
                             ${sortedAssignments.map(a => {
-                                const completion = a.completions.find(c => c.studentId === state.student.studentId);
+                                const completion = a.completions.find(c => c.studentId === state.student.id);
                                 const isExcused = completion ? completion.isExcused : false;
                                 const isCompleted = completion && completion.score > 0;
                                 const score = completion ? completion.score : null;
-                                const helpRequest = state.requests.find(r => r.studentId === state.student.studentId && r.assignmentId === a.id && r.type === 'help');
-                                const checkRequest = state.requests.find(r => r.studentId === state.student.studentId && r.assignmentId === a.id && r.type === 'check');
-                                const helpQueuePosition = helpRequest ? state.requests.filter(r => r.type === 'help').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).findIndex(r => r.studentId === state.student.studentId && r.assignmentId === a.id) + 1 : null;
-                                const checkQueuePosition = checkRequest ? state.requests.filter(r => r.type === 'check').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).findIndex(r => r.studentId === state.student.studentId && r.assignmentId === a.id) + 1 : null;
+                                const helpRequest = state.requests.find(r => r.studentId === state.student.id && r.assignmentId === a.id && r.type === 'help');
+                                const checkRequest = state.requests.find(r => r.studentId === state.student.id && r.assignmentId === a.id && r.type === 'check');
+                                const helpQueuePosition = helpRequest ? state.requests.filter(r => r.type === 'help').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).findIndex(r => r.studentId === state.student.id && r.assignmentId === a.id) + 1 : null;
+                                const checkQueuePosition = checkRequest ? state.requests.filter(r => r.type === 'check').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).findIndex(r => r.studentId === state.student.id && r.assignmentId === a.id) + 1 : null;
 
                                 return `
                                     <div class="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200">
@@ -169,7 +172,7 @@
                                         
                                         <div class="flex space-x-2">
                                             ${helpRequest ? `
-                                                <button onclick="handleCancelRequest('${helpRequest.id}')" class="flex-1 bg-red-500 text-white font-bold py-2 rounded-lg hover:bg-red-600 transition-colors duration-200">
+                                                <button onclick="handleCancelRequest('${helpRequest.id}')" class="flex-1 bg-red-500 text-white font-bold py-2 rounded-lg hover:bg-red-600 transition-colors duration-200" ${isExcused ? 'disabled' : ''}>
                                                     Cancel Help (#${helpQueuePosition})
                                                 </button>
                                             ` : `
@@ -179,7 +182,7 @@
                                             `}
 
                                             ${checkRequest ? `
-                                                <button onclick="handleCancelRequest('${checkRequest.id}')" class="flex-1 bg-blue-500 text-white font-bold py-2 rounded-lg hover:bg-blue-600 transition-colors duration-200">
+                                                <button onclick="handleCancelRequest('${checkRequest.id}')" class="flex-1 bg-blue-500 text-white font-bold py-2 rounded-lg hover:bg-blue-600 transition-colors duration-200" ${isExcused ? 'disabled' : ''}>
                                                     Cancel Check (#${checkQueuePosition})
                                                 </button>
                                             ` : `
@@ -216,7 +219,7 @@
                 if (state.student) {
                     const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
                     await addDoc(requestsRef, {
-                        studentId: state.student.studentId,
+                        studentId: state.student.id,
                         assignmentId,
                         type,
                         timestamp: new Date().toISOString()
@@ -232,21 +235,21 @@
             window.handleClearStudentProgress = async () => {
                 const confirmClear = confirm("Are you sure you want to clear all your progress? This will delete all your scores and requests. This action cannot be undone.");
                 if (confirmClear) {
-                     const assignmentsRef = collection(db, `artifacts/${appId}/public/data/assignments`);
-                     const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
+                    const assignmentsRef = collection(db, `artifacts/${appId}/public/data/assignments`);
+                    const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
 
-                     const studentAssignments = state.assignments.filter(a => a.completions.some(c => c.studentId === state.student.studentId));
-                     for (const assignment of studentAssignments) {
-                         const updatedCompletions = assignment.completions.filter(c => c.studentId !== state.student.studentId);
-                         const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignment.id);
-                         await updateDoc(assignmentRef, { completions: updatedCompletions });
-                     }
+                    const studentAssignments = state.assignments.filter(a => a.completions.some(c => c.studentId === state.student.id));
+                    for (const assignment of studentAssignments) {
+                        const updatedCompletions = assignment.completions.filter(c => c.studentId !== state.student.id);
+                        const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignment.id);
+                        await updateDoc(assignmentRef, { completions: updatedCompletions });
+                    }
 
-                     const studentRequests = state.requests.filter(r => r.studentId === state.student.studentId);
-                     for (const request of studentRequests) {
-                         const requestRef = doc(db, `artifacts/${appId}/public/data/requests`, request.id);
-                         await deleteDoc(requestRef);
-                     }
+                    const studentRequests = state.requests.filter(r => r.studentId === state.student.id);
+                    for (const request of studentRequests) {
+                        const requestRef = doc(db, `artifacts/${appId}/public/data/requests`, request.id);
+                        await deleteDoc(requestRef);
+                    }
                 }
             };
         };
@@ -258,19 +261,21 @@
                     <div class="p-8 bg-white rounded-xl shadow-lg w-full max-w-lg text-center">
                         <h2 class="text-2xl font-bold text-gray-800 mb-4">Student Login</h2>
                         <form id="student-login-form" class="flex flex-col space-y-4">
+                            <p id="login-message" class="mt-4 text-red-500">${state.loginMessage}</p>
                             <input type="text" id="student-id" placeholder="Your Student ID"
                                 class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <button type="submit" class="bg-blue-600 text-white font-bold py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">
                                 Log In
                             </button>
                         </form>
-                        <p id="login-message" class="mt-4 text-red-500">${state.loginMessage}</p>
                     </div>
                 </div>
             `;
             document.getElementById('student-login-form').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const studentId = document.getElementById('student-id').value;
+                state.loading = true;
+                renderUI();
                 await handleLogin({ studentId });
             });
         };
