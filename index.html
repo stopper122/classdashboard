@@ -442,40 +442,45 @@
             const rosterText = document.getElementById('student-roster').value.trim();
             if (!rosterText || !state.selectedPeriodId) return;
             
-            const lines = rosterText.split('\n').map(line => line.trim()).filter(line => line);
+            const lines = rosterText.split(',').map(p => p.trim()).filter(p => p);
+            if (lines.length < 3) return;
+
             const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
-            const promises = [];
-            
-            const existingStudentsInPeriod = state.students.filter(s => s.periodId === state.selectedPeriodId);
-            const existingAssignmentsInPeriod = state.assignments.filter(a => a.periodId === state.selectedPeriodId);
             
             let lastSeatOrder = -1;
+            const existingStudentsInPeriod = state.students.filter(s => s.periodId === state.selectedPeriodId);
             if (existingStudentsInPeriod.length > 0) {
                 lastSeatOrder = Math.max(...existingStudentsInPeriod.map(s => s.seatOrder || 0));
             }
 
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i];
-                const parts = line.split(',').map(p => p.trim());
-                if (parts.length < 2) continue; // Skip malformed lines
-                
-                let lastName = parts[0];
-                let firstName = parts[1];
-                let studentId = parts[2];
-                let name = `${firstName} ${lastName}`;
-
-                promises.push(addDoc(studentsRef, {
-                    periodId: state.selectedPeriodId,
-                    name,
-                    firstName,
-                    lastName,
-                    studentId,
-                    seatOrder: lastSeatOrder + 1 + i,
-                    isPlaceholder: false
-                }));
-            }
+            let lastName = lines[0];
+            let firstName = lines[1];
+            let studentId = lines[2];
+            let name = `${firstName} ${lastName}`;
             
-            await Promise.all(promises);
+            const newStudentRef = doc(studentsRef);
+            const newStudentDoc = {
+                id: newStudentRef.id,
+                periodId: state.selectedPeriodId,
+                name,
+                firstName,
+                lastName,
+                studentId,
+                seatOrder: lastSeatOrder + 1,
+                isPlaceholder: false
+            };
+
+            await runTransaction(db, async (transaction) => {
+                transaction.set(newStudentRef, newStudentDoc);
+                
+                const existingAssignmentsInPeriod = state.assignments.filter(a => a.periodId === state.selectedPeriodId);
+                for (const assignment of existingAssignmentsInPeriod) {
+                    const newCompletion = { studentId: newStudentDoc.studentId, score: null, isExcused: false, timestamp: new Date().toISOString() };
+                    const assignmentRef = doc(db, `${publicDataPath}/assignments`, assignment.id);
+                    const completions = [...(assignment.completions || []), newCompletion];
+                    transaction.update(assignmentRef, { completions });
+                }
+            });
             document.getElementById('student-roster').value = '';
         };
 
@@ -498,19 +503,19 @@
             const publicDataPath = `artifacts/${appId}/public/data`;
             await runTransaction(db, async (transaction) => {
                 const periodsRef = collection(db, `${publicDataPath}/periods`);
-                const periodsSnapshot = await transaction.get(periodsRef);
+                const periodsSnapshot = await getDocs(periodsRef);
                 periodsSnapshot.forEach(doc => transaction.delete(doc.ref));
 
                 const studentsRef = collection(db, `${publicDataPath}/students`);
-                const studentsSnapshot = await transaction.get(studentsRef);
+                const studentsSnapshot = await getDocs(studentsRef);
                 studentsSnapshot.forEach(doc => transaction.delete(doc.ref));
                 
                 const assignmentsRef = collection(db, `${publicDataPath}/assignments`);
-                const assignmentsSnapshot = await transaction.get(assignmentsRef);
+                const assignmentsSnapshot = await getDocs(assignmentsRef);
                 assignmentsSnapshot.forEach(doc => transaction.delete(doc.ref));
                 
                 const requestsRef = collection(db, `${publicDataPath}/requests`);
-                const requestsSnapshot = await transaction.get(requestsRef);
+                const requestsSnapshot = await getDocs(requestsRef);
                 requestsSnapshot.forEach(doc => transaction.delete(doc.ref));
             });
             state.selectedPeriodId = null;
@@ -529,14 +534,14 @@
 
                     // Delete all requests for this student
                     const requestsQuery = query(collection(db, `${publicDataPath}/requests`), where('studentId', '==', student.studentId));
-                    const requestsSnapshot = await transaction.get(requestsQuery);
+                    const requestsSnapshot = await getDocs(requestsQuery);
                     requestsSnapshot.forEach(requestDoc => {
                         transaction.delete(requestDoc.ref);
                     });
 
                     // Remove completions for this student from all assignments
                     const assignmentsQuery = query(collection(db, `${publicDataPath}/assignments`), where('periodId', '==', state.selectedPeriodId));
-                    const assignmentsSnapshot = await transaction.get(assignmentsQuery);
+                    const assignmentsSnapshot = await getDocs(assignmentsQuery);
                     assignmentsSnapshot.forEach(assignmentDoc => {
                         const completions = assignmentDoc.data().completions || [];
                         const updatedCompletions = completions.filter(c => c.studentId !== student.studentId);
@@ -559,14 +564,14 @@
 
                 // Delete all requests for this student
                 const requestsQuery = query(collection(db, `${publicDataPath}/requests`), where('studentId', '==', student.studentId));
-                const requestsSnapshot = await transaction.get(requestsQuery);
+                const requestsSnapshot = await getDocs(requestsQuery);
                 requestsSnapshot.forEach(requestDoc => {
                     transaction.delete(requestDoc.ref);
                 });
 
                 // Remove completions for this student from all assignments
                 const assignmentsQuery = query(collection(db, `${publicDataPath}/assignments`), where('periodId', '==', student.periodId));
-                const assignmentsSnapshot = await transaction.get(assignmentsQuery);
+                const assignmentsSnapshot = await getDocs(assignmentsQuery);
                 assignmentsSnapshot.forEach(assignmentDoc => {
                     const completions = assignmentDoc.data().completions || [];
                     const updatedCompletions = completions.filter(c => c.studentId !== student.studentId);
@@ -616,6 +621,7 @@
                                         </svg>
                                     </button>
                                 </div>
+                                <p class="text-sm text-gray-500 mb-2">Posted: ${a.datePosted ? new Date(a.datePosted).toLocaleDateString() : 'N/A'}</p>
                                 <p class="text-sm text-gray-500 mb-2">Due: ${a.dueDate ? new Date(a.dueDate).toLocaleDateString() : 'N/A'}</p>
                                 <div class="flex items-center space-x-4">
                                     <div class="flex items-center space-x-1">
@@ -691,7 +697,7 @@
             
             await runTransaction(db, async (transaction) => {
                 const requestsQuery = query(collection(db, `${publicDataPath}/requests`), where('assignmentId', '==', assignmentId));
-                const requestsSnapshot = await transaction.get(requestsQuery);
+                const requestsSnapshot = await getDocs(requestsQuery);
                 requestsSnapshot.forEach(doc => {
                     transaction.delete(doc.ref);
                 });
@@ -711,7 +717,7 @@
                     transaction.delete(assignmentRef);
 
                     const requestsQuery = query(collection(db, `${publicDataPath}/requests`), where('assignmentId', '==', assignmentId));
-                    const requestsSnapshot = await transaction.get(requestsQuery);
+                    const requestsSnapshot = await getDocs(requestsQuery);
                     requestsSnapshot.forEach(doc => {
                         transaction.delete(doc.ref);
                     });
@@ -804,14 +810,14 @@
             await runTransaction(db, async (transaction) => {
                 // Find all requests for this student
                 const requestsQuery = query(collection(db, `${publicDataPath}/requests`), where('studentId', '==', studentId));
-                const requestsSnapshot = await transaction.get(requestsQuery);
+                const requestsSnapshot = await getDocs(requestsQuery);
                 requestsSnapshot.forEach(doc => {
                     transaction.delete(doc.ref);
                 });
 
                 // Find all assignments for the student's period
                 const assignmentsQuery = query(collection(db, `${publicDataPath}/assignments`), where('periodId', '==', studentPeriodId));
-                const assignmentsSnapshot = await transaction.get(assignmentsQuery);
+                const assignmentsSnapshot = await getDocs(assignmentsQuery);
                 
                 // For each assignment, remove the completion record for the student
                 assignmentsSnapshot.forEach(assignmentDoc => {
