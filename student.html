@@ -95,6 +95,7 @@
                     <div class="flex items-start justify-between mb-2">
                         <div>
                             <h3 class="text-xl font-bold text-gray-800">${a.title}</h3>
+                            <p class="text-sm text-gray-500">Posted: ${a.datePosted ? new Date(a.datePosted).toLocaleDateString() : 'N/A'}</p>
                             <p class="text-sm text-gray-500">Due: ${a.dueDate ? new Date(a.dueDate).toLocaleDateString() : 'N/A'}</p>
                         </div>
                         ${statusBadge}
