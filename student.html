@@ -89,6 +89,31 @@
             state.loading = false;
             renderUI();
         };
+        
+        // New function to manually refresh data
+        const refreshData = async () => {
+            state.loading = true;
+            renderUI();
+            // Re-fetch student data
+            const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
+            const q = query(studentsRef, where('studentId', '==', state.student.studentId));
+            const studentSnapshot = await getDocs(q);
+            const studentDoc = studentSnapshot.docs[0];
+            state.student = { id: studentDoc.id, ...studentDoc.data() };
+
+            // Re-fetch assignments
+            const assignmentsRef = collection(db, `artifacts/${appId}/public/data/assignments`);
+            const assignmentsSnapshot = await getDocs(query(assignmentsRef, where('periodId', '==', state.student.periodId)));
+            state.assignments = assignmentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            // Re-fetch requests
+            const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
+            const requestsSnapshot = await getDocs(requestsRef);
+            state.requests = requestsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            state.loading = false;
+            renderUI();
+        };
 
         const renderUI = () => {
             const app = document.getElementById('app');
@@ -106,10 +131,14 @@
             app.innerHTML = `
                 <div class="min-h-screen bg-gray-100 p-4 font-sans">
                     <div class="max-w-4xl mx-auto bg-white p-6 rounded-xl shadow-lg">
-                        <div class="text-center mb-6">
+                        <div class="flex justify-between items-center mb-6">
                             <h1 class="text-3xl font-bold text-gray-800">Welcome, ${state.student.name}!</h1>
-                            <p class="text-sm text-gray-500">Student ID: ${state.student.studentId}</p>
+                            <button id="refresh-btn" class="bg-gray-300 px-4 py-2 rounded-lg text-gray-800 font-semibold hover:bg-gray-400 transition-colors duration-200">
+                                Refresh
+                            </button>
                         </div>
+                        <p class="text-sm text-gray-500 mb-6">Student ID: ${state.student.studentId}</p>
+                        
                         <div class="space-y-4">
                             ${state.assignments.map(a => {
                                 const completion = a.completions.find(c => c.studentId === state.student.studentId);
@@ -158,6 +187,8 @@
                     </div>
                 </div>
             `;
+            
+            document.getElementById('refresh-btn').addEventListener('click', refreshData);
 
             window.handleRequest = async (assignmentId, type) => {
                 if (state.student) {
