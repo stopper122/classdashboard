@@ -30,7 +30,8 @@
             loading: true,
             loginFailed: false,
             loginMessage: '',
-            sortOption: 'number'
+            sortOption: 'number',
+            sortAscending: true
         };
 
         const app = initializeApp(firebaseConfig);
@@ -92,10 +93,11 @@
         };
 
         const sortAssignments = () => {
+            const direction = state.sortAscending ? 1 : -1;
             if (state.sortOption === 'number') {
-                state.assignments.sort((a, b) => (a.order || 0) - (b.order || 0));
+                state.assignments.sort((a, b) => direction * ((a.assignmentOrder || 0) - (b.assignmentOrder || 0)));
             } else if (state.sortOption === 'dueDate') {
-                state.assignments.sort((a, b) => (new Date(a.dueDate) || 0) - (new Date(b.dueDate) || 0));
+                state.assignments.sort((a, b) => direction * ((new Date(a.dueDate) || 0) - (new Date(b.dueDate) || 0)));
             }
         };
         
@@ -151,7 +153,7 @@
                             <h2 class="text-xl font-bold text-gray-700 mb-2">My Assignments</h2>
                             <div class="flex items-center space-x-4 mb-4">
                                 <span class="text-sm font-medium text-gray-700">Sort By:</span>
-                                <div class="flex space-x-2">
+                                <div class="flex items-center space-x-2">
                                     <label class="inline-flex items-center">
                                         <input type="radio" name="sort-option" value="number" class="form-radio" ${state.sortOption === 'number' ? 'checked' : ''}>
                                         <span class="ml-2 text-gray-700">Number</span>
@@ -159,6 +161,10 @@
                                     <label class="inline-flex items-center">
                                         <input type="radio" name="sort-option" value="dueDate" class="form-radio" ${state.sortOption === 'dueDate' ? 'checked' : ''}>
                                         <span class="ml-2 text-gray-700">Due Date</span>
+                                    </label>
+                                    <label class="inline-flex items-center ml-4">
+                                        <input type="checkbox" id="sort-order-toggle" class="form-checkbox text-blue-600 rounded" ${state.sortAscending ? '' : 'checked'}>
+                                        <span class="ml-2 text-gray-700">Descending</span>
                                     </label>
                                 </div>
                             </div>
@@ -178,7 +184,7 @@
                                 return `
                                     <div class="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200">
                                         <div class="flex items-center justify-between mb-2">
-                                            <h2 class="text-lg font-semibold text-gray-800">${a.order + 1}. ${a.title}</h2>
+                                            <h2 class="text-lg font-semibold text-gray-800">${a.assignmentOrder !== undefined ? `${a.assignmentOrder + 1}. ` : ''}${a.title}</h2>
                                             ${isExcused ? `<span class="bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded-full">Excused</span>` : ''}
                                             ${score ? `<span class="text-sm font-bold text-blue-600">Score: ${score}/4</span>` : ''}
                                         </div>
@@ -220,6 +226,11 @@
                     sortAssignments();
                     renderUI();
                 });
+            });
+            document.getElementById('sort-order-toggle').addEventListener('change', (e) => {
+                state.sortAscending = !e.target.checked;
+                sortAssignments();
+                renderUI();
             });
 
             window.handleRequest = async (assignmentId, type) => {
