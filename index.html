@@ -486,8 +486,10 @@
                         transaction.update(assignmentDoc.ref, { completions: updatedCompletions });
                     });
                 });
-
+                
+                state.students = [...state.students, ...newStudentsData];
                 document.getElementById('student-roster').value = '';
+
             } catch (error) {
                 console.error("Error adding students:", error);
             } finally {
