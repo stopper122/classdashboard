@@ -478,8 +478,34 @@
         };
 
         const deleteStudent = async (studentId) => {
-            const studentRef = doc(db, `artifacts/${appId}/public/data/students`, studentId);
-            await deleteDoc(studentRef);
+            const publicDataPath = `artifacts/${appId}/public/data`;
+            const studentDocRef = doc(db, `${publicDataPath}/students`, studentId);
+            const studentData = state.students.find(s => s.id === studentId);
+            if (!studentData) return;
+
+            const assignmentsQuery = query(collection(db, `${publicDataPath}/assignments`), where('periodId', '==', studentData.periodId));
+            const assignmentsSnapshot = await getDocs(assignmentsQuery);
+
+            const requestsQuery = query(collection(db, `${publicDataPath}/requests`), where('studentId', '==', studentData.studentId));
+            const requestsSnapshot = await getDocs(requestsQuery);
+
+            await runTransaction(db, async (transaction) => {
+                // Delete the student document
+                transaction.delete(studentDocRef);
+
+                // Update assignments to remove the student's completion data
+                assignmentsSnapshot.forEach(assignmentDoc => {
+                    const completions = assignmentDoc.data().completions || [];
+                    const updatedCompletions = completions.filter(c => c.studentId !== studentData.studentId);
+                    transaction.update(assignmentDoc.ref, { completions: updatedCompletions });
+                });
+
+                // Delete all requests for this student
+                requestsSnapshot.forEach(requestDoc => {
+                    transaction.delete(requestDoc.ref);
+                });
+            });
+            
             if (state.selectedStudent && state.selectedStudent.id === studentId) {
                 state.selectedStudent = null;
                 renderUI();
