@@ -28,7 +28,8 @@
             assignments: [],
             requests: [],
             loading: true,
-            loginFailed: false
+            loginFailed: false,
+            loginMessage: '' // Initializing loginMessage to an empty string
         };
 
         const app = initializeApp(firebaseConfig);
@@ -57,7 +58,7 @@
                 const studentSnapshot = await getDocs(q);
                 const studentDoc = studentSnapshot.docs[0];
 
-                if (studentDoc && (studentName === undefined || studentDoc.data().name.toLowerCase().replace(/,/, '').replace(/\s/g, '') === studentName.toLowerCase().replace(/\s/g, ''))) {
+                if (studentDoc && (studentName === undefined || studentDoc.data().name.toLowerCase().replace(/,/, '').replace(/\s/g, '') === studentName.toLowerCase().replace(/,/, '').replace(/\s/g, ''))) {
                     state.student = { id: studentDoc.id, ...studentDoc.data() };
                     state.loginMessage = '';
                     await startDataListeners();
