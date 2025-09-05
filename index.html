@@ -8,7 +8,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, collection, query, where, addDoc, updateDoc, deleteDoc, getDoc, getDocs, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, collection, query, where, addDoc, updateDoc, deleteDoc, getDocs, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // IMPORTANT: These global variables are provided by the canvas environment.
@@ -36,7 +36,6 @@
             isDragging: false,
             draggedId: null,
             draggedIndex: null,
-            isTeacherLoggedIn: true,
         };
 
         const app = initializeApp(firebaseConfig);
@@ -46,10 +45,9 @@
         // Sign in anonymously to get a user ID for private data access
         auth.onAuthStateChanged(async (user) => {
             if (user) {
-                if (state.loading) {
-                    await startDataListeners();
-                    state.loading = false;
-                }
+                await startDataListeners();
+                state.loading = false;
+                renderUI();
             } else {
                 await signInAnonymously(auth);
             }
@@ -58,7 +56,6 @@
         // Function to start real-time listeners for all data
         const startDataListeners = async () => {
             const publicDataPath = `artifacts/${appId}/public/data`;
-            const userId = auth.currentUser?.uid || "anonymous_user";
 
             // Listen for periods
             onSnapshot(collection(db, `${publicDataPath}/periods`), (snapshot) => {
@@ -97,9 +94,8 @@
                 state.students = filteredStudents.sort((a, b) => (a.firstName || '').localeCompare(b.firstName || ''));
             } else if (state.sortOption === 'lastName') {
                 state.students = filteredStudents.sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
-            }
-            if (state.sortOption !== 'seatOrder') {
-                state.students.forEach((s, i) => s.seatOrder = i);
+            } else {
+                state.students = filteredStudents;
             }
         };
 
@@ -164,7 +160,7 @@
                                 <!-- Add Students Section -->
                                 <div class="bg-gray-50 p-4 rounded-lg shadow-inner">
                                     <h2 class="text-xl font-bold text-gray-700 mb-2">Add Students & Seats</h2>
-                                    <textarea id="student-roster" rows="6" placeholder="Paste student roster (one per line, e.g., Last, First, ID#)" class="w-full px-3 py-2 border rounded-lg mb-2"></textarea>
+                                    <textarea id="student-roster" rows="6" placeholder="Paste student roster (one per line, e.g., First Last, ID#)" class="w-full px-3 py-2 border rounded-lg mb-2"></textarea>
                                     <div class="flex space-x-2">
                                         <button id="add-students-btn" class="flex-1 bg-blue-500 text-white font-bold py-2 rounded-lg hover:bg-blue-600 transition-colors duration-200">
                                             Add Students
@@ -176,6 +172,9 @@
                                     <button id="delete-all-students-btn" class="w-full mt-2 bg-red-500 text-white font-bold py-2 rounded-lg hover:bg-red-600 transition-colors duration-200">
                                         Delete All Students in Period
                                     </button>
+                                    <button id="clear-all-data-btn" class="w-full mt-2 bg-red-700 text-white font-bold py-2 rounded-lg hover:bg-red-800 transition-colors duration-200">
+                                        Clear All Data
+                                    </button>
                                 </div>
 
                                 <!-- Queue Display -->
@@ -186,7 +185,7 @@
                                             <h3 class="font-semibold text-gray-700">Help Queue</h3>
                                             <ul id="help-queue-list" class="list-disc list-inside text-gray-600">
                                                 ${state.requests.filter(r => r.type === 'help').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).map((r, i) => {
-                                                    const student = state.students.find(s => s.studentId === r.studentId);
+                                                    const student = state.students.find(s => s.id === r.studentId);
                                                     const assignment = state.assignments.find(a => a.id === r.assignmentId);
                                                     if (!student) return '';
                                                     return `<li class="cursor-pointer hover:text-red-500 transition-colors" data-student-id="${student.id}">${i + 1}. ${student.name} - ${assignment ? assignment.title : 'N/A'}</li>`;
@@ -197,7 +196,7 @@
                                             <h3 class="font-semibold text-gray-700">Check Queue</h3>
                                             <ul id="check-queue-list" class="list-disc list-inside text-gray-600">
                                                 ${state.requests.filter(r => r.type === 'check').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).map((r, i) => {
-                                                    const student = state.students.find(s => s.studentId === r.studentId);
+                                                    const student = state.students.find(s => s.id === r.studentId);
                                                     const assignment = state.assignments.find(a => a.id === r.assignmentId);
                                                     if (!student) return '';
                                                     return `<li class="cursor-pointer hover:text-blue-500 transition-colors" data-student-id="${student.id}">${i + 1}. ${student.name} - ${assignment ? assignment.title : 'N/A'}</li>`;
@@ -231,16 +230,17 @@
                                     </div>
                                     <div id="class-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                                         ${state.students.filter(s => s.periodId === state.selectedPeriodId).map(s => {
-                                            const hasHelpRequest = state.requests.some(r => r.studentId === s.studentId && r.type === 'help');
-                                            const hasCheckRequest = state.requests.some(r => r.studentId === s.studentId && r.type === 'check' && !hasHelpRequest);
+                                            const hasHelpRequest = state.requests.some(r => r.studentId === s.id && r.type === 'help');
+                                            const hasCheckRequest = state.requests.some(r => r.studentId === s.id && r.type === 'check' && !hasHelpRequest);
                                             const backgroundColor = hasHelpRequest ? 'bg-red-400' : hasCheckRequest ? 'bg-blue-400' : 'bg-gray-200';
                                             const textColor = hasHelpRequest || hasCheckRequest ? 'text-white' : 'text-gray-800';
+                                            const selectedClass = state.selectedStudent && state.selectedStudent.id === s.id ? 'ring-4 ring-blue-500' : '';
 
                                             return `
                                                 <div id="student-card-${s.id}" draggable="${state.sortOption === 'seatOrder'}"
                                                     class="student-card p-4 rounded-lg shadow cursor-pointer transition-colors duration-200
                                                     ${s.isPlaceholder ? 'border-2 border-dashed border-gray-400' : backgroundColor} ${textColor}
-                                                    ${state.selectedStudent && state.selectedStudent.id === s.id ? 'ring-4 ring-blue-500' : ''}"
+                                                    ${selectedClass}"
                                                     data-id="${s.id}" data-seat-order="${s.seatOrder}">
                                                     <div class="flex justify-between items-center mb-2">
                                                         <h3 class="font-bold">${s.isPlaceholder ? 'Empty Seat' : s.name}</h3>
@@ -251,8 +251,8 @@
                                                             </button>`}
                                                     </div>
                                                     <p class="text-sm">ID: ${s.studentId}</p>
-                                                    ${hasHelpRequest ? `<span class="text-sm font-semibold">Help Queue: #${state.requests.filter(r => r.type === 'help').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).findIndex(r => r.studentId === s.studentId) + 1}</span>` : ''}
-                                                    ${hasCheckRequest ? `<span class="text-sm font-semibold">Check Queue: #${state.requests.filter(r => r.type === 'check').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).findIndex(r => r.studentId === s.studentId) + 1}</span>` : ''}
+                                                    ${hasHelpRequest ? `<span class="text-sm font-semibold">Help Queue: #${state.requests.filter(r => r.type === 'help').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).findIndex(r => r.studentId === s.id) + 1}</span>` : ''}
+                                                    ${hasCheckRequest ? `<span class="text-sm font-semibold">Check Queue: #${state.requests.filter(r => r.type === 'check').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).findIndex(r => r.studentId === s.id) + 1}</span>` : ''}
                                                 </div>
                                             `;
                                         }).join('')}
@@ -263,10 +263,7 @@
                                 <div id="student-details" class="bg-gray-50 p-4 rounded-lg shadow-inner ${state.selectedStudent ? '' : 'hidden'}">
                                     <div class="flex justify-between items-center mb-4">
                                         <h2 class="text-xl font-bold text-gray-700">Assignments for ${state.selectedStudent ? state.selectedStudent.name : ''}</h2>
-                                        <div class="flex space-x-2">
-                                            <button id="clear-all-data-btn" class="text-sm bg-red-500 px-3 py-1 rounded-lg hover:bg-red-600 text-white font-bold">Clear All Student Data</button>
-                                            <button id="copy-link-btn" class="text-sm bg-gray-300 px-3 py-1 rounded-lg hover:bg-gray-400">Share Student Link</button>
-                                        </div>
+                                        <button id="copy-link-btn" class="text-sm bg-gray-300 px-3 py-1 rounded-lg hover:bg-gray-400">Share Student Link</button>
                                     </div>
                                     <div id="student-assignments" class="space-y-4">
                                         <!-- Assignments will be rendered here -->
@@ -279,6 +276,9 @@
                                     </div>
                                     <button id="clear-all-requests-btn" class="mt-4 w-full bg-red-500 text-white font-bold py-2 rounded-lg hover:bg-red-600 transition-colors duration-200">
                                         Clear All Requests
+                                    </button>
+                                    <button id="clear-student-data-btn" class="mt-4 w-full bg-red-500 text-white font-bold py-2 rounded-lg hover:bg-red-600 transition-colors duration-200">
+                                        Clear All Student Data
                                     </button>
                                 </div>
                             </div>
@@ -299,6 +299,7 @@
             document.getElementById('add-students-btn').addEventListener('click', handleAddStudents);
             document.getElementById('add-empty-seat-btn').addEventListener('click', handleAddEmptySeat);
             document.getElementById('delete-all-students-btn').addEventListener('click', handleDeleteAllStudents);
+            document.getElementById('clear-all-data-btn').addEventListener('click', handleClearAllData);
 
             document.querySelectorAll('input[name="sort-option"]').forEach(radio => {
                 radio.addEventListener('change', (e) => {
@@ -320,43 +321,34 @@
                 renderStudentDetails();
                 document.getElementById('copy-link-btn').addEventListener('click', handleCopyLink);
                 document.getElementById('clear-all-requests-btn').addEventListener('click', handleClearAllRequests);
-                document.getElementById('clear-all-data-btn').addEventListener('click', handleClearAllStudentData);
+                document.getElementById('clear-student-data-btn').addEventListener('click', handleClearStudentData);
             }
 
             if (state.sortOption === 'seatOrder') {
                 setupDragAndDrop();
             }
         };
-
-        const renderLogin = () => {
-            const app = document.getElementById('app');
-            app.innerHTML = `
-                <div class="flex items-center justify-center min-h-screen bg-gray-100">
-                    <div class="p-8 bg-white rounded-xl shadow-lg w-full max-w-lg text-center">
-                        <h2 class="text-2xl font-bold text-gray-800 mb-4">Teacher Login</h2>
-                        <form id="teacher-login-form" class="flex flex-col space-y-4">
-                            <input type="password" id="password" placeholder="Password"
-                                class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <button type="submit" class="bg-blue-600 text-white font-bold py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">
-                                Log In
-                            </button>
-                        </form>
-                        <p id="login-message" class="mt-4 text-red-500"></p>
-                    </div>
-                </div>
-            `;
-            document.getElementById('teacher-login-form').addEventListener('submit', handleTeacherLogin);
-        };
         
-        const handleTeacherLogin = (e) => {
-            e.preventDefault();
-            const password = document.getElementById('password').value;
-            const messageEl = document.getElementById('login-message');
-            if (password === TEACHER_PASSWORD) {
-                state.isTeacherLoggedIn = true;
-                renderUI();
-            } else {
-                messageEl.textContent = 'Incorrect password.';
+        const handleClearAllData = async () => {
+            const confirmClear = confirm("Are you sure you want to clear all data? This will delete all periods, students, assignments, and requests from the database. This action cannot be undone.");
+            if (confirmClear) {
+                await runTransaction(db, async (transaction) => {
+                    // Delete periods
+                    const periodsSnapshot = await getDocs(collection(db, `artifacts/${appId}/public/data/periods`));
+                    periodsSnapshot.forEach(doc => transaction.delete(doc.ref));
+
+                    // Delete students
+                    const studentsSnapshot = await getDocs(collection(db, `artifacts/${appId}/public/data/students`));
+                    studentsSnapshot.forEach(doc => transaction.delete(doc.ref));
+
+                    // Delete assignments
+                    const assignmentsSnapshot = await getDocs(collection(db, `artifacts/${appId}/public/data/assignments`));
+                    assignmentsSnapshot.forEach(doc => transaction.delete(doc.ref));
+
+                    // Delete requests
+                    const requestsSnapshot = await getDocs(collection(db, `artifacts/${appId}/public/data/requests`));
+                    requestsSnapshot.forEach(doc => transaction.delete(doc.ref));
+                });
             }
         };
 
@@ -371,16 +363,19 @@
         
         const handleDeletePeriod = async () => {
             if (state.selectedPeriodId) {
-                await runTransaction(db, async (transaction) => {
-                    const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
-                    const q = query(studentsRef, where('periodId', '==', state.selectedPeriodId));
-                    const studentsSnapshot = await getDocs(q);
-                    studentsSnapshot.forEach(doc => {
-                        transaction.delete(doc.ref);
+                const confirmDelete = confirm("Are you sure you want to delete this period and all its students?");
+                if (confirmDelete) {
+                    await runTransaction(db, async (transaction) => {
+                        const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
+                        const q = query(studentsRef, where('periodId', '==', state.selectedPeriodId));
+                        const studentsSnapshot = await getDocs(q);
+                        studentsSnapshot.forEach(doc => {
+                            transaction.delete(doc.ref);
+                        });
+                        const periodRef = doc(db, `artifacts/${appId}/public/data/periods`, state.selectedPeriodId);
+                        transaction.delete(periodRef);
                     });
-                    const periodRef = doc(db, `artifacts/${appId}/public/data/periods`, state.selectedPeriodId);
-                    transaction.delete(periodRef);
-                });
+                }
             }
         };
 
@@ -407,42 +402,28 @@
             
             const lines = rosterText.split('\n').map(line => line.trim()).filter(line => line);
             const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
-            const promises = [];
             
             const existingStudentsCount = state.students.filter(s => s.periodId === state.selectedPeriodId && !s.isPlaceholder).length;
             const existingEmptySeatsCount = state.students.filter(s => s.periodId === state.selectedPeriodId && s.isPlaceholder).length;
 
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i];
-                const lastCommaIndex = line.lastIndexOf(',');
-                let name = line.substring(0, lastCommaIndex).trim();
-                let studentId = line.substring(lastCommaIndex + 1).trim();
-
-                let firstName = '';
-                let lastName = '';
-                if (name.includes(',')) {
-                    const commaParts = name.split(',').map(p => p.trim());
-                    lastName = commaParts[0];
-                    firstName = commaParts[1];
-                } else {
-                    const nameParts = name.split(' ');
-                    firstName = nameParts[0];
-                    lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
-                }
-
+                const parts = line.split(',');
+                const studentId = parts.pop().trim();
+                const name = parts.join(',').trim();
+                
                 if (name && studentId) {
-                    promises.push(addDoc(studentsRef, {
+                    await addDoc(studentsRef, {
                         periodId: state.selectedPeriodId,
                         name,
-                        firstName,
-                        lastName,
+                        firstName: name.split(' ')[0],
+                        lastName: name.split(' ').slice(-1)[0],
                         studentId,
                         seatOrder: existingStudentsCount + existingEmptySeatsCount + i,
                         isPlaceholder: false
-                    }));
+                    });
                 }
             }
-            await Promise.all(promises);
             document.getElementById('student-roster').value = '';
         };
 
@@ -463,14 +444,15 @@
 
         const handleDeleteAllStudents = async () => {
             if (!state.selectedPeriodId) return;
-            await runTransaction(db, async (transaction) => {
+            const confirmDelete = confirm("Are you sure you want to delete all students and empty seats in this period?");
+            if (confirmDelete) {
                 const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
                 const q = query(studentsRef, where('periodId', '==', state.selectedPeriodId));
                 const studentsSnapshot = await getDocs(q);
-                studentsSnapshot.forEach(doc => {
-                    transaction.delete(doc.ref);
+                studentsSnapshot.forEach(async (doc) => {
+                    await deleteDoc(doc.ref);
                 });
-            });
+            }
         };
 
         const deleteStudent = async (studentId) => {
@@ -498,7 +480,7 @@
             studentAssignmentsList.innerHTML = state.assignments
                 .filter(a => a.periodId === state.selectedStudent.periodId)
                 .map(a => {
-                    const completion = a.completions.find(c => c.studentId === state.selectedStudent.studentId);
+                    const completion = a.completions.find(c => c.studentId === state.selectedStudent.id);
                     const isExcused = completion ? completion.isExcused : false;
                     const score = completion ? completion.score : 0;
                     
@@ -539,7 +521,7 @@
 
             const requestsList = document.getElementById('active-requests-list');
             if (requestsList) {
-                const studentRequests = state.requests.filter(r => r.studentId === state.selectedStudent.studentId);
+                const studentRequests = state.requests.filter(r => r.studentId === state.selectedStudent.id);
                 requestsList.innerHTML = studentRequests.length > 0 ? studentRequests.map(r => {
                     const assignment = state.assignments.find(a => a.id === r.assignmentId);
                     const type = r.type === 'help' ? 'Help' : 'Check';
@@ -553,237 +535,194 @@
                             </button>
                         </li>
                     `;
-                }).join('') : `<li class="text-gray-500">No active requests.</li>`;
+                }).join('') : `<p class="text-gray-500">No active requests.</p>`;
             }
         };
 
         const handleAssignmentEdit = async (assignmentId, newTitle) => {
             const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
-            await updateDoc(assignmentRef, { title: newTitle.trim() });
+            await updateDoc(assignmentRef, { title: newTitle });
         };
         window.handleAssignmentEdit = handleAssignmentEdit;
 
         const handleDeleteAssignment = async (assignmentId) => {
-            await runTransaction(db, async (transaction) => {
+            const confirmDelete = confirm("Are you sure you want to delete this assignment?");
+            if (confirmDelete) {
                 const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
-                transaction.delete(assignmentRef);
-
-                const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
-                const q = query(requestsRef, where('assignmentId', '==', assignmentId));
-                const requestsSnapshot = await getDocs(q);
-                requestsSnapshot.forEach(doc => {
-                    transaction.delete(doc.ref);
-                });
-            });
+                await deleteDoc(assignmentRef);
+            }
         };
         window.handleDeleteAssignment = handleDeleteAssignment;
 
         const handleScoreChange = async (assignmentId, score, event) => {
-            const isChecked = event.target.checked;
             const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
+            const studentId = state.selectedStudent.id;
+            const assignmentDoc = state.assignments.find(a => a.id === assignmentId);
+            let completions = assignmentDoc.completions || [];
+            let completion = completions.find(c => c.studentId === studentId);
 
-            await runTransaction(db, async (transaction) => {
-                const assignmentDoc = await transaction.get(assignmentRef);
-                const completions = assignmentDoc.data().completions || [];
-                const existingCompletionIndex = completions.findIndex(c => c.studentId === state.selectedStudent.studentId);
-                
-                let newScore = isChecked ? score : score -1;
-                if (!isChecked && newScore === 0) newScore = null;
-                if (!isChecked && score < newScore) newScore = score -1;
+            if (!completion) {
+                completion = { studentId, score, date: new Date().toISOString(), isExcused: false };
+                completions.push(completion);
+            } else {
+                completion.score = score;
+                completion.date = new Date().toISOString();
+                completion.isExcused = false;
+            }
 
-                if (existingCompletionIndex !== -1) {
-                    const updatedCompletions = [...completions];
-                    updatedCompletions[existingCompletionIndex] = { ...updatedCompletions[existingCompletionIndex], score: newScore, isExcused: false, timestamp: new Date().toISOString() };
-                    transaction.update(assignmentRef, { completions: updatedCompletions });
-                } else {
-                    const newCompletion = { studentId: state.selectedStudent.studentId, score: newScore, isExcused: false, timestamp: new Date().toISOString() };
-                    transaction.update(assignmentRef, { completions: [...completions, newCompletion] });
-                }
-            });
+            await updateDoc(assignmentRef, { completions });
         };
         window.handleScoreChange = handleScoreChange;
         
         const handleExcusedToggle = async (assignmentId, event) => {
-            const isChecked = event.target.checked;
             const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
+            const studentId = state.selectedStudent.id;
+            const assignmentDoc = state.assignments.find(a => a.id === assignmentId);
+            let completions = assignmentDoc.completions || [];
+            let completion = completions.find(c => c.studentId === studentId);
 
-            await runTransaction(db, async (transaction) => {
-                const assignmentDoc = await transaction.get(assignmentRef);
-                const completions = assignmentDoc.data().completions || [];
-                const existingCompletionIndex = completions.findIndex(c => c.studentId === state.selectedStudent.studentId);
-                
-                if (existingCompletionIndex !== -1) {
-                    const updatedCompletions = [...completions];
-                    updatedCompletions[existingCompletionIndex] = { ...updatedCompletions[existingCompletionIndex], score: null, isExcused: isChecked, timestamp: new Date().toISOString() };
-                    transaction.update(assignmentRef, { completions: updatedCompletions });
-                } else {
-                    const newCompletion = { studentId: state.selectedStudent.studentId, score: null, isExcused: isChecked, timestamp: new Date().toISOString() };
-                    transaction.update(assignmentRef, { completions: [...completions, newCompletion] });
-                }
-            });
+            if (!completion) {
+                completion = { studentId, score: 0, date: null, isExcused: true };
+                completions.push(completion);
+            } else {
+                completion.isExcused = event.target.checked;
+                completion.score = 0;
+            }
+
+            await updateDoc(assignmentRef, { completions });
         };
         window.handleExcusedToggle = handleExcusedToggle;
 
         const clearCompletion = async (assignmentId) => {
             const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
-            const studentId = state.selectedStudent.studentId;
-
-            await runTransaction(db, async (transaction) => {
-                const assignmentDoc = await transaction.get(assignmentRef);
-                const completions = assignmentDoc.data().completions || [];
-                const updatedCompletions = completions.filter(c => c.studentId !== studentId);
-                transaction.update(assignmentRef, { completions: updatedCompletions });
-            });
+            const studentId = state.selectedStudent.id;
+            const assignmentDoc = state.assignments.find(a => a.id === assignmentId);
+            const completions = assignmentDoc.completions.filter(c => c.studentId !== studentId);
+            await updateDoc(assignmentRef, { completions });
         };
         window.clearCompletion = clearCompletion;
-        
-        const handleClearAllStudentData = async () => {
+
+        const handleClearStudentData = async () => {
             if (!state.selectedStudent) return;
-            const studentId = state.selectedStudent.studentId;
-            const publicDataPath = `artifacts/${appId}/public/data`;
-
-            await runTransaction(db, async (transaction) => {
-                // Find and update all assignments for this student
-                const assignmentsQuery = query(collection(db, `${publicDataPath}/assignments`), where('periodId', '==', state.selectedStudent.periodId));
-                const assignmentsSnapshot = await getDocs(assignmentsQuery);
-                
-                assignmentsSnapshot.forEach(assignmentDoc => {
-                    const completions = assignmentDoc.data().completions;
-                    const updatedCompletions = completions.filter(c => c.studentId !== studentId);
-                    transaction.update(doc(db, `${publicDataPath}/assignments`, assignmentDoc.id), {
-                        completions: updatedCompletions
+            const confirmClear = confirm(`Are you sure you want to clear all data for ${state.selectedStudent.name}? This will delete all their scores, excused assignments, and requests.`);
+            if (confirmClear) {
+                await runTransaction(db, async (transaction) => {
+                    // Clear assignments
+                    const assignmentsRef = collection(db, `artifacts/${appId}/public/data/assignments`);
+                    const assignmentsSnapshot = await getDocs(query(assignmentsRef, where('periodId', '==', state.selectedStudent.periodId)));
+                    
+                    assignmentsSnapshot.forEach(doc => {
+                        const completions = doc.data().completions.filter(c => c.studentId !== state.selectedStudent.id);
+                        transaction.update(doc.ref, { completions });
                     });
-                });
 
-                // Delete all requests for this student
-                const requestsQuery = query(collection(db, `${publicDataPath}/requests`), where('studentId', '==', studentId));
-                const requestsSnapshot = await getDocs(requestsQuery);
-                requestsSnapshot.forEach(requestDoc => {
-                    transaction.delete(doc(db, `${publicDataPath}/requests`, requestDoc.id));
+                    // Clear requests
+                    const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
+                    const q = query(requestsRef, where('studentId', '==', state.selectedStudent.studentId));
+                    const requestsSnapshot = await getDocs(q);
+                    requestsSnapshot.forEach(doc => transaction.delete(doc.ref));
                 });
-            });
+            }
         };
-        window.handleClearAllStudentData = handleClearAllStudentData;
+        window.handleClearStudentData = handleClearStudentData;
+
+        const handleQueueItemClick = (e) => {
+            const studentId = e.target.dataset.studentId;
+            state.selectedStudent = state.students.find(s => s.id === studentId);
+            renderUI();
+        };
 
         const handleCopyLink = () => {
-            const link = `${window.location.origin}/student.html?studentId=${state.selectedStudent.studentId}`;
-            const tempInput = document.createElement('input');
-            document.body.appendChild(tempInput);
-            tempInput.value = link;
-            tempInput.select();
+            const studentId = state.selectedStudent.studentId;
+            const link = `${window.location.origin}/student.html?studentId=${studentId}`;
+            const el = document.createElement('textarea');
+            el.value = link;
+            document.body.appendChild(el);
+            el.select();
             document.execCommand('copy');
-            document.body.removeChild(tempInput);
+            document.body.removeChild(el);
+            alert("Student link copied to clipboard!");
         };
         window.handleCopyLink = handleCopyLink;
 
-        const clearSpecificRequest = async (requestId) => {
-            const requestRef = doc(db, `artifacts/${appId}/public/data/requests`, requestId);
-            await deleteDoc(requestRef);
-        };
-        window.clearSpecificRequest = clearSpecificRequest;
-
         const handleClearAllRequests = async () => {
             if (!state.selectedStudent) return;
-            const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
-            const q = query(requestsRef, where('studentId', '==', state.selectedStudent.studentId));
-            const requestsSnapshot = await getDocs(q);
-            requestsSnapshot.forEach(async (doc) => {
-                await deleteDoc(doc.ref);
-            });
-        };
-        window.handleClearAllRequests = handleClearAllRequests;
-        
-        const handleQueueItemClick = (e) => {
-            const studentId = e.currentTarget.dataset.studentId;
-            state.selectedStudent = state.students.find(s => s.id === studentId);
-            renderUI();
-            const detailsSection = document.getElementById('student-details');
-            if (detailsSection) {
-                detailsSection.scrollIntoView({ behavior: 'smooth' });
+            const confirmClear = confirm(`Are you sure you want to clear all active help and check requests for ${state.selectedStudent.name}?`);
+            if (confirmClear) {
+                const requestsRef = collection(db, `artifacts/${appId}/public/data/requests`);
+                const q = query(requestsRef, where('studentId', '==', state.selectedStudent.studentId));
+                const requestsSnapshot = await getDocs(q);
+                await Promise.all(requestsSnapshot.docs.map(doc => deleteDoc(doc.ref)));
             }
         };
-
+        window.handleClearAllRequests = handleClearAllRequests;
+        
         const setupDragAndDrop = () => {
-            const classGrid = document.getElementById('class-grid');
+            const grid = document.getElementById('class-grid');
             let dragSrcEl = null;
-        
-            const handleDragStart = (e) => {
-                dragSrcEl = e.currentTarget;
-                dragSrcEl.style.opacity = '0.4';
-                state.isDragging = true;
+
+            function handleDragStart(e) {
+                this.style.opacity = '0.4';
+                dragSrcEl = this;
                 e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('text/plain', dragSrcEl.dataset.id);
-            };
-        
-            const handleDragOver = (e) => {
+                e.dataTransfer.setData('text/plain', this.dataset.id);
+            }
+
+            function handleDragOver(e) {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'move';
-                e.currentTarget.classList.add('bg-blue-200');
-            };
-        
-            const handleDragLeave = (e) => {
-                e.currentTarget.classList.remove('bg-blue-200');
-            };
-        
-            const handleDrop = async (e) => {
+            }
+
+            function handleDrop(e) {
                 e.preventDefault();
-                e.currentTarget.classList.remove('bg-blue-200');
-                
-                if (dragSrcEl === e.currentTarget) {
-                    return;
+                const dropTarget = e.currentTarget;
+                if (dragSrcEl !== dropTarget) {
+                    const dragId = dragSrcEl.dataset.id;
+                    const dropId = dropTarget.dataset.id;
+
+                    const draggedStudent = state.students.find(s => s.id === dragId);
+                    const dropStudent = state.students.find(s => s.id === dropId);
+
+                    if (draggedStudent && dropStudent) {
+                        const draggedSeatOrder = draggedStudent.seatOrder;
+                        const dropSeatOrder = dropStudent.seatOrder;
+
+                        runTransaction(db, async (transaction) => {
+                            if (draggedSeatOrder < dropSeatOrder) {
+                                state.students.filter(s => s.seatOrder > draggedSeatOrder && s.seatOrder <= dropSeatOrder)
+                                    .forEach(s => {
+                                        const studentRef = doc(db, `artifacts/${appId}/public/data/students`, s.id);
+                                        transaction.update(studentRef, { seatOrder: s.seatOrder - 1 });
+                                    });
+                            } else {
+                                state.students.filter(s => s.seatOrder >= dropSeatOrder && s.seatOrder < draggedSeatOrder)
+                                    .forEach(s => {
+                                        const studentRef = doc(db, `artifacts/${appId}/public/data/students`, s.id);
+                                        transaction.update(studentRef, { seatOrder: s.seatOrder + 1 });
+                                    });
+                            }
+                            const draggedStudentRef = doc(db, `artifacts/${appId}/public/data/students`, dragId);
+                            transaction.update(draggedStudentRef, { seatOrder: dropSeatOrder });
+                        });
+                    }
                 }
-        
-                const studentIdToMove = dragSrcEl.dataset.id;
-                const targetStudentId = e.currentTarget.dataset.id;
-                
-                if (state.students.filter(s => s.periodId === state.selectedPeriodId).length < 2) return;
-        
-                const studentsRef = collection(db, `artifacts/${appId}/public/data/students`);
-        
-                await runTransaction(db, async (transaction) => {
-                    const studentsSnapshot = await getDocs(query(studentsRef, where('periodId', '==', state.selectedPeriodId)));
-                    const studentDocs = studentsSnapshot.docs;
-        
-                    const students = studentDocs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    students.sort((a, b) => a.seatOrder - b.seatOrder);
-        
-                    const studentToMoveIndex = students.findIndex(s => s.id === studentIdToMove);
-                    const targetIndex = students.findIndex(s => s.id === targetStudentId);
-        
-                    const [studentToMove] = students.splice(studentToMoveIndex, 1);
-                    students.splice(targetIndex, 0, studentToMove);
-        
-                    students.forEach((s, index) => {
-                        const newOrder = index;
-                        if (s.seatOrder !== newOrder) {
-                            transaction.update(doc(db, `${studentsRef.path}/${s.id}`), { seatOrder: newOrder });
-                        }
-                    });
+                return false;
+            }
+
+            function handleDragEnd(e) {
+                this.style.opacity = '1';
+                document.querySelectorAll('.student-card').forEach(card => {
+                    card.classList.remove('drag-over');
                 });
-            };
-        
-            const handleDragEnd = (e) => {
-                e.currentTarget.style.opacity = '1';
-                state.isDragging = false;
-                document.querySelectorAll('.student-card').forEach(card => card.classList.remove('bg-blue-200'));
-            };
-        
-            document.querySelectorAll('.student-card[draggable="true"]').forEach(card => {
-                card.addEventListener('dragstart', handleDragStart);
-                card.addEventListener('dragover', handleDragOver);
-                card.addEventListener('dragleave', handleDragLeave);
-                card.addEventListener('drop', handleDrop);
-                card.addEventListener('dragend', handleDragEnd);
+            }
+
+            document.querySelectorAll('.student-card').forEach(card => {
+                card.addEventListener('dragstart', handleDragStart, false);
+                card.addEventListener('dragover', handleDragOver, false);
+                card.addEventListener('drop', handleDrop, false);
+                card.addEventListener('dragend', handleDragEnd, false);
             });
         };
-        window.deleteStudent = deleteStudent;
-        window.clearCompletion = clearCompletion;
-        window.handleExcusedToggle = handleExcusedToggle;
-        window.handleScoreChange = handleScoreChange;
-        window.handleAssignmentEdit = handleAssignmentEdit;
-        window.handleDeleteAssignment = handleDeleteAssignment;
-        window.clearSpecificRequest = clearSpecificRequest;
-        window.handleClearAllRequests = handleClearAllRequests;
 
         document.addEventListener('DOMContentLoaded', () => {
             renderUI();
