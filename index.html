@@ -203,8 +203,6 @@
                     state.showAssignmentEditModal = false;
                     state.selectedAssignmentForEdit = null;
                     renderUI();
-                    saveBtn.disabled = false;
-                    saveBtn.textContent = originalText;
                 }
             }
         };
@@ -684,7 +682,7 @@
             }
 
             await runTransaction(db, async (transaction) => {
-                const existingAssignmentsInPeriod = state.assignments.filter(a => a.periodId === state.selectedPeriodId);
+                const existingAssignmentsInPeriod = state.assignments.filter(a => a.periodId === state.selectedPeriodId).map(a => ({ id: a.id, completions: a.completions || [] }));
                 let currentSeatOrder = lastSeatOrder;
 
                 for (const line of lines) {
@@ -712,7 +710,7 @@
                         for (const assignment of existingAssignmentsInPeriod) {
                             const newCompletion = { studentId: newStudentDoc.studentId, score: null, isExcused: false, timestamp: new Date().toISOString() };
                             const assignmentRef = doc(db, `${publicDataPath}/assignments`, assignment.id);
-                            const completions = [...(assignment.completions || []), newCompletion];
+                            const completions = [...assignment.completions, newCompletion];
                             transaction.update(assignmentRef, { completions });
                         }
                     }
@@ -1048,9 +1046,7 @@
         const handleClearAllStudentData = async () => {
             if (!state.selectedStudent) return;
             const studentId = state.selectedStudent.studentId;
-            const publicDataPath = `artifacts/${appId}/public/data`;
-            const studentPeriodId = state.selectedStudent.periodId;
-
+            
             await runTransaction(db, async (transaction) => {
                 // Find all requests for this student
                 const requestsQuery = query(collection(db, `${publicDataPath}/requests`), where('studentId', '==', studentId));
@@ -1060,7 +1056,7 @@
                 });
 
                 // Find all assignments for the student's period
-                const assignmentsQuery = query(collection(db, `${publicDataPath}/assignments`), where('periodId', '==', studentPeriodId));
+                const assignmentsQuery = query(collection(db, `${publicDataPath}/assignments`), where('periodId', '==', state.selectedStudent.periodId));
                 const assignmentsSnapshot = await getDocs(assignmentsQuery);
                 
                 // For each assignment, remove the completion record for the student
@@ -1103,7 +1099,7 @@
         window.handleClearAllRequests = handleClearAllRequests;
         
         const handleQueueItemClick = (e) => {
-            const studentId = e.currentTarget.dataset.studentId;
+            const studentId = e.currentTarget.dataset.id;
             state.selectedStudent = state.students.find(s => s.id === studentId);
             renderUI();
             const detailsSection = document.getElementById('student-details');
