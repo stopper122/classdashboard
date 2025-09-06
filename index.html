@@ -179,6 +179,7 @@
             const newDescription = document.getElementById('edit-assignment-description').value.trim();
 
             if (!newTitle) {
+                // If title is empty, don't save, but close modal.
                 state.showAssignmentEditModal = false;
                 state.selectedAssignmentForEdit = null;
                 renderUI();
@@ -192,14 +193,19 @@
                         title: newTitle,
                         description: newDescription
                     });
+                    state.showAssignmentEditModal = false;
+                    state.selectedAssignmentForEdit = null;
+                    renderUI();
                 } catch (error) {
                     console.error("Error saving assignment edit:", error);
+                    // On error, revert button state and log the issue, but still close modal to prevent it from being stuck.
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = originalText;
+                    state.showAssignmentEditModal = false;
+                    state.selectedAssignmentForEdit = null;
+                    renderUI();
                 }
             }
-
-            state.showAssignmentEditModal = false;
-            state.selectedAssignmentForEdit = null;
-            renderUI();
         };
 
         const renderUI = () => {
