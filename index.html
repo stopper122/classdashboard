@@ -38,7 +38,9 @@
             draggedIndex: null,
             selectedAssignmentsForDeletion: [],
             showPasswordModal: false,
-            passwordModalCallback: null
+            passwordModalCallback: null,
+            showAssignmentEditModal: false,
+            selectedAssignmentForEdit: null
         };
         const TEACHER_PASSWORD = 'Rocket_22!!';
 
@@ -105,6 +107,82 @@
                 state.students.forEach((s, i) => s.seatOrder = i);
             }
         };
+        
+        const renderAssignmentList = () => {
+            const assignmentsInPeriod = state.assignments
+                .filter(a => a.periodId === state.selectedPeriodId)
+                .sort((a, b) => {
+                    const dateA = new Date(a.datePosted);
+                    const dateB = new Date(b.datePosted);
+                    return dateB - dateA;
+                });
+            
+            if (assignmentsInPeriod.length === 0) {
+                return '<p class="text-gray-500">No assignments found for this period.</p>';
+            }
+
+            return assignmentsInPeriod.map(a => `
+                <li class="p-2 border-b border-gray-200 last:border-b-0">
+                    <button class="w-full text-left font-semibold text-gray-800 hover:text-blue-600 transition-colors duration-200"
+                            onclick="handleEditAssignmentClick('${a.id}')">
+                        ${a.title}
+                    </button>
+                    <p class="text-sm text-gray-500">Posted: ${new Date(a.datePosted).toLocaleDateString()}</p>
+                </li>
+            `).join('');
+        };
+        
+        const renderAssignmentEditModal = () => {
+            const assignment = state.selectedAssignmentForEdit;
+            if (!assignment) return '';
+            
+            return `
+                <div id="assignment-edit-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full ${state.showAssignmentEditModal ? '' : 'hidden'}">
+                    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                        <div class="mt-3 text-center">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900">Edit Assignment</h3>
+                            <div class="mt-2 px-7 py-3">
+                                <p class="text-sm text-gray-500">Title:</p>
+                                <input type="text" id="edit-assignment-title" value="${assignment.title}" class="mt-1 w-full px-4 py-2 border rounded-lg">
+                                <p class="text-sm text-gray-500 mt-4">Description:</p>
+                                <textarea id="edit-assignment-description" class="mt-1 w-full px-4 py-2 border rounded-lg" rows="4">${assignment.description || ''}</textarea>
+                                <p class="text-sm text-gray-500 mt-4">Posted: ${new Date(assignment.datePosted).toLocaleDateString()}</p>
+                            </div>
+                            <div class="items-center px-4 py-3">
+                                <button id="save-assignment-edit-btn" class="px-4 py-2 bg-blue-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-700 focus:outline-none">
+                                    Save
+                                </button>
+                                <button id="cancel-assignment-edit-btn" class="mt-2 px-4 py-2 bg-gray-300 text-gray-800 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-400 focus:outline-none">
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        const handleEditAssignmentClick = (assignmentId) => {
+            state.selectedAssignmentForEdit = state.assignments.find(a => a.id === assignmentId);
+            state.showAssignmentEditModal = true;
+            renderUI();
+        };
+        window.handleEditAssignmentClick = handleEditAssignmentClick;
+
+        const handleSaveAssignmentEdit = async () => {
+            const newTitle = document.getElementById('edit-assignment-title').value.trim();
+            const newDescription = document.getElementById('edit-assignment-description').value.trim();
+            if (newTitle && state.selectedAssignmentForEdit) {
+                const assignmentRef = doc(db, `${publicDataPath}/assignments`, state.selectedAssignmentForEdit.id);
+                await updateDoc(assignmentRef, {
+                    title: newTitle,
+                    description: newDescription
+                });
+            }
+            state.showAssignmentEditModal = false;
+            state.selectedAssignmentForEdit = null;
+            renderUI();
+        };
 
         const renderUI = () => {
             const app = document.getElementById('app');
@@ -162,6 +240,12 @@
                                         <button id="add-assignments-btn" class="flex-1 bg-blue-500 text-white font-bold py-2 rounded-lg hover:bg-blue-600 transition-colors duration-200">
                                             Add Assignments
                                         </button>
+                                    </div>
+                                    <div class="mt-4">
+                                        <h3 class="text-lg font-bold text-gray-700 mb-2">All Assignments</h3>
+                                        <ul class="divide-y divide-gray-200">
+                                            ${renderAssignmentList()}
+                                        </ul>
                                     </div>
                                 </div>
                                 
@@ -322,6 +406,8 @@
                         </div>
                     </div>
                 </div>
+                <!-- Assignment Edit Modal -->
+                ${renderAssignmentEditModal()}
             `;
             
             // Re-attach event listeners
@@ -367,6 +453,14 @@
                 });
                 document.getElementById('clear-all-student-data-btn').addEventListener('click', () => {
                     showPasswordModal(handleClearAllStudentData);
+                });
+            }
+
+            if (state.showAssignmentEditModal) {
+                document.getElementById('save-assignment-edit-btn').addEventListener('click', handleSaveAssignmentEdit);
+                document.getElementById('cancel-assignment-edit-btn').addEventListener('click', () => {
+                    state.showAssignmentEditModal = false;
+                    renderUI();
                 });
             }
 
@@ -478,7 +572,8 @@
                     title,
                     datePosted: new Date().toISOString(),
                     assignmentOrder: assignmentsInPeriodCount + i,
-                    completions: []
+                    completions: [],
+                    description: ''
                 });
             }
             document.getElementById('new-assignment-titles').value = '';
