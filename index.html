@@ -236,8 +236,17 @@
                                     <div id="class-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                                         ${state.students.filter(s => s.periodId === state.selectedPeriodId).map(s => {
                                             const hasHelpRequest = state.requests.some(r => r.studentId === s.studentId && r.type === 'help');
-                                            const hasCheckRequest = state.requests.some(r => r.studentId === s.studentId && r.type === 'check' && !hasHelpRequest);
-                                            const backgroundColor = hasHelpRequest ? 'bg-red-400' : hasCheckRequest ? 'bg-blue-400' : 'bg-gray-200';
+                                            const hasCheckRequest = state.requests.some(r => r.studentId === s.studentId && r.type === 'check');
+                                            let backgroundColor;
+                                            if (hasHelpRequest && hasCheckRequest) {
+                                                backgroundColor = 'bg-purple-400';
+                                            } else if (hasHelpRequest) {
+                                                backgroundColor = 'bg-red-400';
+                                            } else if (hasCheckRequest) {
+                                                backgroundColor = 'bg-blue-400';
+                                            } else {
+                                                backgroundColor = 'bg-gray-200';
+                                            }
                                             const textColor = hasHelpRequest || hasCheckRequest ? 'text-white' : 'text-gray-800';
 
                                             return `
