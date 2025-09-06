@@ -193,23 +193,14 @@
                         title: newTitle,
                         description: newDescription
                     });
-
-                    // Optimistically update the local state for immediate feedback
-                    const assignmentIndex = state.assignments.findIndex(a => a.id === state.selectedAssignmentForEdit.id);
-                    if (assignmentIndex !== -1) {
-                        state.assignments[assignmentIndex].title = newTitle;
-                        state.assignments[assignmentIndex].description = newDescription;
-                    }
                 } catch (error) {
                     console.error("Error saving assignment edit:", error);
-                } finally {
-                    state.showAssignmentEditModal = false;
-                    state.selectedAssignmentForEdit = null;
-                    renderUI();
-                    saveBtn.disabled = false;
-                    saveBtn.textContent = originalText;
                 }
             }
+
+            state.showAssignmentEditModal = false;
+            state.selectedAssignmentForEdit = null;
+            renderUI();
         };
 
         const renderUI = () => {
