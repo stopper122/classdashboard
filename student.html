@@ -29,7 +29,7 @@
             assignments: [],
             requests: [],
             loading: true,
-            assignmentSortOption: 'postedDateAsc',
+            assignmentSortOption: 'postedDateDesc',
             showClearModal: false,
         };
 
@@ -56,6 +56,18 @@
                     const dateA = a.datePosted ? new Date(a.datePosted).getTime() : Infinity;
                     const dateB = b.datePosted ? new Date(b.datePosted).getTime() : Infinity;
                     return dateB - dateA;
+                });
+            } else if (state.assignmentSortOption === 'scoreAsc') {
+                return sorted.sort((a, b) => {
+                    const scoreA = a.completions.find(c => c.studentId === state.student.studentId)?.score || -1;
+                    const scoreB = b.completions.find(c => c.studentId === state.student.studentId)?.score || -1;
+                    return scoreA - scoreB;
+                });
+            } else if (state.assignmentSortOption === 'scoreDesc') {
+                return sorted.sort((a, b) => {
+                    const scoreA = a.completions.find(c => c.studentId === state.student.studentId)?.score || -1;
+                    const scoreB = b.completions.find(c => c.studentId === state.student.studentId)?.score || -1;
+                    return scoreB - scoreA;
                 });
             }
             return sorted;
@@ -206,6 +218,14 @@
                                 <label class="inline-flex items-center" title="Sort by Posted Date (Descending)">
                                     <input type="radio" name="assignment-sort-option" value="postedDateDesc" class="form-radio" ${state.assignmentSortOption === 'postedDateDesc' ? 'checked' : ''}>
                                     <span class="ml-2 text-gray-700">&darr;</span>
+                                </label>
+                                <label class="inline-flex items-center" title="Sort by Score (Ascending)">
+                                    <input type="radio" name="assignment-sort-option" value="scoreAsc" class="form-radio" ${state.assignmentSortOption === 'scoreAsc' ? 'checked' : ''}>
+                                    <span class="ml-2 text-gray-700">Score &uarr;</span>
+                                </label>
+                                <label class="inline-flex items-center" title="Sort by Score (Descending)">
+                                    <input type="radio" name="assignment-sort-option" value="scoreDesc" class="form-radio" ${state.assignmentSortOption === 'scoreDesc' ? 'checked' : ''}>
+                                    <span class="ml-2 text-gray-700">Score &darr;</span>
                                 </label>
                             </div>
                         </div>
