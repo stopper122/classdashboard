@@ -95,6 +95,7 @@
             const helpButtonClasses = hasHelpRequest ? 'bg-red-700 text-white hover:bg-red-800' : 'bg-gray-300 text-gray-800 hover:bg-gray-400';
             const checkButtonClasses = hasCheckRequest ? 'bg-blue-700 text-white hover:bg-blue-800' : 'bg-gray-300 text-gray-800 hover:bg-gray-400';
 
+            const descriptionHtml = a.description ? `<p class="mt-2 text-gray-700">${a.description}</p>` : '';
 
             return `
                 <div class="bg-white p-6 rounded-lg shadow-md border-b border-gray-200">
@@ -102,6 +103,7 @@
                         <div>
                             <h3 class="text-xl font-bold text-gray-800">${a.title}</h3>
                             <p class="text-sm text-gray-500">Posted: ${a.datePosted ? new Date(a.datePosted).toLocaleDateString() : 'N/A'}</p>
+                            ${descriptionHtml}
                         </div>
                         ${statusBadge}
                     </div>
