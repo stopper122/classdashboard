@@ -171,6 +171,7 @@
 
         const handleSaveAssignmentEdit = async () => {
             const saveBtn = document.getElementById('save-assignment-edit-btn');
+            const originalText = saveBtn.textContent;
             saveBtn.disabled = true;
             saveBtn.textContent = 'Saving...';
             
