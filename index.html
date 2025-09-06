@@ -179,7 +179,6 @@
             const newDescription = document.getElementById('edit-assignment-description').value.trim();
 
             if (!newTitle) {
-                // If title is empty, just close the modal. No save action.
                 state.showAssignmentEditModal = false;
                 state.selectedAssignmentForEdit = null;
                 renderUI();
