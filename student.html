@@ -29,7 +29,7 @@
             assignments: [],
             requests: [],
             loading: true,
-            assignmentSortOption: 'assignmentOrderAsc',
+            assignmentSortOption: 'postedDateAsc',
             showClearModal: false,
         };
 
@@ -199,17 +199,13 @@
                         <div class="flex items-center space-x-4 mb-4">
                             <span class="text-sm font-medium text-gray-700">Sort By:</span>
                             <div class="flex items-center space-x-2">
-                                <label class="inline-flex items-center">
-                                    <input type="radio" name="assignment-sort-option" value="assignmentOrderAsc" class="form-radio" ${state.assignmentSortOption === 'assignmentOrderAsc' ? 'checked' : ''}>
-                                    <span class="ml-2 text-gray-700">Number Ascending</span>
-                                </label>
-                                <label class="inline-flex items-center">
+                                <label class="inline-flex items-center" title="Sort by Posted Date (Ascending)">
                                     <input type="radio" name="assignment-sort-option" value="postedDateAsc" class="form-radio" ${state.assignmentSortOption === 'postedDateAsc' ? 'checked' : ''}>
-                                    <span class="ml-2 text-gray-700">Posted Date Asc</span>
+                                    <span class="ml-2 text-gray-700">&uarr;</span>
                                 </label>
-                                <label class="inline-flex items-center">
+                                <label class="inline-flex items-center" title="Sort by Posted Date (Descending)">
                                     <input type="radio" name="assignment-sort-option" value="postedDateDesc" class="form-radio" ${state.assignmentSortOption === 'postedDateDesc' ? 'checked' : ''}>
-                                    <span class="ml-2 text-gray-700">Posted Date Desc</span>
+                                    <span class="ml-2 text-gray-700">&darr;</span>
                                 </label>
                             </div>
                         </div>
