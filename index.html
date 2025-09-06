@@ -13,7 +13,6 @@
 
         // IMPORTANT: These global variables are provided by the canvas environment.
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-const publicDataPath = `artifacts/${appId}/public/data`;
         const firebaseConfig = {
   apiKey: "AIzaSyBX96xDY5ThDAZn-SckmsnfynMnQjvUc2I",
   authDomain: "helprequest-469c0.firebaseapp.com",
@@ -48,6 +47,7 @@ const publicDataPath = `artifacts/${appId}/public/data`;
         const app = initializeApp(firebaseConfig);
         db = getFirestore(app);
         auth = getAuth(app);
+        const publicDataPath = `artifacts/${appId}/public/data`;
 
         // Sign in anonymously to get a user ID for private data access
         auth.onAuthStateChanged(async (user) => {
@@ -63,7 +63,6 @@ const publicDataPath = `artifacts/${appId}/public/data`;
 
         // Function to start real-time listeners for all data
         const startDataListeners = async () => {
-            const publicDataPath = `artifacts/${appId}/public/data`;
             const userId = auth.currentUser?.uid || "anonymous_user";
 
             // Listen for periods
@@ -852,7 +851,7 @@ const publicDataPath = `artifacts/${appId}/public/data`;
         };
 
         const handleAssignmentEdit = async (assignmentId, newTitle) => {
-            const assignmentRef = doc(db, `artifacts/${appId}/public/data/assignments`, assignmentId);
+            const assignmentRef = doc(db, `${publicDataPath}/assignments`, assignmentId);
             await updateDoc(assignmentRef, { title: newTitle.trim() });
         };
         window.handleAssignmentEdit = handleAssignmentEdit;
