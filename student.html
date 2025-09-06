@@ -59,15 +59,53 @@
                 });
             } else if (state.assignmentSortOption === 'scoreAsc') {
                 return sorted.sort((a, b) => {
-                    const scoreA = a.completions.find(c => c.studentId === state.student.studentId)?.score || -1;
-                    const scoreB = b.completions.find(c => c.studentId === state.student.studentId)?.score || -1;
-                    return scoreA - scoreB;
+                    const completionA = a.completions.find(c => c.studentId === state.student.studentId);
+                    const completionB = b.completions.find(c => c.studentId === state.student.studentId);
+                    
+                    let valueA;
+                    if (completionA?.isExcused) {
+                        valueA = 6;
+                    } else if (completionA?.score) {
+                        valueA = completionA.score;
+                    } else {
+                        valueA = 5;
+                    }
+                    
+                    let valueB;
+                    if (completionB?.isExcused) {
+                        valueB = 6;
+                    } else if (completionB?.score) {
+                        valueB = completionB.score;
+                    } else {
+                        valueB = 5;
+                    }
+                    
+                    return valueA - valueB;
                 });
             } else if (state.assignmentSortOption === 'scoreDesc') {
                 return sorted.sort((a, b) => {
-                    const scoreA = a.completions.find(c => c.studentId === state.student.studentId)?.score || -1;
-                    const scoreB = b.completions.find(c => c.studentId === state.student.studentId)?.score || -1;
-                    return scoreB - scoreA;
+                    const completionA = a.completions.find(c => c.studentId === state.student.studentId);
+                    const completionB = b.completions.find(c => c.studentId === state.student.studentId);
+                    
+                    let valueA;
+                    if (completionA?.isExcused) {
+                        valueA = -2;
+                    } else if (completionA?.score) {
+                        valueA = completionA.score;
+                    } else {
+                        valueA = -1;
+                    }
+                    
+                    let valueB;
+                    if (completionB?.isExcused) {
+                        valueB = -2;
+                    } else if (completionB?.score) {
+                        valueB = completionB.score;
+                    } else {
+                        valueB = -1;
+                    }
+                    
+                    return valueB - valueA;
                 });
             }
             return sorted;
