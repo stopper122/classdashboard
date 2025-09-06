@@ -47,11 +47,17 @@
             let sorted = [...state.assignments];
             if (state.assignmentSortOption === 'assignmentOrderAsc') {
                 return sorted.sort((a,b) => (a.assignmentOrder || 0) - (b.assignmentOrder || 0));
-            } else if (state.assignmentSortOption === 'dueDate') {
+            } else if (state.assignmentSortOption === 'postedDateAsc') {
                 return sorted.sort((a, b) => {
-                    const dateA = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
-                    const dateB = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+                    const dateA = a.datePosted ? new Date(a.datePosted).getTime() : Infinity;
+                    const dateB = b.datePosted ? new Date(b.datePosted).getTime() : Infinity;
                     return dateA - dateB;
+                });
+            } else if (state.assignmentSortOption === 'postedDateDesc') {
+                 return sorted.sort((a, b) => {
+                    const dateA = a.datePosted ? new Date(a.datePosted).getTime() : Infinity;
+                    const dateB = b.datePosted ? new Date(b.datePosted).getTime() : Infinity;
+                    return dateB - dateA;
                 });
             }
             return sorted;
@@ -198,8 +204,12 @@
                                     <span class="ml-2 text-gray-700">Number Ascending</span>
                                 </label>
                                 <label class="inline-flex items-center">
-                                    <input type="radio" name="assignment-sort-option" value="dueDate" class="form-radio" ${state.assignmentSortOption === 'dueDate' ? 'checked' : ''}>
-                                    <span class="ml-2 text-gray-700">Due Date</span>
+                                    <input type="radio" name="assignment-sort-option" value="postedDateAsc" class="form-radio" ${state.assignmentSortOption === 'postedDateAsc' ? 'checked' : ''}>
+                                    <span class="ml-2 text-gray-700">Posted Date Asc</span>
+                                </label>
+                                <label class="inline-flex items-center">
+                                    <input type="radio" name="assignment-sort-option" value="postedDateDesc" class="form-radio" ${state.assignmentSortOption === 'postedDateDesc' ? 'checked' : ''}>
+                                    <span class="ml-2 text-gray-700">Posted Date Desc</span>
                                 </label>
                             </div>
                         </div>
