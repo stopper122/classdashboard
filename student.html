@@ -45,9 +45,7 @@
 
         function sortAssignments() {
             let sorted = [...state.assignments];
-            if (state.assignmentSortOption === 'assignmentOrderAsc') {
-                return sorted.sort((a,b) => (a.assignmentOrder || 0) - (b.assignmentOrder || 0));
-            } else if (state.assignmentSortOption === 'postedDateAsc') {
+            if (state.assignmentSortOption === 'postedDateAsc') {
                 return sorted.sort((a, b) => {
                     const dateA = a.datePosted ? new Date(a.datePosted).getTime() : Infinity;
                     const dateB = b.datePosted ? new Date(b.datePosted).getTime() : Infinity;
