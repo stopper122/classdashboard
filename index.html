@@ -200,6 +200,8 @@
                     state.showAssignmentEditModal = false;
                     state.selectedAssignmentForEdit = null;
                     renderUI();
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = originalText;
                 }
             }
         };
