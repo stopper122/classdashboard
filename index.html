@@ -170,15 +170,33 @@
         window.handleEditAssignmentClick = handleEditAssignmentClick;
 
         const handleSaveAssignmentEdit = async () => {
+            const saveBtn = document.getElementById('save-assignment-edit-btn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+            
             const newTitle = document.getElementById('edit-assignment-title').value.trim();
             const newDescription = document.getElementById('edit-assignment-description').value.trim();
-            if (newTitle && state.selectedAssignmentForEdit) {
-                const assignmentRef = doc(db, `${publicDataPath}/assignments`, state.selectedAssignmentForEdit.id);
-                await updateDoc(assignmentRef, {
-                    title: newTitle,
-                    description: newDescription
-                });
+
+            if (!newTitle) {
+                // If title is empty, just close the modal. No save action.
+                state.showAssignmentEditModal = false;
+                state.selectedAssignmentForEdit = null;
+                renderUI();
+                return;
             }
+
+            if (state.selectedAssignmentForEdit) {
+                try {
+                    const assignmentRef = doc(db, `${publicDataPath}/assignments`, state.selectedAssignmentForEdit.id);
+                    await updateDoc(assignmentRef, {
+                        title: newTitle,
+                        description: newDescription
+                    });
+                } catch (error) {
+                    console.error("Error saving assignment edit:", error);
+                }
+            }
+
             state.showAssignmentEditModal = false;
             state.selectedAssignmentForEdit = null;
             renderUI();
