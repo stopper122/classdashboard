@@ -36,8 +36,11 @@
             isDragging: false,
             draggedId: null,
             draggedIndex: null,
-            selectedAssignmentsForDeletion: []
+            selectedAssignmentsForDeletion: [],
+            showPasswordModal: false,
+            passwordModalCallback: null
         };
+        const TEACHER_PASSWORD = 'Rocket_22!!';
 
         const app = initializeApp(firebaseConfig);
         db = getFirestore(app);
@@ -265,7 +268,7 @@
                                     <div class="flex justify-between items-center mb-4">
                                         <h2 class="text-xl font-bold text-gray-700">Assignments for ${state.selectedStudent ? state.selectedStudent.name : ''}</h2>
                                         <div class="flex space-x-2">
-                                            <button id="clear-all-data-btn" class="text-sm bg-red-500 px-3 py-1 rounded-lg hover:bg-red-600 text-white font-bold">Clear All Student Data</button>
+                                            <button id="clear-all-student-data-btn" class="text-sm bg-red-500 px-3 py-1 rounded-lg hover:bg-red-600 text-white font-bold">Clear All Student Data</button>
                                             <button id="copy-link-btn" class="text-sm bg-gray-300 px-3 py-1 rounded-lg hover:bg-gray-400">Share Student Link</button>
                                         </div>
                                     </div>
@@ -289,6 +292,27 @@
                         </div>
                     </div>
                 </div>
+                <!-- Password Modal -->
+                <div id="password-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full ${state.showPasswordModal ? '' : 'hidden'}">
+                    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                        <div class="mt-3 text-center">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900">Enter Password</h3>
+                            <div class="mt-2 px-7 py-3">
+                                <p class="text-sm text-gray-500">Please enter the teacher password to confirm this action.</p>
+                                <input type="password" id="password-input" class="mt-4 w-full px-4 py-2 border rounded-lg">
+                                <p id="password-error-message" class="mt-2 text-red-500 text-sm hidden">Incorrect password.</p>
+                            </div>
+                            <div class="items-center px-4 py-3">
+                                <button id="password-modal-confirm-btn" class="px-4 py-2 bg-red-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                                    Confirm
+                                </button>
+                                <button id="password-modal-cancel-btn" class="mt-2 px-4 py-2 bg-gray-300 text-gray-800 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             `;
             
             // Re-attach event listeners
@@ -302,8 +326,12 @@
             document.getElementById('add-assignments-btn').addEventListener('click', handleAddAssignments);
             document.getElementById('add-students-btn').addEventListener('click', handleAddStudents);
             document.getElementById('add-empty-seat-btn').addEventListener('click', handleAddEmptySeat);
-            document.getElementById('delete-all-students-btn').addEventListener('click', handleDeleteAllStudents);
-            document.getElementById('clear-all-data-btn').addEventListener('click', handleClearAllAppData);
+            document.getElementById('delete-all-students-btn').addEventListener('click', () => {
+                 showPasswordModal(handleDeleteAllStudents);
+            });
+            document.getElementById('clear-all-data-btn').addEventListener('click', () => {
+                showPasswordModal(handleClearAllAppData);
+            });
 
             document.querySelectorAll('input[name="sort-option"]').forEach(radio => {
                 radio.addEventListener('change', (e) => {
@@ -325,8 +353,12 @@
                 renderStudentDetails();
                 document.getElementById('copy-link-btn').addEventListener('click', handleCopyLink);
                 document.getElementById('clear-all-requests-btn').addEventListener('click', handleClearAllRequests);
-                document.getElementById('clear-all-data-btn').addEventListener('click', handleClearAllStudentData);
-                document.getElementById('delete-selected-assignments-btn').addEventListener('click', handleDeleteMultipleAssignments);
+                document.getElementById('delete-selected-assignments-btn').addEventListener('click', () => {
+                     showPasswordModal(handleDeleteMultipleAssignments);
+                });
+                document.getElementById('clear-all-student-data-btn').addEventListener('click', () => {
+                    showPasswordModal(handleClearAllStudentData);
+                });
             }
 
             if (state.sortOption === 'seatOrder') {
@@ -334,36 +366,42 @@
             }
         };
 
-        const renderLogin = () => {
-            const app = document.getElementById('app');
-            app.innerHTML = `
-                <div class="flex items-center justify-center min-h-screen bg-gray-100">
-                    <div class="p-8 bg-white rounded-xl shadow-lg w-full max-w-lg text-center">
-                        <h2 class="text-2xl font-bold text-gray-800 mb-4">Teacher Login</h2>
-                        <form id="teacher-login-form" class="flex flex-col space-y-4">
-                            <input type="password" id="password" placeholder="Password"
-                                class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <button type="submit" class="bg-blue-600 text-white font-bold py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">
-                                Log In
-                            </button>
-                        </form>
-                        <p id="login-message" class="mt-4 text-red-500"></p>
-                    </div>
-                </div>
-            `;
-            document.getElementById('teacher-login-form').addEventListener('submit', handleTeacherLogin);
-        };
-        
-        const handleTeacherLogin = (e) => {
-            e.preventDefault();
-            const password = document.getElementById('password').value;
-            const messageEl = document.getElementById('login-message');
-            if (password === TEACHER_PASSWORD) {
-                state.isTeacherLoggedIn = true;
+        const showPasswordModal = (callback) => {
+            state.showPasswordModal = true;
+            state.passwordModalCallback = callback;
+            renderUI();
+            
+            const passwordInput = document.getElementById('password-input');
+            const confirmBtn = document.getElementById('password-modal-confirm-btn');
+            const cancelBtn = document.getElementById('password-modal-cancel-btn');
+            const errorMessageEl = document.getElementById('password-error-message');
+
+            passwordInput.focus();
+
+            const handleConfirm = async () => {
+                const password = passwordInput.value;
+                if (password === TEACHER_PASSWORD) {
+                    errorMessageEl.classList.add('hidden');
+                    state.showPasswordModal = false;
+                    state.loading = true;
+                    renderUI();
+                    await state.passwordModalCallback();
+                    state.loading = false;
+                    state.passwordModalCallback = null;
+                    renderUI();
+                } else {
+                    errorMessageEl.classList.remove('hidden');
+                }
+            };
+
+            const handleCancel = () => {
+                state.showPasswordModal = false;
+                state.passwordModalCallback = null;
                 renderUI();
-            } else {
-                messageEl.textContent = 'Incorrect password.';
-            }
+            };
+
+            confirmBtn.addEventListener('click', handleConfirm);
+            cancelBtn.addEventListener('click', handleCancel);
         };
 
         const handleAddPeriod = async () => {
