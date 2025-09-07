@@ -19,7 +19,7 @@
   projectId: "helprequest-469c0",
   storageBucket: "helprequest-469c0.firebasestorage.app",
   messagingSenderId: "1092775554304",
-  appId: "1:1092775554304:web:e771c3ebac1e6ba4f597e5"
+  appId: "1:1092775554304:web:e771c3ebac1e6ba4f599e5"
 };
         setLogLevel('debug');
 
@@ -197,20 +197,12 @@
                         description: newDescription
                     });
 
-                    // Optimistically update the local state for immediate feedback
-                    const assignmentIndex = state.assignments.findIndex(a => a.id === state.selectedAssignmentForEdit.id);
-                    if (assignmentIndex !== -1) {
-                        state.assignments[assignmentIndex].title = newTitle;
-                        state.assignments[assignmentIndex].description = newDescription;
-                    }
                 } catch (error) {
                     console.error("Error saving assignment edit:", error);
                 } finally {
                     state.showAssignmentEditModal = false;
                     state.selectedAssignmentForEdit = null;
                     renderUI();
-                    saveBtn.disabled = false;
-                    saveBtn.textContent = originalText;
                 }
             }
         };
