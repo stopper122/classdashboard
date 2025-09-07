@@ -197,20 +197,12 @@
                         description: newDescription
                     });
 
-                    // Optimistically update the local state for immediate feedback
-                    const assignmentIndex = state.assignments.findIndex(a => a.id === state.selectedAssignmentForEdit.id);
-                    if (assignmentIndex !== -1) {
-                        state.assignments[assignmentIndex].title = newTitle;
-                        state.assignments[assignmentIndex].description = newDescription;
-                    }
                 } catch (error) {
                     console.error("Error saving assignment edit:", error);
                 } finally {
                     state.showAssignmentEditModal = false;
                     state.selectedAssignmentForEdit = null;
                     renderUI();
-                    saveBtn.disabled = false;
-                    saveBtn.textContent = originalText;
                 }
             }
         };
@@ -797,33 +789,41 @@
         const deleteStudent = async (studentId) => {
             const student = state.students.find(s => s.id === studentId);
             if (!student) return;
+            try {
+                state.loading = true;
+                renderUI();
+                const publicDataPath = `artifacts/${appId}/public/data`;
+                
+                await runTransaction(db, async (transaction) => {
+                    // Delete the student document
+                    const studentRef = doc(db, `${publicDataPath}/students`, studentId);
+                    transaction.delete(studentRef);
 
-            const publicDataPath = `artifacts/${appId}/public/data`;
-            
-            await runTransaction(db, async (transaction) => {
-                // Delete the student document
-                const studentRef = doc(db, `${publicDataPath}/students`, studentId);
-                transaction.delete(studentRef);
+                    // Delete all requests for this student
+                    const requestsQuery = query(collection(db, `${publicDataPath}/requests`), where('studentId', '==', student.studentId));
+                    const requestsSnapshot = await getDocs(requestsQuery);
+                    requestsSnapshot.forEach(requestDoc => {
+                        transaction.delete(requestDoc.ref);
+                    });
 
-                // Delete all requests for this student
-                const requestsQuery = query(collection(db, `${publicDataPath}/requests`), where('studentId', '==', student.studentId));
-                const requestsSnapshot = await getDocs(requestsQuery);
-                requestsSnapshot.forEach(requestDoc => {
-                    transaction.delete(requestDoc.ref);
+                    // Remove completions for this student from all assignments
+                    const assignmentsQuery = query(collection(db, `${publicDataPath}/assignments`), where('periodId', '==', student.periodId));
+                    const assignmentsSnapshot = await getDocs(assignmentsQuery);
+                    assignmentsSnapshot.forEach(assignmentDoc => {
+                        const completions = assignmentDoc.data().completions || [];
+                        const updatedCompletions = completions.filter(c => c.studentId !== student.studentId);
+                        transaction.update(assignmentDoc.ref, { completions: updatedCompletions });
+                    });
                 });
 
-                // Remove completions for this student from all assignments
-                const assignmentsQuery = query(collection(db, `${publicDataPath}/assignments`), where('periodId', '==', student.periodId));
-                const assignmentsSnapshot = await getDocs(assignmentsQuery);
-                assignmentsSnapshot.forEach(assignmentDoc => {
-                    const completions = assignmentDoc.data().completions || [];
-                    const updatedCompletions = completions.filter(c => c.studentId !== student.studentId);
-                    transaction.update(assignmentDoc.ref, { completions: updatedCompletions });
-                });
-            });
-
-            if (state.selectedStudent && state.selectedStudent.id === studentId) {
-                state.selectedStudent = null;
+                if (state.selectedStudent && state.selectedStudent.id === studentId) {
+                    state.selectedStudent = null;
+                }
+            } catch (error) {
+                console.error("Error deleting student:", error);
+            } finally {
+                state.loading = false;
+                renderUI();
             }
         };
         window.deleteStudent = (studentId) => {
