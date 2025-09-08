@@ -559,19 +559,11 @@
                         showScreen('teacherDashboard');
 
                     } else {
-                        if (initialAuthToken) {
-                            try {
-                                await signInWithCustomToken(auth, initialAuthToken);
-                                console.log("Signed in with custom token.");
-                            } catch (e) {
-                                console.error("Error signing in with custom token:", e);
-                                await signInAnonymously(auth);
-                                console.log("Signed in anonymously instead.");
-                            }
-                        } else {
-                            await signInAnonymously(auth);
-                            console.log("Signed in anonymously.");
-                        }
+                         // The initialAuthToken is for the canvas's temporary database. Since the user
+                         // provided their own Firebase config, we should use a standard sign-in method.
+                         // Anonymous sign-in is a good choice for a single-user private app.
+                        await signInAnonymously(auth);
+                        console.log("Signed in anonymously.");
                     }
                 });
 
