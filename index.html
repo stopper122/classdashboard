@@ -43,7 +43,8 @@
             selectedAssignmentForEdit: null,
             showConfirmModal: false,
             confirmModalMessage: '',
-            confirmModalCallback: null
+            confirmModalCallback: null,
+            activeTab: 'layout'
         };
         const TEACHER_PASSWORD = 'Rocket_22!!';
 
@@ -165,6 +166,48 @@
             `;
         };
 
+        const renderScoreEditModal = () => {
+            const assignment = state.selectedAssignmentForScoreEdit;
+            if (!assignment) return '';
+            
+            const studentsInPeriod = state.students.filter(s => s.periodId === state.selectedPeriodId);
+            const studentScores = studentsInPeriod.map(s => {
+                const completion = assignment.completions.find(c => c.studentId === s.studentId);
+                const score = completion?.score || '';
+                return `
+                    <div class="flex items-center space-x-2 py-1">
+                        <span class="w-1/2 text-left">${s.name}</span>
+                        <input type="number" min="1" max="4" value="${score}"
+                                data-student-id="${s.studentId}"
+                                class="score-input w-1/2 px-2 py-1 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-center">
+                    </div>
+                `;
+            }).join('');
+            
+            return `
+                <div id="score-edit-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full ${state.showScoreEditModal ? '' : 'hidden'}">
+                    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                        <div class="mt-3 text-center">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900">Edit Scores for "${assignment.title}"</h3>
+                            <div class="mt-2 px-7 py-3">
+                                <div class="space-y-2 max-h-80 overflow-y-auto">
+                                    ${studentScores}
+                                </div>
+                            </div>
+                            <div class="items-center px-4 py-3">
+                                <button id="save-scores-btn" class="px-4 py-2 bg-blue-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-700 focus:outline-none">
+                                    Save Scores
+                                </button>
+                                <button id="cancel-scores-btn" class="mt-2 px-4 py-2 bg-gray-300 text-gray-800 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-400 focus:outline-none">
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
         const handleEditAssignmentClick = (assignmentId) => {
             state.selectedAssignmentForEdit = state.assignments.find(a => a.id === assignmentId);
             state.showAssignmentEditModal = true;
@@ -205,6 +248,50 @@
                 }
             }
         };
+
+        const handleEditScoresClick = (assignmentId) => {
+            state.selectedAssignmentForScoreEdit = state.assignments.find(a => a.id === assignmentId);
+            state.showScoreEditModal = true;
+            renderUI();
+        };
+        window.handleEditScoresClick = handleEditScoresClick;
+
+        const handleSaveScores = async () => {
+            const saveBtn = document.getElementById('save-scores-btn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+
+            const assignment = state.selectedAssignmentForScoreEdit;
+            if (!assignment) return;
+            
+            const scoreInputs = document.querySelectorAll('.score-input');
+            const updatedCompletions = [];
+
+            scoreInputs.forEach(input => {
+                const studentId = input.dataset.studentId;
+                const score = parseInt(input.value, 10);
+                if (score >= 1 && score <= 4) {
+                    updatedCompletions.push({
+                        studentId: studentId,
+                        score: score,
+                        isExcused: false,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+            });
+
+            try {
+                const assignmentRef = doc(db, `${publicDataPath}/assignments`, assignment.id);
+                await updateDoc(assignmentRef, { completions: updatedCompletions });
+            } catch (error) {
+                console.error("Error saving scores:", error);
+            } finally {
+                state.showScoreEditModal = false;
+                state.selectedAssignmentForScoreEdit = null;
+                renderUI();
+            }
+        };
+
 
         const renderUI = () => {
             const app = document.getElementById('app');
@@ -249,6 +336,16 @@
                             </div>
                         </div>
 
+                        <!-- Tabs for layout vs scores -->
+                        <div class="flex justify-start space-x-2 mb-4">
+                            <button id="layout-tab-btn" class="py-2 px-4 rounded-lg font-semibold ${state.activeTab === 'layout' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'}">
+                                Class Layout
+                            </button>
+                            <button id="scores-tab-btn" class="py-2 px-4 rounded-lg font-semibold ${state.activeTab === 'scores' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'}">
+                                Scores
+                            </button>
+                        </div>
+                        
                         <!-- Main Content -->
                         <div class="flex flex-col lg:flex-row lg:space-x-6">
                             <!-- Left Sidebar -->
@@ -320,63 +417,79 @@
                             
                             <!-- Main Content Area -->
                             <div class="w-full lg:w-3/4 space-y-6">
-                                <!-- Sort and Class Layout -->
-                                <div class="bg-gray-50 p-4 rounded-lg shadow-inner">
-                                    <div class="flex items-center space-x-4 mb-4">
-                                        <span class="text-sm font-medium text-gray-700">Sort By:</span>
-                                        <div class="flex space-x-2">
-                                            <label class="inline-flex items-center">
-                                                <input type="radio" name="sort-option" value="seatOrder" class="form-radio" ${state.sortOption === 'seatOrder' ? 'checked' : ''}>
-                                                <span class="ml-2 text-gray-700">Assigned Seat</span>
-                                            </label>
-                                            <label class="inline-flex items-center">
-                                                <input type="radio" name="sort-option" value="firstName" class="form-radio" ${state.sortOption === 'firstName' ? 'checked' : ''}>
-                                                <span class="ml-2 text-gray-700">First Name</span>
-                                            </label>
-                                            <label class="inline-flex items-center">
-                                                <input type="radio" name="sort-option" value="lastName" class="form-radio" ${state.sortOption === 'lastName' ? 'checked' : ''}>
-                                                <span class="ml-2 text-gray-700">Last Name</span>
-                                            </label>
-                                        </div>
+                                <!-- Tabs -->
+                                <div class="w-full">
+                                    <div class="hidden">
+                                        <button id="layout-tab-btn" onclick="state.activeTab = 'layout'; renderUI();"></button>
+                                        <button id="scores-tab-btn" onclick="handleScoresTabClick()"></button>
                                     </div>
-                                    <div id="class-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                                        ${state.students.filter(s => s.periodId === state.selectedPeriodId).map(s => {
-                                            const hasHelpRequest = state.requests.some(r => r.studentId === s.studentId && r.type === 'help');
-                                            const hasCheckRequest = state.requests.some(r => r.studentId === s.studentId && r.type === 'check');
-                                            let backgroundColor;
-                                            if (hasHelpRequest && hasCheckRequest) {
-                                                backgroundColor = 'bg-purple-400';
-                                            } else if (hasHelpRequest) {
-                                                backgroundColor = 'bg-red-400';
-                                            } else if (hasCheckRequest) {
-                                                backgroundColor = 'bg-blue-400';
-                                            } else {
-                                                backgroundColor = 'bg-gray-200';
-                                            }
-                                            const textColor = hasHelpRequest || hasCheckRequest ? 'text-white' : 'text-gray-800';
-
-                                            return `
-                                                <div id="student-card-${s.id}" draggable="${state.sortOption === 'seatOrder'}"
-                                                    class="student-card p-4 rounded-lg shadow cursor-pointer transition-colors duration-200
-                                                    ${s.isPlaceholder ? 'border-2 border-dashed border-gray-400' : backgroundColor} ${textColor}
-                                                    ${state.selectedStudent && state.selectedStudent.id === s.id ? 'ring-4 ring-blue-500' : ''}"
-                                                    data-id="${s.id}" data-seat-order="${s.seatOrder}">
-                                                    <div class="flex justify-between items-center mb-2">
-                                                        <h3 class="font-bold">${s.isPlaceholder ? 'Empty Seat' : s.name}</h3>
-                                                        ${s.isPlaceholder ? '' : `<button onclick="deleteStudent('${s.id}')" class="text-gray-600 hover:text-red-500 transition-colors ml-2">
-                                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-                                                                    <path d="M18.3 5.71a.996.996 0 0 0-1.41 0L12 10.59 7.11 5.7A.996.996 0 1 0 5.7 7.11L10.59 12 5.7 16.89A.996.996 0 1 0 7.11 18.3L12 13.41l4.89 4.89a.996.996 0 1 0 1.41-1.41L13.41 12l4.89-4.89a.996.996 0 0 0 0-1.4z"/>
-                                                                </svg>
-                                                            </button>`}
-                                                    </div>
-                                                    <p class="text-sm">ID: ${s.studentId}</p>
-                                                    ${hasHelpRequest ? `<span class="text-sm font-semibold">Help Queue: #${state.requests.filter(r => r.type === 'help').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).findIndex(r => r.studentId === s.studentId) + 1}</span>` : ''}
-                                                    ${hasCheckRequest ? `<span class="text-sm font-semibold">Check Queue: #${state.requests.filter(r => r.type === 'check').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).findIndex(r => r.studentId === s.studentId) + 1}</span>` : ''}
+                                    ${state.activeTab === 'layout' ? `
+                                        <!-- Sort and Class Layout -->
+                                        <div class="bg-gray-50 p-4 rounded-lg shadow-inner">
+                                            <div class="flex items-center space-x-4 mb-4">
+                                                <span class="text-sm font-medium text-gray-700">Sort By:</span>
+                                                <div class="flex space-x-2">
+                                                    <label class="inline-flex items-center">
+                                                        <input type="radio" name="sort-option" value="seatOrder" class="form-radio" ${state.sortOption === 'seatOrder' ? 'checked' : ''}>
+                                                        <span class="ml-2 text-gray-700">Assigned Seat</span>
+                                                    </label>
+                                                    <label class="inline-flex items-center">
+                                                        <input type="radio" name="sort-option" value="firstName" class="form-radio" ${state.sortOption === 'firstName' ? 'checked' : ''}>
+                                                        <span class="ml-2 text-gray-700">First Name</span>
+                                                    </label>
+                                                    <label class="inline-flex items-center">
+                                                        <input type="radio" name="sort-option" value="lastName" class="form-radio" ${state.sortOption === 'lastName' ? 'checked' : ''}>
+                                                        <span class="ml-2 text-gray-700">Last Name</span>
+                                                    </label>
                                                 </div>
-                                            `;
-                                        }).join('')}
-                                    </div>
+                                            </div>
+                                            <div id="class-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                                                ${state.students.filter(s => s.periodId === state.selectedPeriodId).map(s => {
+                                                    const hasHelpRequest = state.requests.some(r => r.studentId === s.studentId && r.type === 'help');
+                                                    const hasCheckRequest = state.requests.some(r => r.studentId === s.studentId && r.type === 'check');
+                                                    let backgroundColor;
+                                                    if (hasHelpRequest && hasCheckRequest) {
+                                                        backgroundColor = 'bg-purple-400';
+                                                    } else if (hasHelpRequest) {
+                                                        backgroundColor = 'bg-red-400';
+                                                    } else if (hasCheckRequest) {
+                                                        backgroundColor = 'bg-blue-400';
+                                                    } else {
+                                                        backgroundColor = 'bg-gray-200';
+                                                    }
+                                                    const textColor = hasHelpRequest || hasCheckRequest ? 'text-white' : 'text-gray-800';
+
+                                                    return `
+                                                        <div id="student-card-${s.id}" draggable="${state.sortOption === 'seatOrder'}"
+                                                            class="student-card p-4 rounded-lg shadow cursor-pointer transition-colors duration-200
+                                                            ${s.isPlaceholder ? 'border-2 border-dashed border-gray-400' : backgroundColor} ${textColor}
+                                                            ${state.selectedStudent && state.selectedStudent.id === s.id ? 'ring-4 ring-blue-500' : ''}"
+                                                            data-id="${s.id}" data-seat-order="${s.seatOrder}">
+                                                            <div class="flex justify-between items-center mb-2">
+                                                                <h3 class="font-bold">${s.isPlaceholder ? 'Empty Seat' : s.name}</h3>
+                                                                ${s.isPlaceholder ? '' : `<button onclick="deleteStudent('${s.id}')" class="text-gray-600 hover:text-red-500 transition-colors ml-2">
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                                                                            <path d="M18.3 5.71a.996.996 0 0 0-1.41 0L12 10.59 7.11 5.7A.996.996 0 1 0 5.7 7.11L10.59 12 5.7 16.89A.996.996 0 1 0 7.11 18.3L12 13.41l4.89 4.89a.996.996 0 1 0 1.41-1.41L13.41 12l4.89-4.89a.996.996 0 0 0 0-1.4z"/>
+                                                                        </svg>
+                                                                    </button>`}
+                                                            </div>
+                                                            <p class="text-sm">ID: ${s.studentId}</p>
+                                                            ${hasHelpRequest ? `<span class="text-sm font-semibold">Help Queue: #${state.requests.filter(r => r.type === 'help').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).findIndex(r => r.studentId === s.studentId) + 1}</span>` : ''}
+                                                            ${hasCheckRequest ? `<span class="text-sm font-semibold">Check Queue: #${state.requests.filter(r => r.type === 'check').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).findIndex(r => r.studentId === s.studentId) + 1}</span>` : ''}
+                                                        </div>
+                                                    `;
+                                                }).join('')}
+                                            </div>
+                                        </div>
+                                    ` : `
+                                        <div class="bg-gray-50 p-4 rounded-lg shadow-inner overflow-x-auto">
+                                            <div id="scores-table-container">
+                                                ${renderScoresTable()}
+                                            </div>
+                                        </div>
+                                    `}
                                 </div>
+
                                 
                                 <!-- Student Details -->
                                 <div id="student-details" class="bg-gray-50 p-4 rounded-lg shadow-inner ${state.selectedStudent ? '' : 'hidden'}">
@@ -430,25 +543,6 @@
                 </div>
                 <!-- Assignment Edit Modal -->
                 ${renderAssignmentEditModal()}
-                <!-- Confirmation Modal -->
-                <div id="confirm-modal" class="fixed inset-0 bg-gray-600 bg-opacity50 overflow-y-auto h-full w-full ${state.showConfirmModal ? '' : 'hidden'}">
-                    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-                        <div class="mt-3 text-center">
-                            <h3 class="text-lg leading-6 font-medium text-gray-900">Confirm Deletion</h3>
-                            <div class="mt-2 px-7 py-3">
-                                <p id="confirm-modal-message" class="text-sm text-gray-500">${state.confirmModalMessage}</p>
-                            </div>
-                            <div class="items-center px-4 py-3">
-                                <button id="confirm-modal-confirm-btn" class="px-4 py-2 bg-red-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
-                                    Confirm
-                                </button>
-                                <button id="confirm-modal-cancel-btn" class="mt-2 px-4 py-2 bg-gray-300 text-gray-800 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500">
-                                    Cancel
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             `;
             
             // Re-attach event listeners
@@ -478,6 +572,14 @@
                     'Are you sure you want to clear all app data? This will delete all periods, students, assignments, and requests. This cannot be undone.',
                     handleClearAllAppData
                 ));
+            });
+            document.getElementById('layout-tab-btn').addEventListener('click', () => {
+                state.activeTab = 'layout';
+                renderUI();
+            });
+            document.getElementById('scores-tab-btn').addEventListener('click', () => {
+                state.activeTab = 'scores';
+                renderUI();
             });
 
             document.querySelectorAll('input[name="sort-option"]').forEach(radio => {
@@ -526,7 +628,124 @@
                 setupDragAndDrop();
             }
         };
+
+        const renderScoresTable = () => {
+            const studentsInPeriod = state.students.filter(s => s.periodId === state.selectedPeriodId);
+            const assignmentsInPeriod = state.assignments.filter(a => a.periodId === state.selectedPeriodId);
         
+            if (studentsInPeriod.length === 0 || assignmentsInPeriod.length === 0) {
+                return '<p class="text-center text-gray-500">No students or assignments in this period.</p>';
+            }
+
+            const headerHtml = `
+                <tr>
+                    <th class="px-4 py-2 border">Student Name</th>
+                    ${assignmentsInPeriod.map(a => `<th class="px-4 py-2 border w-24">
+                        <button onclick="handleEditScoresClick('${a.id}')" class="font-semibold text-blue-600 hover:text-blue-800 transition-colors duration-200">
+                           ${a.title}
+                        </button>
+                    </th>`).join('')}
+                </tr>
+            `;
+
+            const rowsHtml = studentsInPeriod.map(s => {
+                const studentName = s.name;
+                const studentId = s.studentId;
+                
+                const scoreCells = assignmentsInPeriod.map(a => {
+                    const completion = a.completions.find(c => c.studentId === studentId);
+                    const score = completion?.score || '';
+                    const isExcused = completion?.isExcused;
+                    
+                    let displayValue = score;
+                    if (isExcused) {
+                        displayValue = 'E';
+                    }
+
+                    return `
+                        <td class="border px-4 py-2 text-center">
+                            ${displayValue}
+                        </td>
+                    `;
+                }).join('');
+                
+                return `
+                    <tr>
+                        <td class="border px-4 py-2 font-medium">${studentName}</td>
+                        ${scoreCells}
+                    </tr>
+                `;
+            }).join('');
+
+            return `
+                <table class="min-w-full bg-white rounded-lg shadow-md">
+                    <thead class="bg-gray-200">
+                        ${headerHtml}
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>
+            `;
+        };
+
+        const handleScoresTabClick = () => {
+            state.activeTab = 'scores';
+            renderUI();
+        };
+
+        const handleEditScoresClick = (assignmentId) => {
+            state.selectedAssignmentForScoreEdit = state.assignments.find(a => a.id === assignmentId);
+            state.showScoreEditModal = true;
+            renderUI();
+        };
+        window.handleEditScoresClick = handleEditScoresClick;
+
+        const handleSaveScores = async () => {
+            const saveBtn = document.getElementById('save-scores-btn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+
+            const assignment = state.selectedAssignmentForScoreEdit;
+            if (!assignment) return;
+            
+            const scoreInputs = document.querySelectorAll('#score-edit-modal .score-input');
+            const updatedCompletions = [];
+
+            scoreInputs.forEach(input => {
+                const studentId = input.dataset.studentId;
+                let score = parseInt(input.value, 10);
+                const isExcused = input.value.toUpperCase() === 'E';
+
+                if (isExcused) {
+                    updatedCompletions.push({
+                        studentId: studentId,
+                        score: null,
+                        isExcused: true,
+                        timestamp: new Date().toISOString()
+                    });
+                } else if (!isNaN(score) && score >= 1 && score <= 4) {
+                    updatedCompletions.push({
+                        studentId: studentId,
+                        score: score,
+                        isExcused: false,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+            });
+
+            try {
+                const assignmentRef = doc(db, `${publicDataPath}/assignments`, assignment.id);
+                await updateDoc(assignmentRef, { completions: updatedCompletions });
+            } catch (error) {
+                console.error("Error saving scores:", error);
+            } finally {
+                state.showScoreEditModal = false;
+                state.selectedAssignmentForScoreEdit = null;
+                renderUI();
+            }
+        };
+
         const showConfirmModal = (message, callback) => {
             state.showConfirmModal = true;
             state.confirmModalMessage = message;
