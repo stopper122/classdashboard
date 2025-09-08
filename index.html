@@ -316,30 +316,33 @@
             const studentsRef = collection(db, `artifacts/${appId}/users/${userId}/students`);
             const studentsQuery = query(studentsRef, where("periodId", "==", periodId));
             studentsUnsubscribe = onSnapshot(studentsQuery, (snapshot) => {
-                snapshot.docChanges().forEach(change => {
-                    studentsData[change.doc.id] = { id: change.doc.id, ...change.doc.data() };
-                });
+                studentsData = snapshot.docs.reduce((acc, doc) => ({ ...acc, [doc.id]: { id: doc.id, ...doc.data() } }), {});
                 renderGradebook();
+                if (currentStudentId) {
+                    renderStudentView(studentsData[currentStudentId]);
+                }
             });
 
             // Listen for changes to assignments in the current period
             const assignmentsRef = collection(db, `artifacts/${appId}/users/${userId}/assignments`);
             const assignmentsQuery = query(assignmentsRef, where("periodId", "==", periodId));
             assignmentsUnsubscribe = onSnapshot(assignmentsQuery, (snapshot) => {
-                snapshot.docChanges().forEach(change => {
-                    assignmentsData[change.doc.id] = { id: change.doc.id, ...change.doc.data() };
-                });
+                assignmentsData = snapshot.docs.reduce((acc, doc) => ({ ...acc, [doc.id]: { id: doc.id, ...doc.data() } }), {});
                 renderGradebook();
+                if (currentStudentId) {
+                    renderStudentView(studentsData[currentStudentId]);
+                }
             });
 
             // Listen for changes to grades in the current period
             const gradesRef = collection(db, `artifacts/${appId}/users/${userId}/grades`);
             const gradesQuery = query(gradesRef, where("periodId", "==", periodId));
             gradesUnsubscribe = onSnapshot(gradesQuery, (snapshot) => {
-                snapshot.docChanges().forEach(change => {
-                    gradesData[change.doc.id] = { id: change.doc.id, ...change.doc.data() };
-                });
+                gradesData = snapshot.docs.reduce((acc, doc) => ({ ...acc, [doc.id]: { id: doc.id, ...doc.data() } }), {});
                 renderGradebook();
+                if (currentStudentId) {
+                    renderStudentView(studentsData[currentStudentId]);
+                }
             });
         };
 
@@ -480,13 +483,14 @@
             // Filter grades for the logged-in student and current period
             const studentGrades = Object.values(gradesData).filter(g => g.studentId === student.id && g.periodId === student.periodId);
             const assignments = Object.values(assignmentsData);
-
+            
+            const renderedAssignments = new Set();
             if (studentGrades.length === 0) {
                 studentGradesBody.innerHTML = '<tr><td colspan="2" class="px-6 py-4 text-center text-gray-500">No grades recorded yet.</td></tr>';
             } else {
                 studentGrades.forEach(grade => {
                     const assignment = assignments.find(a => a.id === grade.assignmentId);
-                    if (assignment) {
+                    if (assignment && !renderedAssignments.has(assignment.id)) {
                         const tr = document.createElement('tr');
                         tr.className = 'hover:bg-gray-100 transition-colors';
                         tr.innerHTML = `
@@ -494,6 +498,7 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${grade.grade}</td>
                         `;
                         studentGradesBody.appendChild(tr);
+                        renderedAssignments.add(assignment.id);
                     }
                 });
             }
