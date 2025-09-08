@@ -113,6 +113,9 @@
             <h1 class="text-3xl font-bold text-gray-800 mb-6">Student Login</h1>
             <input type="text" id="studentIdInput" placeholder="Enter Your Student ID" class="w-full max-w-sm border rounded-lg px-4 py-3 text-center mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
             <button id="loginBtn" class="w-full max-w-sm bg-blue-500 text-white py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors">View My Grades</button>
+            <div class="mt-4">
+                 <button id="teacherLoginBtn" class="text-blue-500 text-sm hover:text-blue-700 transition-colors">Teacher Login</button>
+            </div>
         </div>
 
         <!-- Student View Screen -->
@@ -177,6 +180,7 @@
 
         const studentIdInput = document.getElementById('studentIdInput');
         const loginBtn = document.getElementById('loginBtn');
+        const teacherLoginBtn = document.getElementById('teacherLoginBtn'); // Added this line
         const studentNameDisplay = document.getElementById('studentNameDisplay');
         const studentGradesBody = document.getElementById('studentGradesBody');
         const studentLogoutBtn = document.getElementById('studentLogoutBtn');
@@ -592,6 +596,10 @@
         studentLogoutBtn.addEventListener('click', () => {
             currentStudentId = null;
             showScreen('studentLogin');
+        });
+        // Added this line to handle the Teacher Login button
+        teacherLoginBtn.addEventListener('click', () => {
+            showScreen('teacherDashboard');
         });
         
         window.addEventListener('load', initFirebase);
