@@ -38,6 +38,18 @@
             outline: none;
             background-color: #e5e7eb;
         }
+        .assignment-header {
+            cursor: pointer;
+            position: relative;
+        }
+        .assignment-header:hover::after {
+            content: '✏️';
+            position: absolute;
+            top: 50%;
+            right: 0.5rem;
+            transform: translateY(-50%);
+            font-size: 0.8rem;
+        }
     </style>
 </head>
 <body>
@@ -79,18 +91,14 @@
 
             <!-- Main Gradebook Table -->
             <div id="gradebookTableContainer">
-                 <!-- Bulk Add Assignments Section -->
-                <div class="bg-gray-100 rounded-lg p-4 mb-6">
-                    <h3 class="text-lg font-semibold text-gray-700 mb-2">Add Assignments</h3>
-                    <div class="flex flex-col md:flex-row items-center gap-4">
-                        <textarea id="bulkAssignments" placeholder="Paste assignment names (e.g., Homework 1, Quiz 1)" class="w-full border rounded-lg p-2 resize-none h-20 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-                        <button id="bulkAddAssignmentsBtn" class="bg-blue-500 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-600 transition-colors self-start md:self-center">Bulk Add</button>
-                    </div>
-                </div>
-                
                 <div class="flex flex-col md:flex-row justify-between items-center mb-4">
                     <h2 id="currentPeriodTitle" class="text-2xl font-semibold text-gray-700"></h2>
-                    <div class="flex items-center space-x-2 mt-4 md:mt-0">
+                    <div class="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4 mt-4 md:mt-0">
+                        <!-- Bulk Add Assignments Section -->
+                        <div class="relative w-full">
+                            <textarea id="bulkAssignments" placeholder="Paste assignment names (e.g., Homework 1, Quiz 1)" class="w-full border rounded-lg p-2 resize-none h-20 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                            <button id="bulkAddAssignmentsBtn" class="absolute bottom-2 right-2 bg-blue-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-600 transition-colors">Bulk Add</button>
+                        </div>
                          <div class="relative w-full">
                             <textarea id="bulkStudents" placeholder="Paste names & IDs (e.g., Jane Doe, 1234)" class="w-full border rounded-lg p-2 resize-none h-20 focus:outline-none focus:ring-2 focus:ring-green-500"></textarea>
                             <button id="bulkAddBtn" class="absolute bottom-2 right-2 bg-green-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-600 transition-colors">Bulk Add</button>
@@ -156,11 +164,24 @@
         </div>
     </div>
 
+    <!-- Assignment Edit/Delete Modal -->
+    <div id="assignmentModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full relative">
+            <button id="closeAssignmentModalBtn" class="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Edit Assignment</h3>
+            <input type="text" id="editAssignmentName" placeholder="Assignment Name" class="w-full border rounded-lg px-4 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <div class="flex space-x-4">
+                <button id="saveAssignmentBtn" class="w-full bg-blue-500 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-600 transition-colors">Save</button>
+                <button id="deleteAssignmentBtn" class="w-full bg-red-500 text-white px-6 py-2 rounded-lg font-medium hover:bg-red-600 transition-colors">Delete</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Firebase-related global variables provided by the environment
         const appId = "helprequest-469c0";
@@ -203,6 +224,12 @@
         const modalMessage = document.getElementById('modalMessage');
         const modalOkBtn = document.getElementById('modalOkBtn');
 
+        const assignmentModal = document.getElementById('assignmentModal');
+        const editAssignmentNameInput = document.getElementById('editAssignmentName');
+        const saveAssignmentBtn = document.getElementById('saveAssignmentBtn');
+        const deleteAssignmentBtn = document.getElementById('deleteAssignmentBtn');
+        const closeAssignmentModalBtn = document.getElementById('closeAssignmentModalBtn');
+
         // --- Firebase and Data Variables ---
         let app;
         let db;
@@ -210,6 +237,7 @@
         let userId;
         let currentPeriodId = null;
         let currentStudentId = null;
+        let activeAssignmentId = null;
 
         let studentsData = {};
         let assignmentsData = {};
@@ -234,6 +262,22 @@
         const hideModal = () => {
             modal.classList.add('hidden');
             modal.classList.remove('flex');
+        };
+
+        const showAssignmentModal = (assignmentId) => {
+            activeAssignmentId = assignmentId;
+            const assignment = assignmentsData[assignmentId];
+            if (assignment) {
+                editAssignmentNameInput.value = assignment.name;
+                assignmentModal.classList.remove('hidden');
+                assignmentModal.classList.add('flex');
+            }
+        };
+
+        const hideAssignmentModal = () => {
+            assignmentModal.classList.add('hidden');
+            assignmentModal.classList.remove('flex');
+            activeAssignmentId = null;
         };
 
         // --- Firestore Real-time Listeners ---
@@ -320,8 +364,10 @@
             // Add assignment headers
             assignmentArray.forEach(assignment => {
                 const th = document.createElement('th');
-                th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap';
+                th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap assignment-header';
                 th.textContent = assignment.name;
+                th.setAttribute('data-assignment-id', assignment.id);
+                th.addEventListener('click', () => showAssignmentModal(assignment.id));
                 headerRow.appendChild(th);
             });
 
@@ -470,30 +516,90 @@
             if (!currentPeriodId) {
                 return; // Should not happen with UI checks
             }
+            
+            let gradeToSave = gradeValue.trim().toUpperCase();
+
+            // Validate grade value
+            const gradeNum = parseFloat(gradeToSave);
+            if (gradeToSave !== 'EX' && (isNaN(gradeNum) || gradeNum < 0 || gradeNum > 4)) {
+                // If the grade is invalid and not 'EX', delete the existing grade if it exists.
+                if (gradeId) {
+                     try {
+                        await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/grades`, gradeId));
+                    } catch (e) {
+                        console.error("Error deleting grade:", e);
+                    }
+                }
+                return;
+            }
 
             if (gradeId) {
                 // Update existing grade
                 try {
                     const gradeRef = doc(db, `artifacts/${appId}/users/${userId}/grades`, gradeId);
-                    await updateDoc(gradeRef, { grade: gradeValue });
+                    await updateDoc(gradeRef, { grade: gradeToSave });
                 } catch (e) {
                      console.error("Error updating grade:", e);
                 }
-            } else if (gradeValue) {
+            } else if (gradeToSave) {
                 // Add new grade
                 try {
                     await addDoc(collection(db, `artifacts/${appId}/users/${userId}/grades`), {
                         studentId: studentId,
                         assignmentId: assignmentId,
                         periodId: currentPeriodId,
-                        grade: gradeValue
+                        grade: gradeToSave
                     });
                 } catch (e) {
                     console.error("Error adding grade:", e);
                 }
             }
         };
-        
+
+        const handleSaveAssignment = async () => {
+            if (!activeAssignmentId) return;
+
+            const newName = editAssignmentNameInput.value.trim();
+            if (!newName) {
+                showModal("Assignment name cannot be empty.");
+                return;
+            }
+
+            try {
+                const assignmentRef = doc(db, `artifacts/${appId}/users/${userId}/assignments`, activeAssignmentId);
+                await updateDoc(assignmentRef, { name: newName });
+                hideAssignmentModal();
+            } catch (e) {
+                showModal("Failed to save assignment: " + e.message);
+            }
+        };
+
+        const handleDeleteAssignment = async () => {
+            if (!activeAssignmentId) return;
+
+            if (confirm("Are you sure you want to delete this assignment and all associated grades?")) {
+                try {
+                    const batch = writeBatch(db);
+                    
+                    // Delete the assignment document
+                    const assignmentRef = doc(db, `artifacts/${appId}/users/${userId}/assignments`, activeAssignmentId);
+                    batch.delete(assignmentRef);
+
+                    // Find and delete all associated grades
+                    const gradesQuery = query(collection(db, `artifacts/${appId}/users/${userId}/grades`), where("assignmentId", "==", activeAssignmentId));
+                    const gradesSnapshot = await getDocs(gradesQuery);
+                    gradesSnapshot.forEach(gradeDoc => {
+                        batch.delete(doc(db, `artifacts/${appId}/users/${userId}/grades`, gradeDoc.id));
+                    });
+
+                    await batch.commit();
+                    hideAssignmentModal();
+                } catch (e) {
+                    showModal("Failed to delete assignment: " + e.message);
+                }
+            }
+        };
+
         const handleStudentLogin = async () => {
             const studentId = studentIdInput.value.trim();
             if (!studentId) {
@@ -586,6 +692,9 @@
         addPeriodBtn.addEventListener('click', handleAddPeriod);
         bulkAddBtn.addEventListener('click', handleBulkAdd);
         bulkAddAssignmentsBtn.addEventListener('click', handleBulkAddAssignments);
+        saveAssignmentBtn.addEventListener('click', handleSaveAssignment);
+        deleteAssignmentBtn.addEventListener('click', handleDeleteAssignment);
+        closeAssignmentModalBtn.addEventListener('click', hideAssignmentModal);
         logoutBtn.addEventListener('click', () => {
              auth.signOut();
              currentPeriodId = null;
