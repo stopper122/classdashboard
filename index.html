@@ -157,8 +157,15 @@
         import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Firebase-related global variables provided by the environment
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const appId = "helprequest-469c0";
+        const firebaseConfig = {
+            apiKey: "AIzaSyBX96xDY5ThDAZn-SckmsnfynMnQjvUc2I",
+            authDomain: "helprequest-469c0.firebaseapp.com",
+            projectId: "helprequest-469c0",
+            storageBucket: "helprequest-469c0.firebasestorage.app",
+            messagingSenderId: "1092775554304",
+            appId: "1:1092775554304:web:e771c3ebac1e6ba4f597e5"
+        };
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         // --- DOM Elements ---
@@ -523,12 +530,6 @@
         // --- Initialization and Main Logic ---
         const initFirebase = async () => {
             try {
-                if (!firebaseConfig || Object.keys(firebaseConfig).length === 0) {
-                    showModal("Firebase configuration is missing. Please contact support.");
-                    console.error("Firebase config is empty. Cannot initialize app.");
-                    return;
-                }
-
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
