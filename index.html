@@ -321,6 +321,16 @@
             }).format(date);
         };
 
+        const getGradeColorClass = (grade) => {
+            if (grade === 'EX') return 'text-gray-500';
+            const numericGrade = parseFloat(grade);
+            if (isNaN(numericGrade)) return 'text-gray-500'; // For ungraded
+            if (numericGrade >= 4) return 'text-green-500';
+            if (numericGrade >= 3) return 'text-blue-500';
+            if (numericGrade >= 2) return 'text-yellow-500';
+            if (numericGrade >= 1) return 'text-orange-500';
+            return 'text-red-500';
+        };
 
         // --- Firestore Real-time Listeners ---
         let studentsUnsubscribe = null;
@@ -528,12 +538,13 @@
                     // Find the grade for this student and assignment
                     const gradeEntry = Object.values(gradesData).find(g => g.studentId === student.id && g.assignmentId === assignment.id);
                     const gradeDisplay = gradeEntry ? gradeEntry.grade : '-';
+                    const gradeColorClass = getGradeColorClass(gradeDisplay);
 
                     const tr = document.createElement('tr');
                     tr.className = 'hover:bg-gray-100 transition-colors';
                     tr.innerHTML = `
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${assignment.name} <span class="text-gray-400 text-[0.6rem] font-normal ml-2">${formatDate(assignment.createdAt)}</span></td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${gradeDisplay}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-bold ${gradeColorClass}">${gradeDisplay}</td>
                     `;
                     studentGradesBody.appendChild(tr);
                 });
