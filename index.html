@@ -1,324 +1,326 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Help Request</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        .fade-in {
-            animation: fadeIn 0.5s ease-in-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .toast {
-            animation: slideIn 0.3s ease-out, fadeOut 0.3s ease-in 2.7s forwards;
-        }
-        @keyframes slideIn {
-            from { transform: translateY(100%); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-        @keyframes fadeOut {
-            from { opacity: 1; }
-            to { opacity: 0; }
-        }
-        .modal-overlay {
-            transition: opacity 0.3s ease;
-        }
-        .modal-content {
-            transition: transform 0.3s ease, opacity 0.3s ease;
-        }
-    </style>
-</head>
-<body class="bg-gray-100 flex items-center justify-center h-screen">
+import React, { useState, useEffect, useCallback } from 'react';
+import { initializeApp } from 'firebase/app';
+import { getFirestore, collection, doc, setDoc, onSnapshot, getDoc, updateDoc, writeBatch } from 'firebase/firestore';
+import { getAuth, signInAnonymously, signInWithCustomToken } from 'firebase/auth';
 
-    <div id="app" class="w-full max-w-4xl mx-auto p-4">
+// --- Helper Functions/Components ---
 
-        <!-- Login View -->
-        <div id="login-view" class="bg-white p-8 rounded-xl shadow-lg text-center fade-in">
-            <h1 class="text-2xl font-bold text-gray-800 mb-2">Student Help Center</h1>
-            <p class="text-gray-500 mb-6">Please enter your Student ID to begin.</p>
-            <input type="text" id="student-id-input" class="w-full max-w-sm mx-auto px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Enter Your Student ID">
-            <button id="login-btn" class="mt-4 w-full max-w-sm mx-auto bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-md transition transform hover:scale-105">Login</button>
-        </div>
+const Spinner = () => (
+  <div className="flex justify-center items-center h-full">
+    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+  </div>
+);
 
-        <!-- Main App View -->
-        <div id="main-view" class="hidden">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <!-- Student Action Panel -->
-                <div class="bg-white p-8 rounded-xl shadow-lg fade-in">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-2xl font-bold text-gray-800">Welcome, <span id="student-id-display" class="text-blue-600"></span>!</h2>
-                        <button id="logout-btn" class="text-sm font-medium text-gray-500 hover:text-gray-800 transition">Logout</button>
-                    </div>
-                    <p class="text-gray-600 mb-6">Click the button below to notify your teacher that you need help or an assignment check.</p>
-                    <button id="request-help-btn" class="w-full bg-green-500 text-white font-bold py-4 px-6 rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 shadow-lg transition transform hover:scale-105 text-lg">
-                        <svg class="w-6 h-6 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-                        Request Help
-                    </button>
-                </div>
-
-                <!-- Teacher Notification Panel -->
-                <div class="bg-white p-8 rounded-xl shadow-lg fade-in">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-4">Real-Time Help Requests</h2>
-                    <div id="notification-list" class="space-y-4 h-96 overflow-y-auto pr-2">
-                        <!-- Notifications will be dynamically inserted here -->
-                        <p id="no-requests" class="text-center text-gray-500 mt-8">No help requests yet...</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+const Modal = ({ title, message, onClose }) => (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+    <div className="bg-white rounded-lg shadow-2xl p-6 w-full max-w-sm text-center">
+      <h3 className="text-lg font-bold text-gray-800 mb-2">{title}</h3>
+      <p className="text-gray-600 mb-4">{message}</p>
+      <button
+        onClick={onClose}
+        className="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition-colors duration-300"
+      >
+        Close
+      </button>
     </div>
-    
-    <!-- Confirmation Modal -->
-    <div id="confirmation-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 modal-overlay">
-        <div class="bg-white p-8 rounded-xl shadow-2xl max-w-sm w-full text-center modal-content scale-95 opacity-0">
-            <h3 class="text-xl font-bold text-gray-800 mb-4">Are you sure?</h3>
-            <p class="text-gray-600 mb-6">Do you want to resolve this help request?</p>
-            <div class="flex justify-center gap-4">
-                <button id="cancel-resolve-btn" class="px-6 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300">Cancel</button>
-                <button id="confirm-resolve-btn" class="px-6 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700">Resolve</button>
-            </div>
-        </div>
-    </div>
+  </div>
+);
 
 
-    <!-- Toast Notification -->
-    <div id="toast-notification" class="hidden fixed bottom-5 right-5 bg-gray-800 text-white py-3 px-6 rounded-lg shadow-xl text-center">
-        <p id="toast-message"></p>
-    </div>
+// --- Main App Component ---
 
+export default function App() {
+  // --- State Management ---
+  const [view, setView] = useState('loading'); // loading, admin, studentLogin, studentDashboard
+  const [students, setStudents] = useState([]);
+  const [loggedInStudent, setLoggedInStudent] = useState(null);
+  const [error, setError] = useState(null);
+  const [modal, setModal] = useState(null); // {title, message}
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+  // Input states
+  const [newStudentName, setNewStudentName] = useState('');
+  const [newStudentId, setNewStudentId] = useState('');
+  const [bulkStudents, setBulkStudents] = useState('');
+  const [loginId, setLoginId] = useState('');
 
+  // Firebase state
+  const [db, setDb] = useState(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  
+  const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        // --- Firebase Variables ---
-        let db;
-        let requestsCollection;
-        let auth;
+  // --- Firebase Initialization ---
+  useEffect(() => {
+    const initFirebase = async () => {
+        try {
+            const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+            const app = initializeApp(firebaseConfig);
+            const firestore = getFirestore(app);
+            const auth = getAuth(app);
+            setDb(firestore);
 
-        // --- DOM Elements ---
-        const loginView = document.getElementById('login-view');
-        const mainView = document.getElementById('main-view');
-        const loginBtn = document.getElementById('login-btn');
-        const logoutBtn = document.getElementById('logout-btn');
-        const studentIdInput = document.getElementById('student-id-input');
-        const studentIdDisplay = document.getElementById('student-id-display');
-        const requestHelpBtn = document.getElementById('request-help-btn');
-        const notificationList = document.getElementById('notification-list');
-        const toast = document.getElementById('toast-notification');
-        const toastMessage = document.getElementById('toast-message');
-        const modal = document.getElementById('confirmation-modal');
-        const modalContent = modal.querySelector('.modal-content');
-        const confirmResolveBtn = document.getElementById('confirm-resolve-btn');
-        const cancelResolveBtn = document.getElementById('cancel-resolve-btn');
-
-
-        // --- State Management ---
-        let currentStudentId = null;
-        let docIdToResolve = null;
-
-        // --- Functions ---
-        function showToast(message, isError = false) {
-            toastMessage.textContent = message;
-            toast.className = `fixed bottom-5 right-5 text-white py-3 px-6 rounded-lg shadow-xl text-center toast ${isError ? 'bg-red-600' : 'bg-gray-800'}`;
-            setTimeout(() => {
-                toast.className += ' hidden';
-            }, 3000);
-        }
-
-        function login() {
-            const studentId = studentIdInput.value.trim();
-            if (studentId) {
-                currentStudentId = studentId;
-                studentIdDisplay.textContent = currentStudentId;
-                loginView.classList.add('hidden');
-                mainView.classList.remove('hidden');
-                localStorage.setItem('studentId', currentStudentId);
-                showToast(`Welcome, ${currentStudentId}!`);
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
             } else {
-                showToast("Please enter a valid Student ID.", true);
+                await signInAnonymously(auth);
             }
+            setIsAuthReady(true);
+        } catch (e) {
+            console.error("Firebase initialization or auth error:", e);
+            setError("Failed to initialize the application. Check your connection or configuration.");
+            setView('error');
         }
+    };
+    initFirebase();
+  }, [appId]);
 
-        function logout() {
-            showToast(`Goodbye, ${currentStudentId}!`);
-            currentStudentId = null;
-            studentIdInput.value = '';
-            mainView.classList.add('hidden');
-            loginView.classList.remove('hidden');
-            localStorage.removeItem('studentId');
-        }
+  // --- Real-time Student Data Subscription ---
+  useEffect(() => {
+    if (!isAuthReady || !db) return;
 
-        async function requestHelp() {
-            if (!currentStudentId || !db) return;
+    setView('admin'); // Default view after loading
 
-            requestHelpBtn.disabled = true;
-            requestHelpBtn.textContent = 'Sending...';
+    const studentsCollectionPath = `/artifacts/${appId}/public/data/students`;
+    const studentsCollection = collection(db, studentsCollectionPath);
+    
+    const unsubscribe = onSnapshot(studentsCollection, (snapshot) => {
+      const studentsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setStudents(studentsData);
+    }, (err) => {
+      console.error("Error fetching students:", err);
+      setError("Could not fetch student data in real-time.");
+    });
 
-            try {
-                await addDoc(requestsCollection, {
-                    studentId: currentStudentId,
-                    timestamp: serverTimestamp()
-                });
-                showToast("Your request has been sent!");
-            } catch (error) {
-                console.error("Error sending request: ", error);
-                showToast("Could not send request. Please try again.", true);
-            } finally {
-                requestHelpBtn.disabled = false;
-                requestHelpBtn.innerHTML = `
-                    <svg class="w-6 h-6 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-                    Request Help
-                `;
-            }
-        }
-        
-        function openConfirmationModal(docId) {
-            docIdToResolve = docId;
-            modal.classList.remove('hidden');
-            setTimeout(() => {
-                modal.classList.remove('opacity-0');
-                modalContent.classList.remove('scale-95', 'opacity-0');
-            }, 10);
-        }
+    return () => unsubscribe();
+  }, [isAuthReady, db, appId]);
 
-        function closeConfirmationModal() {
-            docIdToResolve = null;
-            modal.classList.add('opacity-0');
-            modalContent.classList.add('scale-95', 'opacity-0');
-            setTimeout(() => {
-                modal.classList.add('hidden');
-            }, 300);
-        }
+  // --- Core Functions ---
 
-        async function resolveRequest() {
-            if (!docIdToResolve) return;
-            try {
-                await deleteDoc(doc(db, requestsCollection.path, docIdToResolve));
-                showToast("Request resolved.");
-            } catch (error) {
-                console.error("Error resolving request: ", error);
-                showToast("Could not resolve request.", true);
-            } finally {
-                closeConfirmationModal();
-            }
-        }
+  const addStudent = async (e) => {
+    e.preventDefault();
+    if (!newStudentName.trim() || !newStudentId.trim() || !db) return;
 
+    const studentDocRef = doc(db, `/artifacts/${appId}/public/data/students`, newStudentId.trim());
+    try {
+      await setDoc(studentDocRef, {
+        name: newStudentName.trim(),
+        studentId: newStudentId.trim(),
+        status: 'none' // 'none', 'help', 'check'
+      });
+      setNewStudentName('');
+      setNewStudentId('');
+      setModal({ title: 'Success', message: `Student ${newStudentName.trim()} added.` });
+    } catch (err) {
+      console.error("Error adding student:", err);
+      setModal({ title: 'Error', message: 'Could not add the student.' });
+    }
+  };
 
-        function renderNotifications(docs) {
-            notificationList.innerHTML = ''; // Clear existing list
-            if (docs.empty) {
-                notificationList.innerHTML = '<p id="no-requests" class="text-center text-gray-500 mt-8">No help requests yet...</p>';
-                return;
-            }
+  const handleBulkAdd = async () => {
+    if (!bulkStudents.trim() || !db) return;
 
-            docs.forEach(docSnapshot => {
-                const request = docSnapshot.data();
-                const requestId = docSnapshot.id;
-                const time = request.timestamp ? new Date(request.timestamp.seconds * 1000).toLocaleTimeString() : '...';
-                
-                const notificationEl = document.createElement('div');
-                notificationEl.className = 'flex justify-between items-center bg-blue-50 p-4 rounded-lg border border-blue-200 fade-in';
-                notificationEl.innerHTML = `
-                    <div>
-                        <p class="font-semibold text-blue-800">${request.studentId}</p>
-                        <p class="text-sm text-gray-500">Requested at ${time}</p>
-                    </div>
-                    <button data-id="${requestId}" class="resolve-btn bg-red-500 text-white text-xs font-bold py-1 px-3 rounded-full hover:bg-red-600 transition transform hover:scale-110">RESOLVE</button>
-                `;
-                notificationList.appendChild(notificationEl);
-            });
-        }
+    const lines = bulkStudents.trim().split('\n');
+    const studentsToAdd = [];
+    
+    lines.forEach(line => {
+      const [name, id] = line.split(',').map(s => s.trim());
+      if (name && id) {
+        studentsToAdd.push({ name, id, status: 'none' });
+      }
+    });
 
-        // --- Event Listeners ---
-        loginBtn.addEventListener('click', login);
-        studentIdInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') login();
-        });
-        logoutBtn.addEventListener('click', logout);
-        requestHelpBtn.addEventListener('click', requestHelp);
-        
-        notificationList.addEventListener('click', (e) => {
-            if (e.target.classList.contains('resolve-btn')) {
-                const docId = e.target.dataset.id;
-                openConfirmationModal(docId);
-            }
-        });
-        
-        confirmResolveBtn.addEventListener('click', resolveRequest);
-        cancelResolveBtn.addEventListener('click', closeConfirmationModal);
-        modal.addEventListener('click', (e) => {
-             if (e.target === modal) {
-                closeConfirmationModal();
-            }
-        });
+    if (studentsToAdd.length === 0) {
+      setModal({ title: 'Info', message: 'No valid student data found. Please use the format: Name, StudentID' });
+      return;
+    }
 
+    const batch = writeBatch(db);
+    studentsToAdd.forEach(student => {
+      const studentDocRef = doc(db, `/artifacts/${appId}/public/data/students`, student.id);
+      batch.set(studentDocRef, { name: student.name, studentId: student.id, status: student.status });
+    });
 
-        // --- Initialization ---
-        async function init() {
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    try {
+      await batch.commit();
+      setBulkStudents('');
+      setModal({ title: 'Success', message: `${studentsToAdd.length} students have been added.` });
+    } catch (err) {
+      console.error("Error bulk adding students:", err);
+      setModal({ title: 'Error', message: 'An error occurred during the bulk add.' });
+    }
+  };
+  
+  const handleStudentLogin = async (e) => {
+      e.preventDefault();
+      if (!loginId.trim() || !db) return;
+
+      const studentDocRef = doc(db, `/artifacts/${appId}/public/data/students`, loginId.trim());
+      try {
+          const docSnap = await getDoc(studentDocRef);
+          if (docSnap.exists()) {
+              setLoggedInStudent({ id: docSnap.id, ...docSnap.data() });
+              setView('studentDashboard');
+              setLoginId('');
+          } else {
+              setModal({ title: 'Login Failed', message: 'Student ID not found.' });
+          }
+      } catch (err) {
+          console.error("Login error:", err);
+          setModal({ title: 'Error', message: 'Could not verify student ID.' });
+      }
+  };
+
+  const updateStudentStatus = useCallback(async (studentId, newStatus) => {
+    if(!db) return;
+    const studentDocRef = doc(db, `/artifacts/${appId}/public/data/students`, studentId);
+    try {
+      await updateDoc(studentDocRef, { status: newStatus });
+      if (loggedInStudent && loggedInStudent.id === studentId) {
+        setLoggedInStudent(prev => ({ ...prev, status: newStatus }));
+      }
+    } catch (err) {
+      console.error("Error updating status:", err);
+      setModal({ title: 'Error', message: 'Failed to update status.' });
+    }
+  }, [db, loggedInStudent, appId]);
+
+  const clearRequest = (studentId) => {
+    updateStudentStatus(studentId, 'none');
+  };
+
+  const studentLogout = () => {
+    setLoggedInStudent(null);
+    setView('studentLogin');
+  };
+
+  // --- Render Logic ---
+
+  const renderStatusTile = (student) => {
+    const { status } = student;
+    let bgColor = 'bg-white hover:bg-gray-100';
+    let textColor = 'text-gray-700';
+    let statusText = 'No request';
+
+    if (status === 'help') {
+      bgColor = 'bg-yellow-400 animate-pulse';
+      textColor = 'text-yellow-900';
+      statusText = 'Needs Help!';
+    } else if (status === 'check') {
+      bgColor = 'bg-blue-400 animate-pulse';
+      textColor = 'text-blue-900';
+      statusText = 'Assignment Check';
+    }
+
+    return (
+      <div
+        key={student.id}
+        onClick={() => clearRequest(student.id)}
+        className={`p-4 rounded-lg shadow-md transition-all duration-300 cursor-pointer text-center ${bgColor} ${textColor} flex flex-col justify-between`}
+      >
+        <h3 className="font-bold text-lg">{student.name}</h3>
+        <p className="text-sm font-medium">{statusText}</p>
+        <p className="text-xs text-gray-500 mt-2">{student.studentId}</p>
+      </div>
+    );
+  };
+  
+  if (view === 'loading' || !isAuthReady) {
+    return <div className="bg-gray-100 min-h-screen flex items-center justify-center"><Spinner /></div>;
+  }
+  
+  if (view === 'error') {
+      return <div className="bg-red-100 min-h-screen flex items-center justify-center text-red-700 p-4">{error}</div>;
+  }
+  
+  const AdminView = (
+    <div className="p-4 sm:p-6 md:p-8">
+      <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Teacher Dashboard</h1>
+        <button onClick={() => setView('studentLogin')} className="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors">Switch to Student View</button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        {/* Add Single Student */}
+        <div className="bg-white p-6 rounded-lg shadow-lg">
+          <h2 className="text-xl font-semibold mb-4 text-gray-700">Add Student</h2>
+          <form onSubmit={addStudent} className="space-y-4">
+            <input type="text" value={newStudentName} onChange={e => setNewStudentName(e.target.value)} placeholder="Student Name" className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500" required />
+            <input type="text" value={newStudentId} onChange={e => setNewStudentId(e.target.value)} placeholder="Student ID" className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500" required />
+            <button type="submit" className="w-full bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors">Add Student</button>
+          </form>
+        </div>
+
+        {/* Bulk Add Students */}
+        <div className="bg-white p-6 rounded-lg shadow-lg">
+          <h2 className="text-xl font-semibold mb-4 text-gray-700">Bulk Add Students</h2>
+          <textarea value={bulkStudents} onChange={e => setBulkStudents(e.target.value)} placeholder="One per line: Name, StudentID&#10;e.g., Jane Doe, 12345" className="w-full p-2 border border-gray-300 rounded-md h-24 resize-none focus:ring-2 focus:ring-indigo-500"></textarea>
+          <button onClick={handleBulkAdd} className="w-full mt-4 bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors">Bulk Add</button>
+        </div>
+      </div>
+
+      <h2 className="text-2xl font-bold text-gray-800 mb-4">Student Status</h2>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+        {students.length > 0 ? students.map(renderStatusTile) : <p className="col-span-full text-center text-gray-500">No students added yet.</p>}
+      </div>
+    </div>
+  );
+
+  const StudentLoginView = (
+    <div className="flex flex-col items-center justify-center min-h-screen p-4">
+       <div className="w-full max-w-sm">
+         <div className="bg-white p-8 rounded-2xl shadow-2xl text-center">
+            <h1 className="text-2xl font-bold text-gray-800 mb-2">Student Login</h1>
+            <p className="text-gray-500 mb-6">Enter your Student ID to continue.</p>
+            <form onSubmit={handleStudentLogin} className="space-y-4">
+              <input type="text" value={loginId} onChange={e => setLoginId(e.target.value)} placeholder="Student ID" className="w-full p-3 border border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-indigo-500" required />
+              <button type="submit" className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors">Login</button>
+            </form>
+         </div>
+         <button onClick={() => setView('admin')} className="mt-6 text-sm text-gray-600 hover:text-indigo-600 font-medium transition-colors">Switch to Teacher View</button>
+       </div>
+    </div>
+  );
+
+  const StudentDashboardView = (
+     <div className="flex flex-col items-center justify-center min-h-screen p-4">
+       <div className="w-full max-w-md text-center">
+        <div className="bg-white p-8 rounded-2xl shadow-2xl">
+            <h1 className="text-2xl font-bold text-gray-800">Welcome, {loggedInStudent?.name}!</h1>
+            <p className="text-gray-500 mt-2 mb-6">How can we help you today?</p>
             
-            if (typeof __firebase_config === 'undefined') {
-                 console.error("Firebase config not found. This app requires a specific environment to run.");
-                 showToast("Configuration Error. App cannot start.", true);
-                 return;
-            }
-            
-            try {
-                const firebaseConfig = JSON.parse(__firebase_config);
-                const app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-                requestsCollection = collection(db, `/artifacts/${appId}/public/data/helpRequests`);
-                console.log("Firebase initialized successfully!");
+            <div className="space-y-4">
+                 <button 
+                    onClick={() => updateStudentStatus(loggedInStudent.id, 'help')} 
+                    disabled={loggedInStudent?.status === 'help'}
+                    className="w-full text-lg bg-yellow-400 text-yellow-900 font-bold py-4 px-4 rounded-lg hover:bg-yellow-500 transition-colors disabled:bg-yellow-200 disabled:cursor-not-allowed">
+                     Request Help
+                 </button>
+                 <button 
+                    onClick={() => updateStudentStatus(loggedInStudent.id, 'check')} 
+                    disabled={loggedInStudent?.status === 'check'}
+                    className="w-full text-lg bg-blue-400 text-blue-900 font-bold py-4 px-4 rounded-lg hover:bg-blue-500 transition-colors disabled:bg-blue-200 disabled:cursor-not-allowed">
+                    Request Assignment Check
+                 </button>
+                 <button 
+                    onClick={() => clearRequest(loggedInStudent.id)}
+                    disabled={loggedInStudent?.status === 'none'}
+                    className="w-full text-lg bg-gray-200 text-gray-700 font-bold py-3 px-4 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50">
+                    Clear My Request
+                 </button>
+            </div>
+        </div>
+        <button onClick={studentLogout} className="mt-6 bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 transition-colors">Log Out</button>
+       </div>
+    </div>
+  );
 
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                    console.log("Signed in with custom token.");
-                } else {
-                    await signInAnonymously(auth);
-                    console.log("Signed in anonymously.");
-                }
-
-                // Now that we are authenticated, proceed with app logic
-                const savedStudentId = localStorage.getItem('studentId');
-                if (savedStudentId) {
-                    currentStudentId = savedStudentId;
-                    studentIdDisplay.textContent = currentStudentId;
-                    loginView.classList.add('hidden');
-                    mainView.classList.remove('hidden');
-                }
-                
-                const q = query(requestsCollection, orderBy("timestamp", "desc"));
-                onSnapshot(q, 
-                    (querySnapshot) => {
-                        renderNotifications(querySnapshot);
-                    }, 
-                    (error) => {
-                        console.error("Error getting real-time updates: ", error);
-                        showToast("Error listening for updates. Check permissions.", true);
-                    }
-                );
-
-            } catch (e) {
-                console.error("Firebase initialization or auth failed.", e);
-                showToast("Error: Could not connect to the database.", true);
-            }
-        }
-
-        init();
-
-    </script>
-</body>
-</html>
+  return (
+    <main className="bg-gray-100 min-h-screen font-sans">
+      {modal && <Modal title={modal.title} message={modal.message} onClose={() => setModal(null)} />}
+      {view === 'admin' && AdminView}
+      {view === 'studentLogin' && StudentLoginView}
+      {view === 'studentDashboard' && StudentDashboardView}
+    </main>
+  );
+}
 
