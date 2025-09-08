@@ -945,8 +945,6 @@
             if (!student) return;
             
             try {
-                state.loading = true;
-                renderUI();
                 await runTransaction(db, async (transaction) => {
                     // Delete the student document
                     const studentRef = doc(db, `${publicDataPath}/students`, studentId);
@@ -975,7 +973,6 @@
             } catch (error) {
                 console.error("Error deleting student:", error);
             } finally {
-                state.loading = false;
                 renderUI();
             }
         };
