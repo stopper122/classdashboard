@@ -203,6 +203,8 @@
                     state.showAssignmentEditModal = false;
                     state.selectedAssignmentForEdit = null;
                     renderUI();
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = originalText;
                 }
             }
         };
@@ -826,12 +828,7 @@
                 renderUI();
             }
         };
-        window.deleteStudent = (studentId) => {
-            showConfirmModal(
-                `Are you sure you want to delete this student and all their data? This cannot be undone.`,
-                () => deleteStudent(studentId)
-            );
-        };
+        window.deleteStudent = deleteStudent;
 
         const handleStudentSelect = (e) => {
             const studentCard = e.currentTarget;
