@@ -203,8 +203,6 @@
                     state.showAssignmentEditModal = false;
                     state.selectedAssignmentForEdit = null;
                     renderUI();
-                    saveBtn.disabled = false;
-                    saveBtn.textContent = originalText;
                 }
             }
         };
@@ -610,39 +608,43 @@
             if (!state.selectedPeriodId) return;
             const periodIdToDelete = state.selectedPeriodId;
             
-            await runTransaction(db, async (transaction) => {
-                // Get all students, assignments, and requests for the period
-                const studentsQuery = query(collection(db, `${publicDataPath}/students`), where('periodId', '==', periodIdToDelete));
-                const assignmentsQuery = query(collection(db, `${publicDataPath}/assignments`), where('periodId', '==', periodIdToDelete));
-                const requestsQuery = query(collection(db, `${publicDataPath}/requests`), where('periodId', '==', periodIdToDelete));
-                
-                const studentsSnapshot = await getDocs(studentsQuery);
-                const assignmentsSnapshot = await getDocs(assignmentsQuery);
-                const requestsSnapshot = await getDocs(requestsQuery);
+            try {
+                await runTransaction(db, async (transaction) => {
+                    // Get all students, assignments, and requests for the period
+                    const studentsQuery = query(collection(db, `${publicDataPath}/students`), where('periodId', '==', periodIdToDelete));
+                    const assignmentsQuery = query(collection(db, `${publicDataPath}/assignments`), where('periodId', '==', periodIdToDelete));
+                    const requestsQuery = query(collection(db, `${publicDataPath}/requests`), where('periodId', '==', periodIdToDelete));
+                    
+                    const studentsSnapshot = await getDocs(studentsQuery);
+                    const assignmentsSnapshot = await getDocs(assignmentsQuery);
+                    const requestsSnapshot = await getDocs(requestsQuery);
 
-                // Delete all students in the period
-                studentsSnapshot.forEach(doc => {
-                    transaction.delete(doc.ref);
+                    // Delete all students in the period
+                    studentsSnapshot.forEach(doc => {
+                        transaction.delete(doc.ref);
+                    });
+
+                    // Delete all assignments in the period
+                    assignmentsSnapshot.forEach(doc => {
+                        transaction.delete(doc.ref);
+                    });
+
+                    // Delete all requests in the period
+                    requestsSnapshot.forEach(doc => {
+                        transaction.delete(doc.ref);
+                    });
+
+                    // Finally, delete the period itself
+                    const periodRef = doc(db, `${publicDataPath}/periods`, periodIdToDelete);
+                    transaction.delete(periodRef);
                 });
-
-                // Delete all assignments in the period
-                assignmentsSnapshot.forEach(doc => {
-                    transaction.delete(doc.ref);
-                });
-
-                // Delete all requests in the period
-                requestsSnapshot.forEach(doc => {
-                    transaction.delete(doc.ref);
-                });
-
-                // Finally, delete the period itself
-                const periodRef = doc(db, `${publicDataPath}/periods`, periodIdToDelete);
-                transaction.delete(periodRef);
-            });
-
-            // After deletion, reset selected period if the deleted one was selected
-            if (state.selectedPeriodId === periodIdToDelete) {
-                state.selectedPeriodId = null;
+            } catch (error) {
+                console.error("Error deleting period:", error);
+            } finally {
+                // After deletion, reset selected period if the deleted one was selected
+                if (state.selectedPeriodId === periodIdToDelete) {
+                    state.selectedPeriodId = null;
+                }
             }
         };
 
@@ -737,7 +739,6 @@
         };
         
         const handleClearAllAppData = async () => {
-            const publicDataPath = `artifacts/${appId}/public/data`;
             await runTransaction(db, async (transaction) => {
                 const periodsRef = collection(db, `${publicDataPath}/periods`);
                 const periodsSnapshot = await getDocs(periodsRef);
@@ -761,7 +762,6 @@
 
         const handleDeleteAllStudents = async () => {
             if (!state.selectedPeriodId) return;
-            const publicDataPath = `artifacts/${appId}/public/data`;
             const studentsToDelete = state.students.filter(s => s.periodId === state.selectedPeriodId);
             
             await runTransaction(db, async (transaction) => {
@@ -791,44 +791,39 @@
         const deleteStudent = async (studentId) => {
             const student = state.students.find(s => s.id === studentId);
             if (!student) return;
-            try {
-                state.loading = true;
-                renderUI();
-                const publicDataPath = `artifacts/${appId}/public/data`;
-                
-                await runTransaction(db, async (transaction) => {
-                    // Delete the student document
-                    const studentRef = doc(db, `${publicDataPath}/students`, studentId);
-                    transaction.delete(studentRef);
+            
+            await runTransaction(db, async (transaction) => {
+                // Delete the student document
+                const studentRef = doc(db, `${publicDataPath}/students`, studentId);
+                transaction.delete(studentRef);
 
-                    // Delete all requests for this student
-                    const requestsQuery = query(collection(db, `${publicDataPath}/requests`), where('studentId', '==', student.studentId));
-                    const requestsSnapshot = await getDocs(requestsQuery);
-                    requestsSnapshot.forEach(requestDoc => {
-                        transaction.delete(requestDoc.ref);
-                    });
-
-                    // Remove completions for this student from all assignments
-                    const assignmentsQuery = query(collection(db, `${publicDataPath}/assignments`), where('periodId', '==', student.periodId));
-                    const assignmentsSnapshot = await getDocs(assignmentsQuery);
-                    assignmentsSnapshot.forEach(assignmentDoc => {
-                        const completions = assignmentDoc.data().completions || [];
-                        const updatedCompletions = completions.filter(c => c.studentId !== student.studentId);
-                        transaction.update(assignmentDoc.ref, { completions: updatedCompletions });
-                    });
+                // Delete all requests for this student
+                const requestsQuery = query(collection(db, `${publicDataPath}/requests`), where('studentId', '==', student.studentId));
+                const requestsSnapshot = await getDocs(requestsQuery);
+                requestsSnapshot.forEach(requestDoc => {
+                    transaction.delete(requestDoc.ref);
                 });
 
-                if (state.selectedStudent && state.selectedStudent.id === studentId) {
-                    state.selectedStudent = null;
-                }
-            } catch (error) {
-                console.error("Error deleting student:", error);
-            } finally {
-                state.loading = false;
-                renderUI();
+                // Remove completions for this student from all assignments
+                const assignmentsQuery = query(collection(db, `${publicDataPath}/assignments`), where('periodId', '==', student.periodId));
+                const assignmentsSnapshot = await getDocs(assignmentsQuery);
+                assignmentsSnapshot.forEach(assignmentDoc => {
+                    const completions = assignmentDoc.data().completions || [];
+                    const updatedCompletions = completions.filter(c => c.studentId !== student.studentId);
+                    transaction.update(assignmentDoc.ref, { completions: updatedCompletions });
+                });
+            });
+
+            if (state.selectedStudent && state.selectedStudent.id === studentId) {
+                state.selectedStudent = null;
             }
         };
-        window.deleteStudent = deleteStudent;
+        window.deleteStudent = (studentId) => {
+            showConfirmModal(
+                `Are you sure you want to delete this student and all their data? This cannot be undone.`,
+                () => deleteStudent(studentId)
+            );
+        };
 
         const handleStudentSelect = (e) => {
             const studentCard = e.currentTarget;
