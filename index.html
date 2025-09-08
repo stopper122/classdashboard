@@ -512,27 +512,30 @@
         const renderStudentView = (student) => {
             studentNameDisplay.textContent = `Welcome, ${student.name}`;
             studentGradesBody.innerHTML = '';
-            
-            // Filter grades for the logged-in student and current period
-            const studentGrades = Object.values(gradesData).filter(g => g.studentId === student.id && g.periodId === student.periodId);
-            const assignments = Object.values(assignmentsData);
-            
-            const renderedAssignments = new Set();
-            if (studentGrades.length === 0) {
-                studentGradesBody.innerHTML = '<tr><td colspan="2" class="px-6 py-4 text-center text-gray-500">No grades recorded yet.</td></tr>';
+
+            const assignments = Object.values(assignmentsData).sort((a, b) => {
+                const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+                const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+                if (dateA > dateB) return 1;
+                if (dateA < dateB) return -1;
+                return a.name.localeCompare(b.name);
+            });
+
+            if (assignments.length === 0) {
+                studentGradesBody.innerHTML = '<tr><td colspan="2" class="px-6 py-4 text-center text-gray-500">No assignments have been created yet.</td></tr>';
             } else {
-                studentGrades.forEach(grade => {
-                    const assignment = assignments.find(a => a.id === grade.assignmentId);
-                    if (assignment && !renderedAssignments.has(assignment.id)) {
-                        const tr = document.createElement('tr');
-                        tr.className = 'hover:bg-gray-100 transition-colors';
-                        tr.innerHTML = `
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${assignment.name} <span class="text-gray-400 text-[0.6rem] font-normal ml-2">${formatDate(assignment.createdAt)}</span></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${grade.grade}</td>
-                        `;
-                        studentGradesBody.appendChild(tr);
-                        renderedAssignments.add(assignment.id);
-                    }
+                assignments.forEach(assignment => {
+                    // Find the grade for this student and assignment
+                    const gradeEntry = Object.values(gradesData).find(g => g.studentId === student.id && g.assignmentId === assignment.id);
+                    const gradeDisplay = gradeEntry ? gradeEntry.grade : '-';
+
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-gray-100 transition-colors';
+                    tr.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${assignment.name} <span class="text-gray-400 text-[0.6rem] font-normal ml-2">${formatDate(assignment.createdAt)}</span></td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${gradeDisplay}</td>
+                    `;
+                    studentGradesBody.appendChild(tr);
                 });
             }
         };
