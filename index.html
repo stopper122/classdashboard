@@ -50,6 +50,21 @@
             transform: translateY(-50%);
             font-size: 0.8rem;
         }
+        .grade-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            flex-wrap: nowrap;
+            white-space: nowrap;
+        }
+        .excused-checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.75rem;
+            color: #4b5563;
+        }
     </style>
 </head>
 <body>
@@ -391,22 +406,59 @@
                     const gradeValue = gradeEntry ? gradeEntry.grade : '';
                     const gradeId = gradeEntry ? gradeEntry.id : null;
 
+                    const gradeCell = document.createElement('div');
+                    gradeCell.className = 'grade-cell';
+
                     const input = document.createElement('input');
                     input.type = 'text';
-                    input.value = gradeValue;
-                    input.className = 'grade-input';
+                    input.value = (gradeValue === 'EX' || gradeValue === '') ? '' : gradeValue;
+                    input.className = 'grade-input border-b border-gray-300';
                     input.placeholder = '-';
-                    input.addEventListener('keydown', (e) => {
-                        if (e.key === 'Enter') {
-                            e.preventDefault();
+                    input.disabled = gradeValue === 'EX';
+                    
+                    const excusedContainer = document.createElement('div');
+                    excusedContainer.className = 'excused-checkbox-container';
+
+                    const excusedCheckbox = document.createElement('input');
+                    excusedCheckbox.type = 'checkbox';
+                    excusedCheckbox.checked = gradeValue === 'EX';
+                    
+                    const label = document.createElement('label');
+                    label.textContent = 'EX';
+
+                    excusedCheckbox.addEventListener('change', () => {
+                        input.disabled = excusedCheckbox.checked;
+                        if (excusedCheckbox.checked) {
+                            handleSaveGrade(student.id, assignment.id, 'EX', gradeId);
+                        } else {
                             handleSaveGrade(student.id, assignment.id, input.value, gradeId);
                         }
                     });
+
+                    input.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (excusedCheckbox.checked) {
+                                handleSaveGrade(student.id, assignment.id, 'EX', gradeId);
+                            } else {
+                                handleSaveGrade(student.id, assignment.id, input.value, gradeId);
+                            }
+                        }
+                    });
                     input.addEventListener('blur', () => {
-                         handleSaveGrade(student.id, assignment.id, input.value, gradeId);
+                         if (excusedCheckbox.checked) {
+                            handleSaveGrade(student.id, assignment.id, 'EX', gradeId);
+                        } else {
+                            handleSaveGrade(student.id, assignment.id, input.value, gradeId);
+                        }
                     });
 
-                    td.appendChild(input);
+                    excusedContainer.appendChild(excusedCheckbox);
+                    excusedContainer.appendChild(label);
+                    
+                    gradeCell.appendChild(input);
+                    gradeCell.appendChild(excusedContainer);
+                    td.appendChild(gradeCell);
                     tr.appendChild(td);
                 });
 
@@ -519,10 +571,11 @@
             
             let gradeToSave = gradeValue.trim().toUpperCase();
 
-            // Validate grade value
+            // Validate grade value. It must be 'EX' or a number between 0 and 4.
             const gradeNum = parseFloat(gradeToSave);
-            if (gradeToSave !== 'EX' && (isNaN(gradeNum) || gradeNum < 0 || gradeNum > 4)) {
-                // If the grade is invalid and not 'EX', delete the existing grade if it exists.
+            const isValidGrade = (gradeToSave === 'EX' || (!isNaN(gradeNum) && gradeNum >= 0 && gradeNum <= 4));
+
+            if (!isValidGrade) {
                 if (gradeId) {
                      try {
                         await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/grades`, gradeId));
@@ -541,7 +594,7 @@
                 } catch (e) {
                      console.error("Error updating grade:", e);
                 }
-            } else if (gradeToSave) {
+            } else {
                 // Add new grade
                 try {
                     await addDoc(collection(db, `artifacts/${appId}/users/${userId}/grades`), {
