@@ -111,7 +111,7 @@
             }
         };
         
-        const renderAssignmentList = () => {
+        function renderAssignmentList() {
             const assignmentsInPeriod = state.assignments
                 .filter(a => a.periodId === state.selectedPeriodId)
                 .sort((a, b) => {
@@ -134,9 +134,9 @@
                     ${a.description ? `<p class="text-sm text-gray-700 mt-1">${a.description}</p>` : ''}
                 </li>
             `).join('');
-        };
+        }
         
-        const renderAssignmentEditModal = () => {
+        function renderAssignmentEditModal() {
             const assignment = state.selectedAssignmentForEdit;
             if (!assignment) return '';
             
@@ -164,9 +164,9 @@
                     </div>
                 </div>
             `;
-        };
+        }
 
-        const renderScoreEditModal = () => {
+        function renderScoreEditModal() {
             const assignment = state.selectedAssignmentForScoreEdit;
             if (!assignment) return '';
             
@@ -174,10 +174,17 @@
             const studentScores = studentsInPeriod.map(s => {
                 const completion = assignment.completions.find(c => c.studentId === s.studentId);
                 const score = completion?.score || '';
+                const isExcused = completion?.isExcused;
+                
+                let displayValue = score;
+                if (isExcused) {
+                    displayValue = 'E';
+                }
+
                 return `
                     <div class="flex items-center space-x-2 py-1">
                         <span class="w-1/2 text-left">${s.name}</span>
-                        <input type="number" min="1" max="4" value="${score}"
+                        <input type="text" value="${displayValue}"
                                 data-student-id="${s.studentId}"
                                 class="score-input w-1/2 px-2 py-1 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-center">
                     </div>
@@ -206,16 +213,15 @@
                     </div>
                 </div>
             `;
-        };
+        }
 
-        const handleEditAssignmentClick = (assignmentId) => {
+        function handleEditAssignmentClick(assignmentId) {
             state.selectedAssignmentForEdit = state.assignments.find(a => a.id === assignmentId);
             state.showAssignmentEditModal = true;
             renderUI();
-        };
-        window.handleEditAssignmentClick = handleEditAssignmentClick;
+        }
 
-        const handleSaveAssignmentEdit = async () => {
+        function handleSaveAssignmentEdit() {
             const saveBtn = document.getElementById('save-assignment-edit-btn');
             const originalText = saveBtn.textContent;
             saveBtn.disabled = true;
@@ -234,7 +240,7 @@
             if (state.selectedAssignmentForEdit) {
                 try {
                     const assignmentRef = doc(db, `${publicDataPath}/assignments`, state.selectedAssignmentForEdit.id);
-                    await updateDoc(assignmentRef, {
+                    updateDoc(assignmentRef, {
                         title: newTitle,
                         description: newDescription
                     });
@@ -247,16 +253,15 @@
                     renderUI();
                 }
             }
-        };
-
-        const handleEditScoresClick = (assignmentId) => {
+        }
+        
+        function handleEditScoresClick(assignmentId) {
             state.selectedAssignmentForScoreEdit = state.assignments.find(a => a.id === assignmentId);
             state.showScoreEditModal = true;
             renderUI();
-        };
-        window.handleEditScoresClick = handleEditScoresClick;
+        }
 
-        const handleSaveScores = async () => {
+        function handleSaveScores() {
             const saveBtn = document.getElementById('save-scores-btn');
             saveBtn.disabled = true;
             saveBtn.textContent = 'Saving...';
@@ -269,8 +274,17 @@
 
             scoreInputs.forEach(input => {
                 const studentId = input.dataset.studentId;
-                const score = parseInt(input.value, 10);
-                if (score >= 1 && score <= 4) {
+                let score = parseInt(input.value, 10);
+                const isExcused = input.value.toUpperCase() === 'E';
+
+                if (isExcused) {
+                    updatedCompletions.push({
+                        studentId: studentId,
+                        score: null,
+                        isExcused: true,
+                        timestamp: new Date().toISOString()
+                    });
+                } else if (!isNaN(score) && score >= 1 && score <= 4) {
                     updatedCompletions.push({
                         studentId: studentId,
                         score: score,
@@ -282,7 +296,7 @@
 
             try {
                 const assignmentRef = doc(db, `${publicDataPath}/assignments`, assignment.id);
-                await updateDoc(assignmentRef, { completions: updatedCompletions });
+                updateDoc(assignmentRef, { completions: updatedCompletions });
             } catch (error) {
                 console.error("Error saving scores:", error);
             } finally {
@@ -290,7 +304,7 @@
                 state.selectedAssignmentForScoreEdit = null;
                 renderUI();
             }
-        };
+        }
 
 
         const renderUI = () => {
@@ -543,6 +557,27 @@
                 </div>
                 <!-- Assignment Edit Modal -->
                 ${renderAssignmentEditModal()}
+                <!-- Score Edit Modal -->
+                ${renderScoreEditModal()}
+                <!-- Confirmation Modal -->
+                <div id="confirm-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full ${state.showConfirmModal ? '' : 'hidden'}">
+                    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                        <div class="mt-3 text-center">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900">Confirm Deletion</h3>
+                            <div class="mt-2 px-7 py-3">
+                                <p id="confirm-modal-message" class="text-sm text-gray-500">${state.confirmModalMessage}</p>
+                            </div>
+                            <div class="items-center px-4 py-3">
+                                <button id="confirm-modal-confirm-btn" class="px-4 py-2 bg-red-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                                    Confirm
+                                </button>
+                                <button id="confirm-modal-cancel-btn" class="mt-2 px-4 py-2 bg-gray-300 text-gray-800 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             `;
             
             // Re-attach event listeners
@@ -577,10 +612,7 @@
                 state.activeTab = 'layout';
                 renderUI();
             });
-            document.getElementById('scores-tab-btn').addEventListener('click', () => {
-                state.activeTab = 'scores';
-                renderUI();
-            });
+            document.getElementById('scores-tab-btn').addEventListener('click', handleScoresTabClick);
 
             document.querySelectorAll('input[name="sort-option"]').forEach(radio => {
                 radio.addEventListener('change', (e) => {
@@ -623,126 +655,17 @@
                     renderUI();
                 });
             }
+             if (state.showScoreEditModal) {
+                document.getElementById('save-scores-btn').addEventListener('click', handleSaveScores);
+                document.getElementById('cancel-scores-btn').addEventListener('click', () => {
+                    state.showScoreEditModal = false;
+                    state.selectedAssignmentForScoreEdit = null;
+                    renderUI();
+                });
+            }
 
             if (state.sortOption === 'seatOrder') {
                 setupDragAndDrop();
-            }
-        };
-
-        const renderScoresTable = () => {
-            const studentsInPeriod = state.students.filter(s => s.periodId === state.selectedPeriodId);
-            const assignmentsInPeriod = state.assignments.filter(a => a.periodId === state.selectedPeriodId);
-        
-            if (studentsInPeriod.length === 0 || assignmentsInPeriod.length === 0) {
-                return '<p class="text-center text-gray-500">No students or assignments in this period.</p>';
-            }
-
-            const headerHtml = `
-                <tr>
-                    <th class="px-4 py-2 border">Student Name</th>
-                    ${assignmentsInPeriod.map(a => `<th class="px-4 py-2 border w-24">
-                        <button onclick="handleEditScoresClick('${a.id}')" class="font-semibold text-blue-600 hover:text-blue-800 transition-colors duration-200">
-                           ${a.title}
-                        </button>
-                    </th>`).join('')}
-                </tr>
-            `;
-
-            const rowsHtml = studentsInPeriod.map(s => {
-                const studentName = s.name;
-                const studentId = s.studentId;
-                
-                const scoreCells = assignmentsInPeriod.map(a => {
-                    const completion = a.completions.find(c => c.studentId === studentId);
-                    const score = completion?.score || '';
-                    const isExcused = completion?.isExcused;
-                    
-                    let displayValue = score;
-                    if (isExcused) {
-                        displayValue = 'E';
-                    }
-
-                    return `
-                        <td class="border px-4 py-2 text-center">
-                            ${displayValue}
-                        </td>
-                    `;
-                }).join('');
-                
-                return `
-                    <tr>
-                        <td class="border px-4 py-2 font-medium">${studentName}</td>
-                        ${scoreCells}
-                    </tr>
-                `;
-            }).join('');
-
-            return `
-                <table class="min-w-full bg-white rounded-lg shadow-md">
-                    <thead class="bg-gray-200">
-                        ${headerHtml}
-                    </thead>
-                    <tbody>
-                        ${rowsHtml}
-                    </tbody>
-                </table>
-            `;
-        };
-
-        const handleScoresTabClick = () => {
-            state.activeTab = 'scores';
-            renderUI();
-        };
-
-        const handleEditScoresClick = (assignmentId) => {
-            state.selectedAssignmentForScoreEdit = state.assignments.find(a => a.id === assignmentId);
-            state.showScoreEditModal = true;
-            renderUI();
-        };
-        window.handleEditScoresClick = handleEditScoresClick;
-
-        const handleSaveScores = async () => {
-            const saveBtn = document.getElementById('save-scores-btn');
-            saveBtn.disabled = true;
-            saveBtn.textContent = 'Saving...';
-
-            const assignment = state.selectedAssignmentForScoreEdit;
-            if (!assignment) return;
-            
-            const scoreInputs = document.querySelectorAll('#score-edit-modal .score-input');
-            const updatedCompletions = [];
-
-            scoreInputs.forEach(input => {
-                const studentId = input.dataset.studentId;
-                let score = parseInt(input.value, 10);
-                const isExcused = input.value.toUpperCase() === 'E';
-
-                if (isExcused) {
-                    updatedCompletions.push({
-                        studentId: studentId,
-                        score: null,
-                        isExcused: true,
-                        timestamp: new Date().toISOString()
-                    });
-                } else if (!isNaN(score) && score >= 1 && score <= 4) {
-                    updatedCompletions.push({
-                        studentId: studentId,
-                        score: score,
-                        isExcused: false,
-                        timestamp: new Date().toISOString()
-                    });
-                }
-            });
-
-            try {
-                const assignmentRef = doc(db, `${publicDataPath}/assignments`, assignment.id);
-                await updateDoc(assignmentRef, { completions: updatedCompletions });
-            } catch (error) {
-                console.error("Error saving scores:", error);
-            } finally {
-                state.showScoreEditModal = false;
-                state.selectedAssignmentForScoreEdit = null;
-                renderUI();
             }
         };
 
@@ -1022,6 +945,8 @@
             if (!student) return;
             
             try {
+                state.loading = true;
+                renderUI();
                 await runTransaction(db, async (transaction) => {
                     // Delete the student document
                     const studentRef = doc(db, `${publicDataPath}/students`, studentId);
@@ -1050,6 +975,7 @@
             } catch (error) {
                 console.error("Error deleting student:", error);
             } finally {
+                state.loading = false;
                 renderUI();
             }
         };
