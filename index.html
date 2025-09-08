@@ -190,7 +190,14 @@
         <div class="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full relative">
             <button id="closeAssignmentModalBtn" class="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
             <h3 class="text-xl font-bold text-gray-800 mb-4">Edit Assignment</h3>
-            <input type="text" id="editAssignmentName" placeholder="Assignment Name" class="w-full border rounded-lg px-4 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <div class="mb-4">
+                <label for="editAssignmentName" class="block text-sm font-medium text-gray-700">Assignment Name</label>
+                <input type="text" id="editAssignmentName" placeholder="Assignment Name" class="mt-1 block w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div class="mb-6">
+                <label for="editAssignmentDate" class="block text-sm font-medium text-gray-700">Date Created</label>
+                <input type="datetime-local" id="editAssignmentDate" class="mt-1 block w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
             <div class="flex space-x-4">
                 <button id="saveAssignmentBtn" class="w-full bg-blue-500 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-600 transition-colors">Save</button>
                 <button id="deleteAssignmentBtn" class="w-full bg-red-500 text-white px-6 py-2 rounded-lg font-medium hover:bg-red-600 transition-colors">Delete</button>
@@ -247,6 +254,7 @@
 
         const assignmentModal = document.getElementById('assignmentModal');
         const editAssignmentNameInput = document.getElementById('editAssignmentName');
+        const editAssignmentDateInput = document.getElementById('editAssignmentDate');
         const saveAssignmentBtn = document.getElementById('saveAssignmentBtn');
         const deleteAssignmentBtn = document.getElementById('deleteAssignmentBtn');
         const closeAssignmentModalBtn = document.getElementById('closeAssignmentModalBtn');
@@ -290,6 +298,8 @@
             const assignment = assignmentsData[assignmentId];
             if (assignment) {
                 editAssignmentNameInput.value = assignment.name;
+                // Format the ISO string to a format a datetime-local input can use
+                editAssignmentDateInput.value = assignment.createdAt ? assignment.createdAt.substring(0, 16) : '';
                 assignmentModal.classList.remove('hidden');
                 assignmentModal.classList.add('flex');
             }
@@ -300,6 +310,17 @@
             assignmentModal.classList.remove('flex');
             activeAssignmentId = null;
         };
+        
+        const formatDate = (dateString) => {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            return new Intl.DateTimeFormat('en-US', {
+                year: 'numeric',
+                month: 'numeric',
+                day: 'numeric',
+            }).format(date);
+        };
+
 
         // --- Firestore Real-time Listeners ---
         let studentsUnsubscribe = null;
@@ -383,14 +404,26 @@
             `;
             gradebookBody.innerHTML = '';
 
-            const assignmentArray = Object.values(assignmentsData).sort((a, b) => a.name.localeCompare(b.name));
+            const assignmentArray = Object.values(assignmentsData).sort((a, b) => {
+                // Sort by date, then name
+                const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+                const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+                if (dateA > dateB) return 1;
+                if (dateA < dateB) return -1;
+                return a.name.localeCompare(b.name);
+            });
 
             // Add assignment headers
             assignmentArray.forEach(assignment => {
                 const th = document.createElement('th');
                 th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap assignment-header';
-                th.textContent = assignment.name;
                 th.setAttribute('data-assignment-id', assignment.id);
+                th.innerHTML = `
+                    <div class="flex flex-col">
+                        <span>${assignment.name}</span>
+                        <span class="text-gray-400 text-[0.6rem] font-normal mt-1">${formatDate(assignment.createdAt)}</span>
+                    </div>
+                `;
                 th.addEventListener('click', () => showAssignmentModal(assignment.id));
                 headerRow.appendChild(th);
             });
@@ -494,7 +527,7 @@
                         const tr = document.createElement('tr');
                         tr.className = 'hover:bg-gray-100 transition-colors';
                         tr.innerHTML = `
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${assignment.name}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${assignment.name} <span class="text-gray-400 text-[0.6rem] font-normal ml-2">${formatDate(assignment.createdAt)}</span></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${grade.grade}</td>
                         `;
                         studentGradesBody.appendChild(tr);
@@ -530,7 +563,8 @@
                         if (name.trim()) {
                             await addDoc(collection(db, `artifacts/${appId}/users/${userId}/assignments`), {
                                 name: name.trim(),
-                                periodId: currentPeriodId
+                                periodId: currentPeriodId,
+                                createdAt: new Date().toISOString()
                             });
                         }
                     }
@@ -621,6 +655,7 @@
             if (!activeAssignmentId) return;
 
             const newName = editAssignmentNameInput.value.trim();
+            const newDate = editAssignmentDateInput.value;
             if (!newName) {
                 showModal("Assignment name cannot be empty.");
                 return;
@@ -628,7 +663,10 @@
 
             try {
                 const assignmentRef = doc(db, `artifacts/${appId}/users/${userId}/assignments`, activeAssignmentId);
-                await updateDoc(assignmentRef, { name: newName });
+                await updateDoc(assignmentRef, { 
+                    name: newName,
+                    createdAt: newDate ? new Date(newDate).toISOString() : null
+                });
                 hideAssignmentModal();
             } catch (e) {
                 showModal("Failed to save assignment: " + e.message);
