@@ -82,6 +82,19 @@
         .sort-btn:hover {
             color: #1f2937;
         }
+        .highlight-help {
+            background-color: #fff3e0; /* Light orange background */
+            font-weight: bold;
+            color: #e65100; /* Dark orange text */
+        }
+        .help-dot {
+            height: 12px;
+            width: 12px;
+            background-color: #e65100;
+            border-radius: 50%;
+            display: inline-block;
+            margin-left: 0.5rem;
+        }
     </style>
 </head>
 <body>
@@ -182,6 +195,7 @@
                                 Grade
                                 <button id="sortGradeBtn" class="sort-btn">⇅</button>
                             </th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
                         </tr>
                     </thead>
                     <tbody id="studentGradesBody" class="bg-white divide-y divide-gray-200">
@@ -470,10 +484,27 @@
             studentArray.forEach(student => {
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-gray-100 transition-colors';
-                tr.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${student.name}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${student.studentId}</td>
-                `;
+
+                // Check if the student has a help request
+                const hasHelpRequest = Object.values(gradesData).some(g => g.studentId === student.id && g.helpRequested === true);
+                if (hasHelpRequest) {
+                    tr.classList.add('highlight-help');
+                }
+
+                const nameTd = document.createElement('td');
+                nameTd.className = 'px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer';
+                nameTd.innerHTML = `${student.name}`;
+                if (hasHelpRequest) {
+                     nameTd.innerHTML += `<span class="help-dot"></span>`;
+                }
+                nameTd.addEventListener('click', () => handleClearHelpRequest(student.id));
+
+                const idTd = document.createElement('td');
+                idTd.className = 'px-6 py-4 whitespace-nowrap text-sm text-gray-500';
+                idTd.textContent = student.studentId;
+
+                tr.appendChild(nameTd);
+                tr.appendChild(idTd);
 
                 assignmentArray.forEach(assignment => {
                     const td = document.createElement('td');
@@ -572,7 +603,7 @@
 
 
             if (assignments.length === 0) {
-                studentGradesBody.innerHTML = '<tr><td colspan="2" class="px-6 py-4 text-center text-gray-500">No assignments have been created yet.</td></tr>';
+                studentGradesBody.innerHTML = '<tr><td colspan="3" class="px-6 py-4 text-center text-gray-500">No assignments have been created yet.</td></tr>';
             } else {
                 assignments.forEach(assignment => {
                     // Find the grade for this student and assignment
@@ -585,6 +616,9 @@
                     tr.innerHTML = `
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${assignment.name} <span class="text-gray-400 text-[0.6rem] font-normal ml-2">${formatDate(assignment.createdAt)}</span></td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-bold ${gradeColorClass}">${gradeDisplay}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
+                            <button class="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-600 transition-colors" onclick="handleRequestHelp('${student.id}', '${assignment.id}')">Request Help</button>
+                        </td>
                     `;
                     studentGradesBody.appendChild(tr);
                 });
@@ -704,7 +738,61 @@
                 }
             }
         };
+        
+        const handleRequestHelp = async (studentId, assignmentId) => {
+             try {
+                // Find the existing grade document for this student and assignment
+                const gradesRef = collection(db, `artifacts/${appId}/users/${userId}/grades`);
+                const q = query(gradesRef, where("studentId", "==", studentId), where("assignmentId", "==", assignmentId));
+                const snapshot = await getDocs(q);
 
+                if (!snapshot.empty) {
+                    // Update the existing grade document
+                    const gradeDoc = snapshot.docs[0];
+                    await updateDoc(doc(db, `artifacts/${appId}/users/${userId}/grades`, gradeDoc.id), {
+                        helpRequested: true
+                    });
+                } else {
+                    // No grade document exists, create a new one just to hold the help request
+                    await addDoc(gradesRef, {
+                        studentId: studentId,
+                        assignmentId: assignmentId,
+                        periodId: currentPeriodId,
+                        helpRequested: true
+                    });
+                }
+                showModal("Help request sent!");
+            } catch (e) {
+                console.error("Error requesting help:", e);
+                showModal("Failed to send help request. Please try again.");
+            }
+        };
+
+        const handleClearHelpRequest = async (studentId) => {
+            try {
+                // Find all grade documents for this student with a help request
+                const gradesRef = collection(db, `artifacts/${appId}/users/${userId}/grades`);
+                const q = query(gradesRef, where("studentId", "==", studentId), where("helpRequested", "==", true));
+                const snapshot = await getDocs(q);
+                
+                if (snapshot.empty) {
+                    showModal("No help requests to clear for this student.");
+                    return;
+                }
+
+                // Use a batch to update all documents efficiently
+                const batch = writeBatch(db);
+                snapshot.forEach(docSnapshot => {
+                    batch.update(doc(db, `artifacts/${appId}/users/${userId}/grades`, docSnapshot.id), { helpRequested: false });
+                });
+                await batch.commit();
+                showModal("Help requests cleared.");
+            } catch (e) {
+                console.error("Error clearing help requests:", e);
+                showModal("Failed to clear help requests. Please try again.");
+            }
+        };
+        
         const handleSaveAssignment = async () => {
             if (!activeAssignmentId) return;
 
