@@ -180,7 +180,7 @@
 
         const studentIdInput = document.getElementById('studentIdInput');
         const loginBtn = document.getElementById('loginBtn');
-        const teacherLoginBtn = document.getElementById('teacherLoginBtn'); // Added this line
+        const teacherLoginBtn = document.getElementById('teacherLoginBtn');
         const studentNameDisplay = document.getElementById('studentNameDisplay');
         const studentGradesBody = document.getElementById('studentGradesBody');
         const studentLogoutBtn = document.getElementById('studentLogoutBtn');
@@ -523,55 +523,56 @@
         // --- Initialization and Main Logic ---
         const initFirebase = async () => {
             try {
+                if (!firebaseConfig || Object.keys(firebaseConfig).length === 0) {
+                    showModal("Firebase configuration is missing. Please contact support.");
+                    console.error("Firebase config is empty. Cannot initialize app.");
+                    return;
+                }
+
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
 
                 // Sign in the teacher/admin user
-                await new Promise((resolve, reject) => {
-                    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-                        if (user) {
-                            userId = user.uid;
-                            userIdDisplay.textContent = userId;
-                            console.log("Firebase Auth State Changed. User ID:", userId);
-                            unsubscribe();
-                            resolve(user);
-                        } else {
-                            if (initialAuthToken) {
-                                try {
-                                    await signInWithCustomToken(auth, initialAuthToken);
-                                    console.log("Signed in with custom token.");
-                                } catch (e) {
-                                    console.error("Error signing in with custom token:", e);
-                                    await signInAnonymously(auth);
-                                    console.log("Signed in anonymously instead.");
-                                }
-                            } else {
-                                await signInAnonymously(auth);
-                                console.log("Signed in anonymously.");
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        userIdDisplay.textContent = userId;
+                        console.log("Firebase Auth State Changed. User ID:", userId);
+                        
+                        // Listen for changes to periods (for the teacher dashboard)
+                        onSnapshot(collection(db, `artifacts/${appId}/users/${userId}/periods`), (snapshot) => {
+                            const periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                            renderPeriods(periods);
+                            if (periods.length > 0 && !currentPeriodId) {
+                                currentPeriodId = periods[0].id;
+                                currentPeriodTitle.textContent = `Period: ${periods[0].periodName}`;
+                                setupPeriodListeners(currentPeriodId);
                             }
-                        }
-                    });
-                });
+                            if (periods.length === 0) {
+                                currentPeriodId = null;
+                                currentPeriodTitle.textContent = 'No periods created yet.';
+                                renderGradebook();
+                            }
+                        });
+                        showScreen('teacherDashboard');
 
-                // Listen for changes to periods (for the teacher dashboard)
-                onSnapshot(collection(db, `artifacts/${appId}/users/${userId}/periods`), (snapshot) => {
-                    const periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    renderPeriods(periods);
-                    if (periods.length > 0 && !currentPeriodId) {
-                        currentPeriodId = periods[0].id;
-                        currentPeriodTitle.textContent = `Period: ${periods[0].periodName}`;
-                        setupPeriodListeners(currentPeriodId);
-                    }
-                    if (periods.length === 0) {
-                       currentPeriodId = null;
-                       currentPeriodTitle.textContent = 'No periods created yet.';
-                       renderGradebook();
+                    } else {
+                        if (initialAuthToken) {
+                            try {
+                                await signInWithCustomToken(auth, initialAuthToken);
+                                console.log("Signed in with custom token.");
+                            } catch (e) {
+                                console.error("Error signing in with custom token:", e);
+                                await signInAnonymously(auth);
+                                console.log("Signed in anonymously instead.");
+                            }
+                        } else {
+                            await signInAnonymously(auth);
+                            console.log("Signed in anonymously.");
+                        }
                     }
                 });
-                
-                // Determine which screen to show on initial load
-                showScreen('teacherDashboard');
 
             } catch (e) {
                 console.error("Firebase initialization failed: ", e);
@@ -597,7 +598,6 @@
             currentStudentId = null;
             showScreen('studentLogin');
         });
-        // Added this line to handle the Teacher Login button
         teacherLoginBtn.addEventListener('click', () => {
             showScreen('teacherDashboard');
         });
