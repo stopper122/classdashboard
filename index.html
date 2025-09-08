@@ -71,6 +71,17 @@
             flex-direction: column;
             align-items: center;
         }
+        .sort-btn {
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-left: 0.5rem;
+        }
+        .sort-btn:hover {
+            color: #1f2937;
+        }
     </style>
 </head>
 <body>
@@ -163,8 +174,14 @@
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-100">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assignment</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grade</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Assignment
+                                <button id="sortDateBtn" class="sort-btn">⇅</button>
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Grade
+                                <button id="sortGradeBtn" class="sort-btn">⇅</button>
+                            </th>
                         </tr>
                     </thead>
                     <tbody id="studentGradesBody" class="bg-white divide-y divide-gray-200">
@@ -259,6 +276,11 @@
         const deleteAssignmentBtn = document.getElementById('deleteAssignmentBtn');
         const closeAssignmentModalBtn = document.getElementById('closeAssignmentModalBtn');
 
+        // Student view sort buttons
+        const sortDateBtn = document.getElementById('sortDateBtn');
+        const sortGradeBtn = document.getElementById('sortGradeBtn');
+
+
         // --- Firebase and Data Variables ---
         let app;
         let db;
@@ -271,6 +293,10 @@
         let studentsData = {};
         let assignmentsData = {};
         let gradesData = {};
+        
+        let studentSortBy = 'date'; // 'date' or 'score'
+        let studentSortOrder = 'asc'; // 'asc' or 'desc'
+
 
         // --- Helper Functions ---
         const showScreen = (screenId) => {
@@ -523,13 +549,27 @@
             studentNameDisplay.textContent = `Welcome, ${student.name}`;
             studentGradesBody.innerHTML = '';
 
-            const assignments = Object.values(assignmentsData).sort((a, b) => {
-                const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
-                const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
-                if (dateA > dateB) return 1;
-                if (dateA < dateB) return -1;
-                return a.name.localeCompare(b.name);
+            let assignments = Object.values(assignmentsData);
+
+            // Sorting logic
+            assignments.sort((a, b) => {
+                let comparison = 0;
+                if (studentSortBy === 'date') {
+                    const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+                    const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+                    comparison = dateA - dateB;
+                } else if (studentSortBy === 'score') {
+                    const gradeA = Object.values(gradesData).find(g => g.studentId === student.id && g.assignmentId === a.id);
+                    const gradeB = Object.values(gradesData).find(g => g.studentId === student.id && g.assignmentId === b.id);
+
+                    const scoreA = gradeA ? (gradeA.grade === 'EX' ? -1 : parseFloat(gradeA.grade)) : -2;
+                    const scoreB = gradeB ? (gradeB.grade === 'EX' ? -1 : parseFloat(gradeB.grade)) : -2;
+                    comparison = scoreA - scoreB;
+                }
+
+                return studentSortOrder === 'asc' ? comparison : -comparison;
             });
+
 
             if (assignments.length === 0) {
                 studentGradesBody.innerHTML = '<tr><td colspan="2" class="px-6 py-4 text-center text-gray-500">No assignments have been created yet.</td></tr>';
@@ -824,6 +864,27 @@
         });
         teacherLoginBtn.addEventListener('click', () => {
             showScreen('teacherDashboard');
+        });
+        
+        // Student view sort event listeners
+        sortDateBtn.addEventListener('click', () => {
+            if (studentSortBy === 'date') {
+                studentSortOrder = studentSortOrder === 'asc' ? 'desc' : 'asc';
+            } else {
+                studentSortBy = 'date';
+                studentSortOrder = 'asc';
+            }
+            renderStudentView(studentsData[currentStudentId]);
+        });
+
+        sortGradeBtn.addEventListener('click', () => {
+            if (studentSortBy === 'score') {
+                studentSortOrder = studentSortOrder === 'asc' ? 'desc' : 'asc';
+            } else {
+                studentSortBy = 'score';
+                studentSortOrder = 'asc';
+            }
+            renderStudentView(studentsData[currentStudentId]);
         });
         
         window.addEventListener('load', initFirebase);
