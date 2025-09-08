@@ -3,989 +3,322 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gradebook</title>
-    <!-- Use Tailwind CSS for a modern, responsive design -->
+    <title>Student Help Request</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 1rem;
         }
-        .container {
-            max-width: 1000px;
-            width: 100%;
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
         }
-        .screen {
-            display: none;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-        .screen.active {
-            display: block;
+        .toast {
+            animation: slideIn 0.3s ease-out, fadeOut 0.3s ease-in 2.7s forwards;
         }
-        .grade-input {
-            width: 6rem;
-            text-align: center;
+        @keyframes slideIn {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
         }
-        table input {
-            background-color: transparent;
-            border: none;
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
         }
-        table input:focus {
-            outline: none;
-            background-color: #e5e7eb;
+        .modal-overlay {
+            transition: opacity 0.3s ease;
         }
-        .assignment-header {
-            cursor: pointer;
-            position: relative;
-        }
-        .assignment-header:hover::after {
-            content: '✏️';
-            position: absolute;
-            top: 50%;
-            right: 0.5rem;
-            transform: translateY(-50%);
-            font-size: 0.8rem;
-        }
-        .grade-cell {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            flex-wrap: nowrap;
-            white-space: nowrap;
-            min-width: 10rem;
-        }
-        .excused-checkbox-container {
-            display: flex;
-            align-items: center;
-            gap: 0.25rem;
-            font-size: 0.75rem;
-            color: #4b5563;
-        }
-        .grade-option {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .sort-btn {
-            background-color: transparent;
-            border: none;
-            cursor: pointer;
-            font-size: 0.75rem;
-            color: #6b7280;
-            margin-left: 0.5rem;
-        }
-        .sort-btn:hover {
-            color: #1f2937;
-        }
-        .highlight-help {
-            background-color: #fff3e0; /* Light orange background */
-            font-weight: bold;
-            color: #e65100; /* Dark orange text */
-        }
-        .help-dot {
-            height: 12px;
-            width: 12px;
-            background-color: #e65100;
-            border-radius: 50%;
-            display: inline-block;
-            margin-left: 0.5rem;
+        .modal-content {
+            transition: transform 0.3s ease, opacity 0.3s ease;
         }
     </style>
 </head>
-<body>
+<body class="bg-gray-100 flex items-center justify-center h-screen">
 
-    <div class="container bg-white rounded-xl shadow-lg p-6 md:p-10 border border-gray-200">
+    <div id="app" class="w-full max-w-4xl mx-auto p-4">
 
-        <!-- Initial loading/auth screen -->
-        <div id="loadingScreen" class="screen active flex flex-col items-center justify-center p-8">
-            <svg class="animate-spin -ml-1 mr-3 h-10 w-10 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <p class="mt-4 text-lg text-gray-600">Loading gradebook...</p>
+        <!-- Login View -->
+        <div id="login-view" class="bg-white p-8 rounded-xl shadow-lg text-center fade-in">
+            <h1 class="text-2xl font-bold text-gray-800 mb-2">Student Help Center</h1>
+            <p class="text-gray-500 mb-6">Please enter your Student ID to begin.</p>
+            <input type="text" id="student-id-input" class="w-full max-w-sm mx-auto px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Enter Your Student ID">
+            <button id="login-btn" class="mt-4 w-full max-w-sm mx-auto bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-md transition transform hover:scale-105">Login</button>
         </div>
 
-        <!-- Teacher Dashboard -->
-        <div id="teacherDashboard" class="screen">
-            <div class="flex flex-col md:flex-row items-center justify-between pb-4 border-b border-gray-200 mb-6">
-                <h1 class="text-3xl font-bold text-gray-800">Teacher Dashboard</h1>
-                <div class="flex items-center space-x-2 mt-4 md:mt-0">
-                    <p class="text-sm text-gray-500">User ID: <span id="userIdDisplay" class="font-mono"></span></p>
-                    <button id="logoutBtn" class="bg-red-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-600 transition-colors">Log Out</button>
+        <!-- Main App View -->
+        <div id="main-view" class="hidden">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Student Action Panel -->
+                <div class="bg-white p-8 rounded-xl shadow-lg fade-in">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">Welcome, <span id="student-id-display" class="text-blue-600"></span>!</h2>
+                        <button id="logout-btn" class="text-sm font-medium text-gray-500 hover:text-gray-800 transition">Logout</button>
+                    </div>
+                    <p class="text-gray-600 mb-6">Click the button below to notify your teacher that you need help or an assignment check.</p>
+                    <button id="request-help-btn" class="w-full bg-green-500 text-white font-bold py-4 px-6 rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 shadow-lg transition transform hover:scale-105 text-lg">
+                        <svg class="w-6 h-6 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                        Request Help
+                    </button>
                 </div>
-            </div>
 
-            <!-- Periods Section -->
-            <div id="periodsContainer" class="mb-8">
-                <div class="flex flex-col md:flex-row justify-between items-center mb-4">
-                    <h2 class="text-2xl font-semibold text-gray-700">Periods</h2>
-                    <div class="flex mt-4 md:mt-0">
-                        <input type="text" id="newPeriodName" placeholder="New Period Name" class="border rounded-l-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <button id="addPeriodBtn" class="bg-blue-500 text-white px-4 py-2 rounded-r-lg hover:bg-blue-600 transition-colors">Add Period</button>
+                <!-- Teacher Notification Panel -->
+                <div class="bg-white p-8 rounded-xl shadow-lg fade-in">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-4">Real-Time Help Requests</h2>
+                    <div id="notification-list" class="space-y-4 h-96 overflow-y-auto pr-2">
+                        <!-- Notifications will be dynamically inserted here -->
+                        <p id="no-requests" class="text-center text-gray-500 mt-8">No help requests yet...</p>
                     </div>
                 </div>
-                <div id="periodsList" class="flex flex-wrap gap-4">
-                    <!-- Period buttons will be dynamically added here -->
-                </div>
-            </div>
-
-            <!-- Main Gradebook Table -->
-            <div id="gradebookTableContainer">
-                <div class="flex flex-col md:flex-row justify-between items-center mb-4">
-                    <h2 id="currentPeriodTitle" class="text-2xl font-semibold text-gray-700"></h2>
-                    <div class="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4 mt-4 md:mt-0">
-                        <!-- Bulk Add Assignments Section -->
-                        <div class="relative w-full">
-                            <textarea id="bulkAssignments" placeholder="Paste assignment names (e.g., Homework 1, Quiz 1)" class="w-full border rounded-lg p-2 resize-none h-20 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-                            <button id="bulkAddAssignmentsBtn" class="absolute bottom-2 right-2 bg-blue-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-600 transition-colors">Bulk Add</button>
-                        </div>
-                         <div class="relative w-full">
-                            <textarea id="bulkStudents" placeholder="Paste names & IDs (e.g., Jane Doe, 1234)" class="w-full border rounded-lg p-2 resize-none h-20 focus:outline-none focus:ring-2 focus:ring-green-500"></textarea>
-                            <button id="bulkAddBtn" class="absolute bottom-2 right-2 bg-green-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-600 transition-colors">Bulk Add</button>
-                        </div>
-                    </div>
-                </div>
-                <div class="overflow-x-auto bg-gray-50 rounded-lg shadow-inner border border-gray-200">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-100">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                                <!-- Assignment headers will be dynamically added here -->
-                            </tr>
-                        </thead>
-                        <tbody id="gradebookBody" class="bg-white divide-y divide-gray-200">
-                            <!-- Grades will be dynamically added here -->
-                        </tbody>
-                    </table>
-                </div>
             </div>
         </div>
-
-        <!-- Student Login Screen -->
-        <div id="studentLogin" class="screen flex flex-col items-center justify-center p-8">
-            <h1 class="text-3xl font-bold text-gray-800 mb-6">Student Login</h1>
-            <input type="text" id="studentIdInput" placeholder="Enter Your Student ID" class="w-full max-w-sm border rounded-lg px-4 py-3 text-center mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <button id="loginBtn" class="w-full max-w-sm bg-blue-500 text-white py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors">View My Grades</button>
-            <div class="mt-4">
-                 <button id="teacherLoginBtn" class="text-blue-500 text-sm hover:text-blue-700 transition-colors">Teacher Login</button>
-            </div>
-        </div>
-
-        <!-- Student View Screen -->
-        <div id="studentView" class="screen">
-            <div class="flex items-center justify-between pb-4 border-b border-gray-200 mb-6">
-                <h1 id="studentNameDisplay" class="text-3xl font-bold text-gray-800"></h1>
-                <button id="studentLogoutBtn" class="bg-red-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-600 transition-colors">Log Out</button>
-            </div>
-            <div class="overflow-x-auto bg-gray-50 rounded-lg shadow-inner border border-gray-200">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-100">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Assignment
-                                <button id="sortDateBtn" class="sort-btn">⇅</button>
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Grade
-                                <button id="sortGradeBtn" class="sort-btn">⇅</button>
-                            </th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
-                        </tr>
-                    </thead>
-                    <tbody id="studentGradesBody" class="bg-white divide-y divide-gray-200">
-                        <!-- Student grades will be dynamically added here -->
-                    </tbody>
-                </table>
+    </div>
+    
+    <!-- Confirmation Modal -->
+    <div id="confirmation-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 modal-overlay">
+        <div class="bg-white p-8 rounded-xl shadow-2xl max-w-sm w-full text-center modal-content scale-95 opacity-0">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Are you sure?</h3>
+            <p class="text-gray-600 mb-6">Do you want to resolve this help request?</p>
+            <div class="flex justify-center gap-4">
+                <button id="cancel-resolve-btn" class="px-6 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300">Cancel</button>
+                <button id="confirm-resolve-btn" class="px-6 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700">Resolve</button>
             </div>
         </div>
     </div>
 
-    <!-- Custom Modal for messages -->
-    <div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full">
-            <p id="modalMessage" class="text-center text-lg font-medium text-gray-800 mb-6"></p>
-            <div class="flex justify-center">
-                <button id="modalOkBtn" class="bg-blue-500 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-600 transition-colors">OK</button>
-            </div>
-        </div>
+
+    <!-- Toast Notification -->
+    <div id="toast-notification" class="hidden fixed bottom-5 right-5 bg-gray-800 text-white py-3 px-6 rounded-lg shadow-xl text-center">
+        <p id="toast-message"></p>
     </div>
 
-    <!-- Assignment Edit/Delete Modal -->
-    <div id="assignmentModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full relative">
-            <button id="closeAssignmentModalBtn" class="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
-            <h3 class="text-xl font-bold text-gray-800 mb-4">Edit Assignment</h3>
-            <div class="mb-4">
-                <label for="editAssignmentName" class="block text-sm font-medium text-gray-700">Assignment Name</label>
-                <input type="text" id="editAssignmentName" placeholder="Assignment Name" class="mt-1 block w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
-            <div class="mb-6">
-                <label for="editAssignmentDate" class="block text-sm font-medium text-gray-700">Date Created</label>
-                <input type="datetime-local" id="editAssignmentDate" class="mt-1 block w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
-            <div class="flex space-x-4">
-                <button id="saveAssignmentBtn" class="w-full bg-blue-500 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-600 transition-colors">Save</button>
-                <button id="deleteAssignmentBtn" class="w-full bg-red-500 text-white px-6 py-2 rounded-lg font-medium hover:bg-red-600 transition-colors">Delete</button>
-            </div>
-        </div>
-    </div>
 
-    <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        // Firebase-related global variables provided by the environment
-        const appId = "helprequest-469c0";
-        const firebaseConfig = {
-            apiKey: "AIzaSyBX96xDY5ThDAZn-SckmsnfynMnQjvUc2I",
-            authDomain: "helprequest-469c0.firebaseapp.com",
-            projectId: "helprequest-469c0",
-            storageBucket: "helprequest-469c0.firebasestorage.app",
-            messagingSenderId: "1092775554304",
-            appId: "1:1092775554304:web:e771c3ebac1e6ba4f597e5"
-        };
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // --- Firebase Variables ---
+        let db;
+        let requestsCollection;
+        let auth;
 
         // --- DOM Elements ---
-        const loadingScreen = document.getElementById('loadingScreen');
-        const teacherDashboard = document.getElementById('teacherDashboard');
-        const studentLoginScreen = document.getElementById('studentLogin');
-        const studentViewScreen = document.getElementById('studentView');
-
-        const periodsList = document.getElementById('periodsList');
-        const newPeriodNameInput = document.getElementById('newPeriodName');
-        const addPeriodBtn = document.getElementById('addPeriodBtn');
-        const bulkStudentsTextarea = document.getElementById('bulkStudents');
-        const bulkAddBtn = document.getElementById('bulkAddBtn');
-        const gradebookBody = document.getElementById('gradebookBody');
-        const bulkAssignmentsTextarea = document.getElementById('bulkAssignments');
-        const bulkAddAssignmentsBtn = document.getElementById('bulkAddAssignmentsBtn');
-        const currentPeriodTitle = document.getElementById('currentPeriodTitle');
-        const userIdDisplay = document.getElementById('userIdDisplay');
-        const logoutBtn = document.getElementById('logoutBtn');
-
-        const studentIdInput = document.getElementById('studentIdInput');
-        const loginBtn = document.getElementById('loginBtn');
-        const teacherLoginBtn = document.getElementById('teacherLoginBtn');
-        const studentNameDisplay = document.getElementById('studentNameDisplay');
-        const studentGradesBody = document.getElementById('studentGradesBody');
-        const studentLogoutBtn = document.getElementById('studentLogoutBtn');
-
-        const modal = document.getElementById('modal');
-        const modalMessage = document.getElementById('modalMessage');
-        const modalOkBtn = document.getElementById('modalOkBtn');
-
-        const assignmentModal = document.getElementById('assignmentModal');
-        const editAssignmentNameInput = document.getElementById('editAssignmentName');
-        const editAssignmentDateInput = document.getElementById('editAssignmentDate');
-        const saveAssignmentBtn = document.getElementById('saveAssignmentBtn');
-        const deleteAssignmentBtn = document.getElementById('deleteAssignmentBtn');
-        const closeAssignmentModalBtn = document.getElementById('closeAssignmentModalBtn');
-
-        // Student view sort buttons
-        const sortDateBtn = document.getElementById('sortDateBtn');
-        const sortGradeBtn = document.getElementById('sortGradeBtn');
+        const loginView = document.getElementById('login-view');
+        const mainView = document.getElementById('main-view');
+        const loginBtn = document.getElementById('login-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        const studentIdInput = document.getElementById('student-id-input');
+        const studentIdDisplay = document.getElementById('student-id-display');
+        const requestHelpBtn = document.getElementById('request-help-btn');
+        const notificationList = document.getElementById('notification-list');
+        const toast = document.getElementById('toast-notification');
+        const toastMessage = document.getElementById('toast-message');
+        const modal = document.getElementById('confirmation-modal');
+        const modalContent = modal.querySelector('.modal-content');
+        const confirmResolveBtn = document.getElementById('confirm-resolve-btn');
+        const cancelResolveBtn = document.getElementById('cancel-resolve-btn');
 
 
-        // --- Firebase and Data Variables ---
-        let app;
-        let db;
-        let auth;
-        let userId;
-        let currentPeriodId = null;
+        // --- State Management ---
         let currentStudentId = null;
-        let activeAssignmentId = null;
+        let docIdToResolve = null;
 
-        let studentsData = {};
-        let assignmentsData = {};
-        let gradesData = {};
-        
-        let studentSortBy = 'date'; // 'date' or 'score'
-        let studentSortOrder = 'asc'; // 'asc' or 'desc'
+        // --- Functions ---
+        function showToast(message, isError = false) {
+            toastMessage.textContent = message;
+            toast.className = `fixed bottom-5 right-5 text-white py-3 px-6 rounded-lg shadow-xl text-center toast ${isError ? 'bg-red-600' : 'bg-gray-800'}`;
+            setTimeout(() => {
+                toast.className += ' hidden';
+            }, 3000);
+        }
 
-
-        // --- Helper Functions ---
-        const showScreen = (screenId) => {
-            document.querySelectorAll('.screen').forEach(screen => {
-                screen.classList.remove('active');
-                if (screen.id === screenId) {
-                    screen.classList.add('active');
-                }
-            });
-        };
-
-        const showModal = (message) => {
-            modalMessage.textContent = message;
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        };
-
-        const hideModal = () => {
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-        };
-
-        const showAssignmentModal = (assignmentId) => {
-            activeAssignmentId = assignmentId;
-            const assignment = assignmentsData[assignmentId];
-            if (assignment) {
-                editAssignmentNameInput.value = assignment.name;
-                // Format the ISO string to a format a datetime-local input can use
-                editAssignmentDateInput.value = assignment.createdAt ? assignment.createdAt.substring(0, 16) : '';
-                assignmentModal.classList.remove('hidden');
-                assignmentModal.classList.add('flex');
+        function login() {
+            const studentId = studentIdInput.value.trim();
+            if (studentId) {
+                currentStudentId = studentId;
+                studentIdDisplay.textContent = currentStudentId;
+                loginView.classList.add('hidden');
+                mainView.classList.remove('hidden');
+                localStorage.setItem('studentId', currentStudentId);
+                showToast(`Welcome, ${currentStudentId}!`);
+            } else {
+                showToast("Please enter a valid Student ID.", true);
             }
-        };
+        }
 
-        const hideAssignmentModal = () => {
-            assignmentModal.classList.add('hidden');
-            assignmentModal.classList.remove('flex');
-            activeAssignmentId = null;
-        };
-        
-        const formatDate = (dateString) => {
-            if (!dateString) return '';
-            const date = new Date(dateString);
-            return new Intl.DateTimeFormat('en-US', {
-                year: 'numeric',
-                month: 'numeric',
-                day: 'numeric',
-            }).format(date);
-        };
+        function logout() {
+            showToast(`Goodbye, ${currentStudentId}!`);
+            currentStudentId = null;
+            studentIdInput.value = '';
+            mainView.classList.add('hidden');
+            loginView.classList.remove('hidden');
+            localStorage.removeItem('studentId');
+        }
 
-        const getGradeColorClass = (grade) => {
-            if (grade === 'EX') return 'text-gray-500';
-            const numericGrade = parseFloat(grade);
-            if (isNaN(numericGrade)) return 'text-gray-500'; // For ungraded
-            if (numericGrade >= 4) return 'text-green-500';
-            if (numericGrade >= 3) return 'text-blue-500';
-            if (numericGrade >= 2) return 'text-yellow-500';
-            if (numericGrade >= 1) return 'text-orange-500';
-            return 'text-red-500';
-        };
+        async function requestHelp() {
+            if (!currentStudentId || !db) return;
 
-        // --- Firestore Real-time Listeners ---
-        let studentsUnsubscribe = null;
-        let assignmentsUnsubscribe = null;
-        let gradesUnsubscribe = null;
+            requestHelpBtn.disabled = true;
+            requestHelpBtn.textContent = 'Sending...';
 
-        const setupPeriodListeners = (periodId) => {
-            // Unsubscribe from previous listeners to avoid memory leaks
-            if (studentsUnsubscribe) studentsUnsubscribe();
-            if (assignmentsUnsubscribe) assignmentsUnsubscribe();
-            if (gradesUnsubscribe) gradesUnsubscribe();
-
-            // Listen for changes to students in the current period
-            const studentsRef = collection(db, `artifacts/${appId}/users/${userId}/students`);
-            const studentsQuery = query(studentsRef, where("periodId", "==", periodId));
-            studentsUnsubscribe = onSnapshot(studentsQuery, (snapshot) => {
-                studentsData = snapshot.docs.reduce((acc, doc) => ({ ...acc, [doc.id]: { id: doc.id, ...doc.data() } }), {});
-                renderGradebook();
-                if (currentStudentId) {
-                    renderStudentView(studentsData[currentStudentId]);
-                }
-            });
-
-            // Listen for changes to assignments in the current period
-            const assignmentsRef = collection(db, `artifacts/${appId}/users/${userId}/assignments`);
-            const assignmentsQuery = query(assignmentsRef, where("periodId", "==", periodId));
-            assignmentsUnsubscribe = onSnapshot(assignmentsQuery, (snapshot) => {
-                assignmentsData = snapshot.docs.reduce((acc, doc) => ({ ...acc, [doc.id]: { id: doc.id, ...doc.data() } }), {});
-                renderGradebook();
-                if (currentStudentId) {
-                    renderStudentView(studentsData[currentStudentId]);
-                }
-            });
-
-            // Listen for changes to grades in the current period
-            const gradesRef = collection(db, `artifacts/${appId}/users/${userId}/grades`);
-            const gradesQuery = query(gradesRef, where("periodId", "==", periodId));
-            gradesUnsubscribe = onSnapshot(gradesQuery, (snapshot) => {
-                gradesData = snapshot.docs.reduce((acc, doc) => ({ ...acc, [doc.id]: { id: doc.id, ...doc.data() } }), {});
-                renderGradebook();
-                if (currentStudentId) {
-                    renderStudentView(studentsData[currentStudentId]);
-                }
-            });
-        };
-
-        // --- UI Rendering Functions ---
-        const renderPeriods = (periods) => {
-            periodsList.innerHTML = '';
-            periods.forEach(period => {
-                const button = document.createElement('button');
-                button.textContent = period.periodName;
-                button.classList.add('bg-gray-200', 'text-gray-800', 'px-4', 'py-2', 'rounded-lg', 'font-medium', 'hover:bg-gray-300', 'transition-colors');
-                if (currentPeriodId === period.id) {
-                    button.classList.add('bg-blue-500', 'text-white', 'hover:bg-blue-600');
-                    button.classList.remove('bg-gray-200', 'text-gray-800');
-                }
-                button.addEventListener('click', () => {
-                    currentPeriodId = period.id;
-                    currentPeriodTitle.textContent = `Period: ${period.periodName}`;
-                    setupPeriodListeners(period.id);
-                    renderPeriods(periods); // Re-render to highlight active period
-                    renderGradebook();
+            try {
+                await addDoc(requestsCollection, {
+                    studentId: currentStudentId,
+                    timestamp: serverTimestamp()
                 });
-                periodsList.appendChild(button);
-            });
-        };
-
-        const renderGradebook = () => {
-            if (!currentPeriodId) {
-                gradebookBody.innerHTML = '<tr><td colspan="100%" class="px-6 py-4 text-center text-gray-500">Select a period to view the gradebook.</td></tr>';
-                return;
-            }
-
-            // Clear old headers and body
-            const gradebookTableContainer = document.getElementById('gradebookTableContainer');
-            const headerRow = gradebookTableContainer.querySelector('thead tr');
-            headerRow.innerHTML = `
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-            `;
-            gradebookBody.innerHTML = '';
-
-            const assignmentArray = Object.values(assignmentsData).sort((a, b) => {
-                // Sort by date, then name
-                const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
-                const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
-                if (dateA > dateB) return 1;
-                if (dateA < dateB) return -1;
-                return a.name.localeCompare(b.name);
-            });
-
-            // Add assignment headers
-            assignmentArray.forEach(assignment => {
-                const th = document.createElement('th');
-                th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap assignment-header';
-                th.setAttribute('data-assignment-id', assignment.id);
-                th.innerHTML = `
-                    <div class="flex flex-col">
-                        <span>${assignment.name}</span>
-                        <span class="text-gray-400 text-[0.6rem] font-normal mt-1">${formatDate(assignment.createdAt)}</span>
-                    </div>
+                showToast("Your request has been sent!");
+            } catch (error) {
+                console.error("Error sending request: ", error);
+                showToast("Could not send request. Please try again.", true);
+            } finally {
+                requestHelpBtn.disabled = false;
+                requestHelpBtn.innerHTML = `
+                    <svg class="w-6 h-6 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                    Request Help
                 `;
-                th.addEventListener('click', () => showAssignmentModal(assignment.id));
-                headerRow.appendChild(th);
-            });
-
-            const studentArray = Object.values(studentsData).sort((a, b) => a.name.localeCompare(b.name));
-
-            // Populate table rows with students and their grades
-            studentArray.forEach(student => {
-                const tr = document.createElement('tr');
-                tr.className = 'hover:bg-gray-100 transition-colors';
-
-                // Check if the student has a help request
-                const hasHelpRequest = Object.values(gradesData).some(g => g.studentId === student.id && g.helpRequested === true);
-                if (hasHelpRequest) {
-                    tr.classList.add('highlight-help');
-                }
-
-                const nameTd = document.createElement('td');
-                nameTd.className = 'px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer';
-                nameTd.innerHTML = `${student.name}`;
-                if (hasHelpRequest) {
-                     nameTd.innerHTML += `<span class="help-dot"></span>`;
-                }
-                nameTd.addEventListener('click', () => handleClearHelpRequest(student.id));
-
-                const idTd = document.createElement('td');
-                idTd.className = 'px-6 py-4 whitespace-nowrap text-sm text-gray-500';
-                idTd.textContent = student.studentId;
-
-                tr.appendChild(nameTd);
-                tr.appendChild(idTd);
-
-                assignmentArray.forEach(assignment => {
-                    const td = document.createElement('td');
-                    td.className = 'px-6 py-4 whitespace-nowrap text-sm text-gray-500';
-
-                    // Find the grade for this student and assignment
-                    const gradeEntry = Object.values(gradesData).find(g => g.studentId === student.id && g.assignmentId === assignment.id);
-                    const gradeValue = gradeEntry ? gradeEntry.grade : null;
-                    const gradeId = gradeEntry ? gradeEntry.id : null;
-
-                    const gradeCell = document.createElement('div');
-                    gradeCell.className = 'grade-cell';
-
-                    // Create numerical grade radio buttons
-                    const numericalGradesContainer = document.createElement('div');
-                    numericalGradesContainer.className = 'flex items-center space-x-2';
-                    for (let i = 0; i <= 4; i++) {
-                        const gradeOption = document.createElement('div');
-                        gradeOption.className = 'grade-option';
-                        const radio = document.createElement('input');
-                        radio.type = 'radio';
-                        radio.name = `grade-group-${student.id}-${assignment.id}`;
-                        radio.id = `grade-${student.id}-${assignment.id}-${i}`;
-                        radio.value = i;
-                        radio.checked = gradeValue !== 'EX' && gradeValue == i;
-                        radio.addEventListener('change', (e) => {
-                            if (e.target.checked) {
-                                handleSaveGrade(student.id, assignment.id, e.target.value, gradeId);
-                            }
-                        });
-
-                        const label = document.createElement('label');
-                        label.textContent = i;
-                        label.htmlFor = radio.id;
-                        gradeOption.appendChild(radio);
-                        gradeOption.appendChild(label);
-                        numericalGradesContainer.appendChild(gradeOption);
-                    }
-                    
-                    const excusedContainer = document.createElement('div');
-                    excusedContainer.className = 'excused-checkbox-container flex flex-col items-center';
-
-                    const excusedCheckbox = document.createElement('input');
-                    excusedCheckbox.type = 'checkbox';
-                    excusedCheckbox.checked = gradeValue === 'EX';
-                    excusedCheckbox.addEventListener('change', () => {
-                        if (excusedCheckbox.checked) {
-                            handleSaveGrade(student.id, assignment.id, 'EX', gradeId);
-                        } else {
-                            // Find the checked numerical grade and save it, or leave it blank
-                            const checkedRadio = numericalGradesContainer.querySelector('input[type="radio"]:checked');
-                            handleSaveGrade(student.id, assignment.id, checkedRadio ? checkedRadio.value : '', gradeId);
-                        }
-                    });
-                    
-                    const excusedLabel = document.createElement('label');
-                    excusedLabel.textContent = 'EX';
-
-                    excusedContainer.appendChild(excusedCheckbox);
-                    excusedContainer.appendChild(excusedLabel);
-
-                    gradeCell.appendChild(numericalGradesContainer);
-                    gradeCell.appendChild(excusedContainer);
-                    td.appendChild(gradeCell);
-                    tr.appendChild(td);
-                });
-
-                gradebookBody.appendChild(tr);
-            });
-        };
+            }
+        }
         
-        const renderStudentView = (student) => {
-            studentNameDisplay.textContent = `Welcome, ${student.name}`;
-            studentGradesBody.innerHTML = '';
+        function openConfirmationModal(docId) {
+            docIdToResolve = docId;
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modalContent.classList.remove('scale-95', 'opacity-0');
+            }, 10);
+        }
 
-            let assignments = Object.values(assignmentsData);
+        function closeConfirmationModal() {
+            docIdToResolve = null;
+            modal.classList.add('opacity-0');
+            modalContent.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
 
-            // Sorting logic
-            assignments.sort((a, b) => {
-                let comparison = 0;
-                if (studentSortBy === 'date') {
-                    const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
-                    const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
-                    comparison = dateA - dateB;
-                } else if (studentSortBy === 'score') {
-                    const gradeA = Object.values(gradesData).find(g => g.studentId === student.id && g.assignmentId === a.id);
-                    const gradeB = Object.values(gradesData).find(g => g.studentId === student.id && g.assignmentId === b.id);
-
-                    const scoreA = gradeA ? (gradeA.grade === 'EX' ? -1 : parseFloat(gradeA.grade)) : -2;
-                    const scoreB = gradeB ? (gradeB.grade === 'EX' ? -1 : parseFloat(gradeB.grade)) : -2;
-                    comparison = scoreA - scoreB;
-                }
-
-                return studentSortOrder === 'asc' ? comparison : -comparison;
-            });
-
-
-            if (assignments.length === 0) {
-                studentGradesBody.innerHTML = '<tr><td colspan="3" class="px-6 py-4 text-center text-gray-500">No assignments have been created yet.</td></tr>';
-            } else {
-                assignments.forEach(assignment => {
-                    // Find the grade for this student and assignment
-                    const gradeEntry = Object.values(gradesData).find(g => g.studentId === student.id && g.assignmentId === assignment.id);
-                    const gradeDisplay = gradeEntry ? gradeEntry.grade : '-';
-                    const helpRequested = gradeEntry && gradeEntry.helpRequested;
-                    const gradeColorClass = getGradeColorClass(gradeDisplay);
-
-                    const tr = document.createElement('tr');
-                    tr.className = 'hover:bg-gray-100 transition-colors';
-
-                    let buttonHtml = '';
-                    if (helpRequested) {
-                        buttonHtml = `<button class="bg-gray-400 text-white px-4 py-2 rounded-lg text-sm transition-colors cursor-not-allowed opacity-75" disabled>Help Requested</button>`;
-                    } else {
-                        buttonHtml = `<button class="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-600 transition-colors" onclick="handleRequestHelp('${student.id}', '${assignment.id}')">Request Help</button>`;
-                    }
-
-                    tr.innerHTML = `
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${assignment.name} <span class="text-gray-400 text-[0.6rem] font-normal ml-2">${formatDate(assignment.createdAt)}</span></td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-bold ${gradeColorClass}">${gradeDisplay}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
-                            ${buttonHtml}
-                        </td>
-                    `;
-                    studentGradesBody.appendChild(tr);
-                });
+        async function resolveRequest() {
+            if (!docIdToResolve) return;
+            try {
+                await deleteDoc(doc(db, requestsCollection.path, docIdToResolve));
+                showToast("Request resolved.");
+            } catch (error) {
+                console.error("Error resolving request: ", error);
+                showToast("Could not resolve request.", true);
+            } finally {
+                closeConfirmationModal();
             }
-        };
+        }
 
 
-        // --- Event Handlers ---
-        const handleAddPeriod = async () => {
-            const periodName = newPeriodNameInput.value.trim();
-            if (periodName) {
-                try {
-                    await addDoc(collection(db, `artifacts/${appId}/users/${userId}/periods`), { periodName });
-                    newPeriodNameInput.value = '';
-                } catch (e) {
-                    showModal("Failed to add period: " + e.message);
-                }
-            }
-        };
-        
-        const handleBulkAddAssignments = async () => {
-            if (!currentPeriodId) {
-                showModal("Please select a period first.");
-                return;
-            }
-            const assignmentList = bulkAssignmentsTextarea.value.trim().split('\n');
-            if (assignmentList.length > 0) {
-                try {
-                    for (const name of assignmentList) {
-                        if (name.trim()) {
-                            await addDoc(collection(db, `artifacts/${appId}/users/${userId}/assignments`), {
-                                name: name.trim(),
-                                periodId: currentPeriodId,
-                                createdAt: new Date().toISOString()
-                            });
-                        }
-                    }
-                    showModal(`${assignmentList.length} assignments added successfully!`);
-                    bulkAssignmentsTextarea.value = '';
-                } catch (e) {
-                    showModal("Failed to add assignments: " + e.message);
-                }
-            } else {
-                showModal("Please enter at least one assignment name.");
-            }
-        };
-
-        const handleBulkAdd = async () => {
-            if (!currentPeriodId) {
-                showModal("Please select a period first.");
+        function renderNotifications(docs) {
+            notificationList.innerHTML = ''; // Clear existing list
+            if (docs.empty) {
+                notificationList.innerHTML = '<p id="no-requests" class="text-center text-gray-500 mt-8">No help requests yet...</p>';
                 return;
             }
 
-            const studentList = bulkStudentsTextarea.value.trim().split('\n');
-            const studentsToAdd = [];
-            const existingStudentIds = new Set(Object.values(studentsData).map(s => s.studentId));
-
-            studentList.forEach(line => {
-                const [name, studentId] = line.split(',').map(s => s.trim());
-                if (name && studentId && !existingStudentIds.has(studentId)) {
-                    studentsToAdd.push({ name, studentId, periodId: currentPeriodId });
-                }
+            docs.forEach(docSnapshot => {
+                const request = docSnapshot.data();
+                const requestId = docSnapshot.id;
+                const time = request.timestamp ? new Date(request.timestamp.seconds * 1000).toLocaleTimeString() : '...';
+                
+                const notificationEl = document.createElement('div');
+                notificationEl.className = 'flex justify-between items-center bg-blue-50 p-4 rounded-lg border border-blue-200 fade-in';
+                notificationEl.innerHTML = `
+                    <div>
+                        <p class="font-semibold text-blue-800">${request.studentId}</p>
+                        <p class="text-sm text-gray-500">Requested at ${time}</p>
+                    </div>
+                    <button data-id="${requestId}" class="resolve-btn bg-red-500 text-white text-xs font-bold py-1 px-3 rounded-full hover:bg-red-600 transition transform hover:scale-110">RESOLVE</button>
+                `;
+                notificationList.appendChild(notificationEl);
             });
+        }
 
-            if (studentsToAdd.length > 0) {
-                try {
-                    for (const student of studentsToAdd) {
-                        await addDoc(collection(db, `artifacts/${appId}/users/${userId}/students`), student);
-                    }
-                    showModal(`${studentsToAdd.length} students added successfully!`);
-                    bulkStudentsTextarea.value = '';
-                } catch (e) {
-                    showModal("Failed to add students: " + e.message);
-                }
-            } else {
-                showModal("No new students to add. Please check the format and ensure IDs are unique.");
+        // --- Event Listeners ---
+        loginBtn.addEventListener('click', login);
+        studentIdInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') login();
+        });
+        logoutBtn.addEventListener('click', logout);
+        requestHelpBtn.addEventListener('click', requestHelp);
+        
+        notificationList.addEventListener('click', (e) => {
+            if (e.target.classList.contains('resolve-btn')) {
+                const docId = e.target.dataset.id;
+                openConfirmationModal(docId);
             }
-        };
+        });
+        
+        confirmResolveBtn.addEventListener('click', resolveRequest);
+        cancelResolveBtn.addEventListener('click', closeConfirmationModal);
+        modal.addEventListener('click', (e) => {
+             if (e.target === modal) {
+                closeConfirmationModal();
+            }
+        });
 
-        const handleSaveGrade = async (studentId, assignmentId, gradeValue, gradeId) => {
-            if (!currentPeriodId) {
-                return; // Should not happen with UI checks
+
+        // --- Initialization ---
+        async function init() {
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            
+            if (typeof __firebase_config === 'undefined') {
+                 console.error("Firebase config not found. This app requires a specific environment to run.");
+                 showToast("Configuration Error. App cannot start.", true);
+                 return;
             }
             
-            // Check if a valid grade was provided.
-            if (!gradeValue) {
-                // No grade provided, so delete if a grade exists.
-                if (gradeId) {
-                     try {
-                        await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/grades`, gradeId));
-                    } catch (e) {
-                        console.error("Error deleting grade:", e);
-                    }
-                }
-                return;
-            }
-
-            if (gradeId) {
-                // Update existing grade
-                try {
-                    const gradeRef = doc(db, `artifacts/${appId}/users/${userId}/grades`, gradeId);
-                    await updateDoc(gradeRef, { grade: gradeValue });
-                } catch (e) {
-                     console.error("Error updating grade:", e);
-                }
-            } else {
-                // Add new grade
-                try {
-                    await addDoc(collection(db, `artifacts/${appId}/users/${userId}/grades`), {
-                        studentId: studentId,
-                        assignmentId: assignmentId,
-                        periodId: currentPeriodId,
-                        grade: gradeValue
-                    });
-                } catch (e) {
-                    console.error("Error adding grade:", e);
-                }
-            }
-        };
-        
-        const handleRequestHelp = async (studentId, assignmentId) => {
-             try {
-                // Find the existing grade document for this student and assignment
-                const gradesRef = collection(db, `artifacts/${appId}/users/${userId}/grades`);
-                const q = query(gradesRef, where("studentId", "==", studentId), where("assignmentId", "==", assignmentId));
-                const snapshot = await getDocs(q);
-
-                if (!snapshot.empty) {
-                    // Update the existing grade document
-                    const gradeDoc = snapshot.docs[0];
-                    await updateDoc(doc(db, `artifacts/${appId}/users/${userId}/grades`, gradeDoc.id), {
-                        helpRequested: true
-                    });
-                } else {
-                    // No grade document exists, create a new one just to hold the help request
-                    await addDoc(gradesRef, {
-                        studentId: studentId,
-                        assignmentId: assignmentId,
-                        periodId: currentPeriodId,
-                        helpRequested: true
-                    });
-                }
-                showModal("Help request sent!");
-            } catch (e) {
-                console.error("Error requesting help:", e);
-                showModal("Failed to send help request. Please try again.");
-            }
-        };
-
-        const handleClearHelpRequest = async (studentId) => {
             try {
-                // Find all grade documents for this student with a help request
-                const gradesRef = collection(db, `artifacts/${appId}/users/${userId}/grades`);
-                const q = query(gradesRef, where("studentId", "==", studentId), where("helpRequested", "==", true));
-                const snapshot = await getDocs(q);
-                
-                if (snapshot.empty) {
-                    showModal("No help requests to clear for this student.");
-                    return;
-                }
-
-                // Use a batch to update all documents efficiently
-                const batch = writeBatch(db);
-                snapshot.forEach(docSnapshot => {
-                    batch.update(doc(db, `artifacts/${appId}/users/${userId}/grades`, docSnapshot.id), { helpRequested: false });
-                });
-                await batch.commit();
-                showModal("Help requests cleared.");
-            } catch (e) {
-                console.error("Error clearing help requests:", e);
-                showModal("Failed to clear help requests. Please try again.");
-            }
-        };
-        
-        const handleSaveAssignment = async () => {
-            if (!activeAssignmentId) return;
-
-            const newName = editAssignmentNameInput.value.trim();
-            const newDate = editAssignmentDateInput.value;
-            if (!newName) {
-                showModal("Assignment name cannot be empty.");
-                return;
-            }
-
-            try {
-                const assignmentRef = doc(db, `artifacts/${appId}/users/${userId}/assignments`, activeAssignmentId);
-                await updateDoc(assignmentRef, { 
-                    name: newName,
-                    createdAt: newDate ? new Date(newDate).toISOString() : null
-                });
-                hideAssignmentModal();
-            } catch (e) {
-                showModal("Failed to save assignment: " + e.message);
-            }
-        };
-
-        const handleDeleteAssignment = async () => {
-            if (!activeAssignmentId) return;
-
-            if (confirm("Are you sure you want to delete this assignment and all associated grades?")) {
-                try {
-                    const batch = writeBatch(db);
-                    
-                    // Delete the assignment document
-                    const assignmentRef = doc(db, `artifacts/${appId}/users/${userId}/assignments`, activeAssignmentId);
-                    batch.delete(assignmentRef);
-
-                    // Find and delete all associated grades
-                    const gradesQuery = query(collection(db, `artifacts/${appId}/users/${userId}/grades`), where("assignmentId", "==", activeAssignmentId));
-                    const gradesSnapshot = await getDocs(gradesQuery);
-                    gradesSnapshot.forEach(gradeDoc => {
-                        batch.delete(doc(db, `artifacts/${appId}/users/${userId}/grades`, gradeDoc.id));
-                    });
-
-                    await batch.commit();
-                    hideAssignmentModal();
-                } catch (e) {
-                    showModal("Failed to delete assignment: " + e.message);
-                }
-            }
-        };
-
-        const handleStudentLogin = async () => {
-            const studentId = studentIdInput.value.trim();
-            if (!studentId) {
-                showModal("Please enter your student ID.");
-                return;
-            }
-
-            try {
-                // The student data is private to the teacher, so we query within the teacher's collection.
-                const studentsRef = collection(db, `artifacts/${appId}/users/${userId}/students`);
-                const studentQuery = query(studentsRef, where("studentId", "==", studentId));
-                const studentSnapshot = await getDocs(studentQuery);
-
-                if (studentSnapshot.empty) {
-                    showModal("Invalid Student ID.");
-                    return;
-                }
-
-                const studentDoc = studentSnapshot.docs[0];
-                const studentData = { id: studentDoc.id, ...studentDoc.data() };
-                currentStudentId = studentData.id;
-
-                // Set up real-time listeners for the student's period data
-                setupPeriodListeners(studentData.periodId);
-
-                // Wait for data to load and then render the student view
-                // Using a small delay to ensure onSnapshot has time to fire and populate data
-                setTimeout(() => {
-                     renderStudentView(studentData);
-                     showScreen('studentView');
-                }, 1000);
-               
-            } catch (e) {
-                console.error("Student login failed:", e);
-                showModal("An error occurred during login. Please try again.");
-            }
-        };
-        
-        // --- Initialization and Main Logic ---
-        const initFirebase = async () => {
-            try {
-                app = initializeApp(firebaseConfig);
+                const firebaseConfig = JSON.parse(__firebase_config);
+                const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
+                requestsCollection = collection(db, `/artifacts/${appId}/public/data/helpRequests`);
+                console.log("Firebase initialized successfully!");
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                    console.log("Signed in with custom token.");
+                } else {
+                    await signInAnonymously(auth);
+                    console.log("Signed in anonymously.");
+                }
+
+                // Now that we are authenticated, proceed with app logic
+                const savedStudentId = localStorage.getItem('studentId');
+                if (savedStudentId) {
+                    currentStudentId = savedStudentId;
+                    studentIdDisplay.textContent = currentStudentId;
+                    loginView.classList.add('hidden');
+                    mainView.classList.remove('hidden');
+                }
                 
-                // Sign in anonymously to get a user ID. We use this to scope the private teacher data.
-                await signInAnonymously(auth);
-
-                // Use the auth state to get the user ID and then set up listeners for the teacher's data.
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        userId = user.uid;
-                        userIdDisplay.textContent = userId;
-                        console.log("Firebase Auth State Changed. User ID:", userId);
-                        
-                        // Listen for changes to periods (for the teacher dashboard)
-                        onSnapshot(collection(db, `artifacts/${appId}/users/${userId}/periods`), (snapshot) => {
-                            const periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                            renderPeriods(periods);
-                            if (periods.length > 0 && !currentPeriodId) {
-                                currentPeriodId = periods[0].id;
-                                currentPeriodTitle.textContent = `Period: ${periods[0].periodName}`;
-                                setupPeriodListeners(currentPeriodId);
-                            }
-                            if (periods.length === 0) {
-                                currentPeriodId = null;
-                                currentPeriodTitle.textContent = 'No periods created yet.';
-                                renderGradebook();
-                            }
-                        });
-
-                        // Now that auth is ready, show the student login screen.
-                        showScreen('studentLogin');
-
-                    } else {
-                        // This case should ideally not be reached, but handles anonymous sign-out.
-                        console.log("Signed out.");
-                        showScreen('studentLogin');
+                const q = query(requestsCollection, orderBy("timestamp", "desc"));
+                onSnapshot(q, 
+                    (querySnapshot) => {
+                        renderNotifications(querySnapshot);
+                    }, 
+                    (error) => {
+                        console.error("Error getting real-time updates: ", error);
+                        showToast("Error listening for updates. Check permissions.", true);
                     }
-                });
+                );
 
             } catch (e) {
-                console.error("Firebase initialization failed: ", e);
-                showModal("Failed to initialize the app. Please check the console for details.");
+                console.error("Firebase initialization or auth failed.", e);
+                showToast("Error: Could not connect to the database.", true);
             }
-        };
-        
-        // --- Event Listeners ---
-        modalOkBtn.addEventListener('click', hideModal);
-        addPeriodBtn.addEventListener('click', handleAddPeriod);
-        bulkAddBtn.addEventListener('click', handleBulkAdd);
-        bulkAddAssignmentsBtn.addEventListener('click', handleBulkAddAssignments);
-        saveAssignmentBtn.addEventListener('click', handleSaveAssignment);
-        deleteAssignmentBtn.addEventListener('click', handleDeleteAssignment);
-        closeAssignmentModalBtn.addEventListener('click', hideAssignmentModal);
-        logoutBtn.addEventListener('click', () => {
-             auth.signOut();
-             currentPeriodId = null;
-             currentStudentId = null;
-             studentsData = {};
-             assignmentsData = {};
-             gradesData = {};
-             showScreen('studentLogin');
-        });
-        loginBtn.addEventListener('click', handleStudentLogin);
-        studentLogoutBtn.addEventListener('click', () => {
-            currentStudentId = null;
-            showScreen('studentLogin');
-        });
-        teacherLoginBtn.addEventListener('click', () => {
-            showScreen('teacherDashboard');
-        });
-        
-        // Student view sort event listeners
-        sortDateBtn.addEventListener('click', () => {
-            if (studentSortBy === 'date') {
-                studentSortOrder = studentSortOrder === 'asc' ? 'desc' : 'asc';
-            } else {
-                studentSortBy = 'date';
-                studentSortOrder = 'asc';
-            }
-            renderStudentView(studentsData[currentStudentId]);
-        });
+        }
 
-        sortGradeBtn.addEventListener('click', () => {
-            if (studentSortBy === 'score') {
-                studentSortOrder = studentSortOrder === 'asc' ? 'desc' : 'asc';
-            } else {
-                studentSortBy = 'score';
-                studentSortOrder = 'asc';
-            }
-            renderStudentView(studentsData[currentStudentId]);
-        });
-        
-        window.addEventListener('load', initFirebase);
+        init();
 
     </script>
 </body>
 </html>
+
