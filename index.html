@@ -609,15 +609,24 @@
                     // Find the grade for this student and assignment
                     const gradeEntry = Object.values(gradesData).find(g => g.studentId === student.id && g.assignmentId === assignment.id);
                     const gradeDisplay = gradeEntry ? gradeEntry.grade : '-';
+                    const helpRequested = gradeEntry && gradeEntry.helpRequested;
                     const gradeColorClass = getGradeColorClass(gradeDisplay);
 
                     const tr = document.createElement('tr');
                     tr.className = 'hover:bg-gray-100 transition-colors';
+
+                    let buttonHtml = '';
+                    if (helpRequested) {
+                        buttonHtml = `<button class="bg-gray-400 text-white px-4 py-2 rounded-lg text-sm transition-colors cursor-not-allowed opacity-75" disabled>Help Requested</button>`;
+                    } else {
+                        buttonHtml = `<button class="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-600 transition-colors" onclick="handleRequestHelp('${student.id}', '${assignment.id}')">Request Help</button>`;
+                    }
+
                     tr.innerHTML = `
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${assignment.name} <span class="text-gray-400 text-[0.6rem] font-normal ml-2">${formatDate(assignment.createdAt)}</span></td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-bold ${gradeColorClass}">${gradeDisplay}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
-                            <button class="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-600 transition-colors" onclick="handleRequestHelp('${student.id}', '${assignment.id}')">Request Help</button>
+                            ${buttonHtml}
                         </td>
                     `;
                     studentGradesBody.appendChild(tr);
