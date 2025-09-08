@@ -43,9 +43,7 @@
             selectedAssignmentForEdit: null,
             showConfirmModal: false,
             confirmModalMessage: '',
-            confirmModalCallback: null,
-            showScoreEditModal: false,
-            selectedAssignmentForScoreEdit: null
+            confirmModalCallback: null
         };
         const TEACHER_PASSWORD = 'Rocket_22!!';
 
@@ -204,8 +202,6 @@
                     state.showAssignmentEditModal = false;
                     state.selectedAssignmentForEdit = null;
                     renderUI();
-                    saveBtn.disabled = false;
-                    saveBtn.textContent = originalText;
                 }
             }
         };
