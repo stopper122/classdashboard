@@ -103,10 +103,9 @@
                 state.students = filteredStudents.sort((a, b) => (a.seatOrder || 0) - (b.seatOrder || 0));
             } else if (state.sortOption === 'firstName') {
                 state.students = filteredStudents.sort((a, b) => (a.firstName || '').localeCompare(b.firstName || ''));
+                state.students.forEach((s, i) => s.seatOrder = i);
             } else if (state.sortOption === 'lastName') {
                 state.students = filteredStudents.sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
-            }
-            if (state.sortOption !== 'seatOrder') {
                 state.students.forEach((s, i) => s.seatOrder = i);
             }
         };
