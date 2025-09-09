@@ -39,7 +39,7 @@
             editingAssignmentId: null,
         };
 
-        const publicRootPath = `publicData/${appId}`;
+        const publicRootPath = `artifacts/${appId}/public/data`;
         let publicDataPath;
         let periodsRef = collection(db, `${publicRootPath}/periods`);
         let studentsRef;
@@ -55,7 +55,7 @@
 
         const setupPeriodSpecificRefs = () => {
             if (state.currentPeriodId) {
-                publicDataPath = `publicData/${appId}/${state.currentPeriodId}`;
+                publicDataPath = `${publicRootPath}/${state.currentPeriodId}`;
                 studentsRef = collection(db, `${publicDataPath}/students`);
                 assignmentsRef = collection(db, `${publicDataPath}/assignments`);
                 scoresRef = collection(db, `${publicDataPath}/scores`);
