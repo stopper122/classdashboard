@@ -107,14 +107,8 @@
                         </div>
                     </div>
                 </div>
-                 <!-- Right Column: Scores & Help -->
+                 <!-- Right Column: Help -->
                 <div class="lg:col-span-1 space-y-8">
-                    <div class="bg-white p-6 rounded-xl shadow-md">
-                        <h2 class="text-2xl font-bold mb-4">Your Scores</h2>
-                        <ul id="student-scores-list" class="space-y-3">
-                            <!-- Scores will be populated here -->
-                        </ul>
-                    </div>
                     <div class="bg-white p-6 rounded-xl shadow-md text-center">
                         <h2 class="text-2xl font-bold mb-4">Need Help?</h2>
                         <p class="text-gray-600 mb-4">Don't hesitate to ask for help if you're stuck.</p>
@@ -152,12 +146,16 @@
             <h2 class="text-2xl font-bold mb-6">Add New Student</h2>
             <form id="add-student-form">
                 <div class="mb-4">
-                    <label for="student-name-add" class="block text-sm font-medium text-gray-700 mb-1">Student Name</label>
-                    <input type="text" id="student-name-add" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" required>
+                    <label for="student-id-add" class="block text-sm font-medium text-gray-700 mb-1">Student ID#</label>
+                    <input type="number" id="student-id-add" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" required>
+                </div>
+                <div class="mb-4">
+                    <label for="student-firstName-add" class="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                    <input type="text" id="student-firstName-add" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" required>
                 </div>
                 <div class="mb-6">
-                    <label for="student-score-add" class="block text-sm font-medium text-gray-700 mb-1">Initial Score</label>
-                    <input type="number" id="student-score-add" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" value="0" required min="0" max="100">
+                    <label for="student-lastName-add" class="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                    <input type="text" id="student-lastName-add" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" required>
                 </div>
                 <div class="flex justify-end gap-4">
                     <button type="button" onclick="closeModal('add-student-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
@@ -174,12 +172,12 @@
             <form id="edit-student-form">
                 <input type="hidden" id="student-id-edit">
                 <div class="mb-4">
-                    <label for="student-name-edit" class="block text-sm font-medium text-gray-700 mb-1">Student Name</label>
-                    <input type="text" id="student-name-edit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
+                    <label for="student-firstName-edit" class="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                    <input type="text" id="student-firstName-edit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
                 </div>
                 <div class="mb-6">
-                    <label for="student-score-edit" class="block text-sm font-medium text-gray-700 mb-1">Score</label>
-                    <input type="number" id="student-score-edit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required min="0" max="100">
+                    <label for="student-lastName-edit" class="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                    <input type="text" id="student-lastName-edit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
                 </div>
                 <div class="flex justify-end gap-4">
                     <button type="button" onclick="closeModal('edit-student-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
@@ -195,8 +193,8 @@
             <h2 class="text-2xl font-bold mb-6">Bulk Upload Students</h2>
             <form id="bulk-upload-form">
                 <div class="mb-4">
-                    <label for="bulk-student-data" class="block text-sm font-medium text-gray-700 mb-1">Student Data (ID, Name, Score)</label>
-                    <textarea id="bulk-student-data" rows="10" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 font-mono text-sm" placeholder="Paste student data here. One student per line.&#10;Example:&#10;5,Frank,85&#10;6,Grace,92"></textarea>
+                    <label for="bulk-student-data" class="block text-sm font-medium text-gray-700 mb-1">Student Data (ID, First Name, Last Name)</label>
+                    <textarea id="bulk-student-data" rows="10" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 font-mono text-sm" placeholder="Paste student data here. One student per line.&#10;Example:&#10;101,Frank,Castle&#10;102,Grace,Hopper"></textarea>
                     <p class="text-xs text-gray-500 mt-1">Note: Students with existing IDs will be skipped to avoid duplicates.</p>
                 </div>
                 <div class="flex justify-end gap-4">
@@ -216,10 +214,10 @@
     <script>
         // --- DATA ---
         let students = [
-            { id: 1, name: 'Alice', score: 95 },
-            { id: 2, name: 'Bob', score: 88 },
-            { id: 3, name: 'Charlie', score: 72 },
-            { id: 4, name: 'Diana', score: 91 },
+            { id: 1, firstName: 'Alice', lastName: 'Smith' },
+            { id: 2, firstName: 'Bob', lastName: 'Johnson' },
+            { id: 3, firstName: 'Charlie', lastName: 'Brown' },
+            { id: 4, firstName: 'Diana', lastName: 'Prince' },
         ];
 
         let assignments = [
@@ -257,18 +255,18 @@
         function renderStudentView() {
             // For simplicity, we'll always show the dashboard for the first student, Alice.
             const currentStudent = students[0];
-            document.getElementById('student-name').textContent = currentStudent.name;
-            renderStudentAssignmentList(currentStudent);
-            renderStudentScoresList();
+            if (currentStudent) {
+                document.getElementById('student-name').textContent = `${currentStudent.firstName} ${currentStudent.lastName}`;
+                renderStudentAssignmentList(currentStudent);
+            }
         }
 
         function renderTeacherStudentList() {
             const list = document.getElementById('teacher-student-list');
             list.innerHTML = students.map(s => `
                 <li class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                    <span class="font-medium">${s.name} <span class="text-xs text-gray-500">(ID: ${s.id})</span></span>
+                    <span class="font-medium">${s.firstName} ${s.lastName} <span class="text-xs text-gray-500">(ID: ${s.id})</span></span>
                     <div class="flex items-center gap-3">
-                        <span class="text-sm font-semibold text-gray-600 bg-gray-200 px-3 py-1 rounded-full">${s.score} / 100</span>
                         <button onclick="openEditStudentModal(${s.id})" class="text-sm text-blue-600 hover:text-blue-800 font-medium">Edit</button>
                     </div>
                 </li>
@@ -315,26 +313,17 @@
             `).join('');
         }
         
-        function renderStudentScoresList() {
-             const list = document.getElementById('student-scores-list');
-             list.innerHTML = students.map(s => `
-                <li class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                    <span class="font-medium">${s.name}</span>
-                    <span class="text-lg font-bold text-green-600">${s.score}</span>
-                </li>
-            `).join('');
-        }
-
-
         // --- ACTIONS ---
         function requestHelp() {
             // Assuming the current student is Alice
-            const studentName = students[0].name;
-            helpRequests.push({ studentName });
-            
-            showSuccessMessage('Help request sent!');
-            // In a real app, you would also update the teacher's view in real-time.
-            // For this demo, the teacher will see it on the next render.
+            const student = students[0];
+            if(student) {
+                const studentName = `${student.firstName} ${student.lastName}`;
+                helpRequests.push({ studentName });
+                
+                showSuccessMessage('Help request sent!');
+                // In a real app, you would also update the teacher's view in real-time.
+            }
         }
         
         function resolveHelpRequest(index) {
@@ -363,19 +352,19 @@
 
         document.getElementById('add-student-form').addEventListener('submit', function(e) {
             e.preventDefault();
-            const name = document.getElementById('student-name-add').value;
-            const score = parseInt(document.getElementById('student-score-add').value, 10);
+            const id = parseInt(document.getElementById('student-id-add').value, 10);
+            const firstName = document.getElementById('student-firstName-add').value;
+            const lastName = document.getElementById('student-lastName-add').value;
 
-            if (name && !isNaN(score)) {
-                const newStudent = {
-                    id: students.length > 0 ? Math.max(...students.map(s => s.id)) + 1 : 1, // Ensure unique ID
-                    name,
-                    score,
-                };
+            if (firstName && lastName && !isNaN(id)) {
+                if (students.some(s => s.id === id)) {
+                    showSuccessMessage(`Student with ID ${id} already exists.`);
+                    return;
+                }
+                const newStudent = { id, firstName, lastName };
                 students.push(newStudent);
 
                 renderTeacherStudentList();
-                renderStudentScoresList(); // Also update student view in case they are looking at it
                 closeModal('add-student-modal');
                 this.reset();
             }
@@ -384,18 +373,17 @@
         document.getElementById('edit-student-form').addEventListener('submit', function(e) {
             e.preventDefault();
             const id = parseInt(document.getElementById('student-id-edit').value, 10);
-            const name = document.getElementById('student-name-edit').value;
-            const score = parseInt(document.getElementById('student-score-edit').value, 10);
+            const firstName = document.getElementById('student-firstName-edit').value;
+            const lastName = document.getElementById('student-lastName-edit').value;
 
-            if (name && !isNaN(score)) {
+            if (firstName && lastName) {
                 const studentIndex = students.findIndex(s => s.id === id);
                 if (studentIndex !== -1) {
-                    students[studentIndex].name = name;
-                    students[studentIndex].score = score;
+                    students[studentIndex].firstName = firstName;
+                    students[studentIndex].lastName = lastName;
                 }
 
                 renderTeacherStudentList();
-                renderStudentScoresList(); // Update student view too
                 closeModal('edit-student-modal');
             }
         });
@@ -414,14 +402,13 @@
                     const parts = trimmedLine.split(',');
                     if (parts.length === 3) {
                         const id = parseInt(parts[0].trim(), 10);
-                        const name = parts[1].trim();
-                        const score = parseInt(parts[2].trim(), 10);
+                        const firstName = parts[1].trim();
+                        const lastName = parts[2].trim();
 
-                        // Add student if ID is a number, name is not empty, score is a number, and ID doesn't already exist
-                        if (!isNaN(id) && name && !isNaN(score) && !existingIds.has(id)) {
-                             const newStudent = { id, name, score };
+                        if (!isNaN(id) && firstName && lastName && !existingIds.has(id)) {
+                             const newStudent = { id, firstName, lastName };
                              students.push(newStudent);
-                             existingIds.add(id); // Add to set for this session to prevent duplicates within the same upload
+                             existingIds.add(id);
                              studentsAdded++;
                         }
                     }
@@ -430,7 +417,6 @@
 
             if (studentsAdded > 0) {
                 renderTeacherStudentList();
-                renderStudentScoresList();
                 showSuccessMessage(`${studentsAdded} student(s) added successfully!`);
             } else {
                  showSuccessMessage(`No new students added. Check format or if IDs already exist.`);
@@ -445,8 +431,8 @@
             const student = students.find(s => s.id === studentId);
             if (student) {
                 document.getElementById('student-id-edit').value = student.id;
-                document.getElementById('student-name-edit').value = student.name;
-                document.getElementById('student-score-edit').value = student.score;
+                document.getElementById('student-firstName-edit').value = student.firstName;
+                document.getElementById('student-lastName-edit').value = student.lastName;
                 openModal('edit-student-modal');
             }
         }
