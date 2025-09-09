@@ -450,6 +450,7 @@
             if (currentStudent) {
                 document.getElementById('student-name').textContent = `${currentStudent.firstName} ${currentStudent.lastName}`;
                 renderStudentAssignmentList(currentStudent);
+                updateHelpButtonState();
             } else {
                  logout();
             }
@@ -654,6 +655,25 @@
             switchView('role-selection');
         }
 
+        function updateHelpButtonState() {
+            const helpButton = document.querySelector('#student-view button[onclick="requestHelp()"]');
+            if (!helpButton) return;
+            
+            const hasActiveRequest = helpRequests.some(req => req.studentId === currentStudentId);
+
+            if (hasActiveRequest) {
+                helpButton.disabled = true;
+                helpButton.textContent = 'Help Request Sent';
+                helpButton.classList.remove('bg-green-600', 'hover:bg-green-700');
+                helpButton.classList.add('bg-gray-400', 'cursor-not-allowed');
+            } else {
+                helpButton.disabled = false;
+                helpButton.textContent = 'Request Help';
+                helpButton.classList.add('bg-green-600', 'hover:bg-green-700');
+                helpButton.classList.remove('bg-gray-400', 'cursor-not-allowed');
+            }
+        }
+
         function requestHelp() {
             const student = students.find(s => s.id === currentStudentId);
             if (student) {
@@ -663,6 +683,7 @@
                     helpRequests.push({ studentId: student.id, studentName });
                     saveData();
                     showSuccessMessage('Help request sent!');
+                    updateHelpButtonState(); // Update button immediately
                 } else {
                     showSuccessMessage('You already have an active help request.');
                 }
