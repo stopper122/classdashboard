@@ -111,12 +111,14 @@
 
         const initializeAppLogic = () => {
             if (periodsUnsubscribe) return; // Already initialized
+            
+            state.loading = false;
+            renderUI(); // Render the application shell immediately
 
             periodsUnsubscribe = onSnapshot(periodsRef, (snapshot) => {
                 const hadPeriodsBefore = state.periods.length > 0;
                 state.periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 const currentPeriodStillExists = state.periods.some(p => p.id === state.currentPeriodId);
-                state.loading = false; // App is now considered loaded
 
                 let periodChanged = false;
                 if (!state.currentPeriodId || !currentPeriodStillExists) {
@@ -132,8 +134,7 @@
 
             }, (error) => {
                 console.error("Critical Error: Could not fetch periods.", error);
-                state.loading = false;
-                renderUI();
+                renderUI(); // Still render the UI shell even if periods fail to load
             });
         };
 
@@ -563,5 +564,4 @@
     <div id="app"></div>
 </body>
 </html>
-
 
