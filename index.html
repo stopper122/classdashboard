@@ -37,6 +37,7 @@
             currentView: localStorage.getItem('currentView') || 'layout',
             loading: true,
             editingAssignmentId: null,
+            error: null,
         };
 
         const publicRootPath = `artifacts/${appId}/public/data`;
@@ -146,59 +147,96 @@
         };
 
         const addStudent = async () => {
-            if (!studentsRef) return;
+            if (!studentsRef) {
+                state.error = "Please select a period before adding a student.";
+                renderUI();
+                return;
+            }
             const studentName = prompt("Enter student's first name:");
-            if (studentName) {
-                const studentLastName = prompt("Enter student's last name:");
-                if (studentLastName) {
-                    const newStudentRef = await addDoc(studentsRef, {
-                        firstName: studentName,
-                        lastName: studentLastName,
-                        seatOrder: 999, // Add to end of layout
-                        isActive: true
-                    });
-                    
+            if (!studentName) return;
+            const studentLastName = prompt("Enter student's last name:");
+            if (!studentLastName) return;
+
+            try {
+                const newStudentRef = await addDoc(studentsRef, {
+                    firstName: studentName,
+                    lastName: studentLastName,
+                    seatOrder: 999, // Add to end of layout
+                    isActive: true
+                });
+                
+                // Create scores for existing assignments
+                if (assignmentsRef && scoresRef) {
                     const assignmentsQuery = await getDocs(assignmentsRef);
-                    assignmentsQuery.forEach(async (assignmentDoc) => {
-                        await addDoc(scoresRef, {
+                    const scorePromises = assignmentsQuery.docs.map(assignmentDoc => {
+                        return addDoc(scoresRef, {
                             studentId: newStudentRef.id,
                             assignmentId: assignmentDoc.id,
                             score: 'Not Graded'
                         });
                     });
+                    await Promise.all(scorePromises);
                 }
+            } catch (error) {
+                console.error("Error adding student:", error);
+                state.error = "Could not add the student. Please check the console for errors.";
+                renderUI();
             }
         };
         
         const addEmptySeat = async () => {
-            if (!studentsRef) return;
-            await addDoc(studentsRef, {
-                firstName: 'Empty',
-                lastName: 'Seat',
-                seatOrder: 999,
-                isActive: false 
-            });
+            if (!studentsRef) {
+                state.error = "Please select a period before adding an empty seat.";
+                renderUI();
+                return;
+            }
+            try {
+                await addDoc(studentsRef, {
+                    firstName: 'Empty',
+                    lastName: 'Seat',
+                    seatOrder: 999,
+                    isActive: false 
+                });
+            } catch (error) {
+                console.error("Error adding empty seat:", error);
+                state.error = "Could not add empty seat. Please check the console for errors.";
+                renderUI();
+            }
         };
 
         const addAssignment = async () => {
-            if (!assignmentsRef) return;
+            if (!assignmentsRef) {
+                state.error = "Please select a period before adding an assignment.";
+                renderUI();
+                return;
+            }
             const assignmentName = prompt("Enter assignment name:");
-            if (assignmentName) {
+            if (!assignmentName) return;
+            
+            try {
                 const maxAssignmentNum = state.assignments.reduce((max, a) => Math.max(max, a.assignmentNumber || 0), 0);
-                const newAssignment = await addDoc(assignmentsRef, {
+                const newAssignmentRef = await addDoc(assignmentsRef, {
                     name: assignmentName,
                     assignmentNumber: maxAssignmentNum + 1,
                     postedDate: serverTimestamp()
                 });
 
-                const studentsQuery = await getDocs(query(studentsRef, where("isActive", "==", true)));
-                studentsQuery.forEach(async (studentDoc) => {
-                    await addDoc(scoresRef, {
-                        studentId: studentDoc.id,
-                        assignmentId: newAssignment.id,
-                        score: 'Not Graded'
+                // Create scores for existing students
+                if (studentsRef && scoresRef) {
+                    const studentsQuery = await getDocs(query(studentsRef, where("isActive", "==", true)));
+                    const scorePromises = studentsQuery.docs.map(studentDoc => {
+                        return addDoc(scoresRef, {
+                            studentId: studentDoc.id,
+                            assignmentId: newAssignmentRef.id,
+                            score: 'Not Graded'
+                        });
                     });
-                });
+                    await Promise.all(scorePromises);
+                }
+            } catch (error) {
+                console.error("Error adding assignment:", error);
+                state.error = "Could not add assignment. Please check the console for errors.";
+                renderUI();
             }
         };
         
@@ -232,7 +270,8 @@
                     }
                 }
             } else {
-                alert("Incorrect password.");
+                state.error = "Incorrect password.";
+                renderUI();
             }
         };
 
@@ -292,6 +331,10 @@
             },
             cancelEditAssignment: () => {
                 state.editingAssignmentId = null;
+                renderUI();
+            },
+            clearError: () => {
+                state.error = null;
                 renderUI();
             }
         };
@@ -435,6 +478,7 @@
 
             appDiv.innerHTML = `
                 <div class="min-h-screen bg-gray-100">
+                    ${state.error ? `<div class="bg-red-500 text-white p-3 text-center relative">${state.error}<button onclick="App.clearError()" class="absolute top-0 right-0 mt-3 mr-3 font-bold text-xl">&times;</button></div>` : ''}
                     <nav class="bg-white shadow-md p-4 flex justify-between items-center flex-wrap">
                         <div class="flex items-center mb-2 sm:mb-0">
                             <h1 class="text-2xl font-bold mr-4">Instructor Dashboard</h1>
