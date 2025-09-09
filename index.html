@@ -110,34 +110,46 @@
             }, (error) => { console.error("Error fetching requests: ", error); renderUI(); });
         };
 
-        const initializeAppLogic = () => {
-            if (periodsUnsubscribe) return; // Already initialized
-            
-            state.loading = false;
-            setupPeriodSpecificRefs(); // Set up refs for period from localStorage immediately
-            renderUI(); // Render the application shell immediately
+        const initializeAppLogic = async () => {
+            if (periodsUnsubscribe) return; // App is already initialized
 
-            periodsUnsubscribe = onSnapshot(periodsRef, (snapshot) => {
-                const hadPeriodsBefore = state.periods.length > 0;
-                state.periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                const currentPeriodStillExists = state.periods.some(p => p.id === state.currentPeriodId);
+            try {
+                // Step 1: Fetch the initial list of periods to determine state.
+                const periodsSnapshot = await getDocs(periodsRef);
+                state.periods = periodsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-                let periodChanged = false;
-                if (!state.currentPeriodId || !currentPeriodStillExists) {
-                    state.currentPeriodId = state.periods.length > 0 ? state.periods[0].id : null;
-                    periodChanged = true;
-                }
+                // Step 2: Determine the correct current period.
+                const storedPeriodId = localStorage.getItem('currentPeriodId');
+                const periodExists = state.periods.some(p => p.id === storedPeriodId);
                 
-                if (periodChanged || !hadPeriodsBefore) {
-                    App.setPeriod(state.currentPeriodId, true); // Force full re-initialization
+                if (storedPeriodId && periodExists) {
+                    state.currentPeriodId = storedPeriodId;
                 } else {
-                    renderUI();
+                    state.currentPeriodId = state.periods.length > 0 ? state.periods[0].id : null;
                 }
+                App.setPeriod(state.currentPeriodId, true);
 
-            }, (error) => {
-                console.error("Critical Error: Could not fetch periods.", error);
-                renderUI(); // Still render the UI shell even if periods fail to load
-            });
+                // Step 3: Now that we have a definite state, stop loading and render.
+                state.loading = false;
+                renderUI();
+
+                // Step 4: Start the real-time listener for ongoing period changes.
+                periodsUnsubscribe = onSnapshot(periodsRef, (snapshot) => {
+                    state.periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    if (!state.periods.some(p => p.id === state.currentPeriodId)) {
+                        const newPeriodId = state.periods.length > 0 ? state.periods[0].id : null;
+                        App.setPeriod(newPeriodId, true);
+                    } else {
+                        renderUI();
+                    }
+                });
+
+            } catch (error) {
+                console.error("Critical Error: Could not initialize application.", error);
+                state.loading = false;
+                state.error = "Could not load application data. Please refresh the page.";
+                renderUI();
+            }
         };
 
         const addPeriod = async () => {
