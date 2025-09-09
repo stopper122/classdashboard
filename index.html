@@ -69,29 +69,6 @@
             }
         };
 
-        const startDataListeners = () => {
-            state.loading = false;
-            renderUI(); // Render the shell immediately
-
-            if (periodsUnsubscribe) periodsUnsubscribe();
-            
-            periodsUnsubscribe = onSnapshot(periodsRef, (snapshot) => {
-                state.periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                const currentPeriodStillExists = state.periods.some(p => p.id === state.currentPeriodId);
-
-                if (!state.currentPeriodId || !currentPeriodStillExists) {
-                    const newPeriodId = state.periods.length > 0 ? state.periods[0].id : null;
-                    App.setPeriod(newPeriodId);
-                } else {
-                    renderUI();
-                }
-            }, (error) => {
-                console.error("Error fetching periods:", error);
-                state.loading = false;
-                renderUI();
-            });
-        };
-
         const startPeriodSpecificListeners = () => {
              // Clear previous listeners
             if (studentsUnsubscribe) studentsUnsubscribe();
@@ -103,31 +80,67 @@
             state.assignments = [];
             state.scores = [];
             state.requests = [];
-            renderUI(); // Render the empty state for the period
-
+            
             if (!state.currentPeriodId) {
+                state.loading = false;
+                renderUI();
                 return;
+            }
+
+            let loaded = { students: false, assignments: false, scores: false, requests: false };
+            const checkAllLoaded = () => {
+                if(Object.values(loaded).every(v => v)) {
+                    state.loading = false;
+                    renderUI();
+                }
             }
 
             studentsUnsubscribe = onSnapshot(query(studentsRef), (snapshot) => {
                 state.students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderUI();
-            }, (error) => console.error("Error fetching students: ", error));
+                if(!loaded.students) { loaded.students = true; checkAllLoaded(); } else { renderUI() }
+            }, (error) => { console.error("Error fetching students: ", error); loaded.students = true; checkAllLoaded(); });
 
             assignmentsUnsubscribe = onSnapshot(assignmentsRef, (snapshot) => {
                 state.assignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderUI();
-            }, (error) => console.error("Error fetching assignments: ", error));
+                 if(!loaded.assignments) { loaded.assignments = true; checkAllLoaded(); } else { renderUI() }
+            }, (error) => { console.error("Error fetching assignments: ", error); loaded.assignments = true; checkAllLoaded(); });
 
             scoresUnsubscribe = onSnapshot(scoresRef, (snapshot) => {
                 state.scores = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderUI();
-            }, (error) => console.error("Error fetching scores: ", error));
+                 if(!loaded.scores) { loaded.scores = true; checkAllLoaded(); } else { renderUI() }
+            }, (error) => { console.error("Error fetching scores: ", error); loaded.scores = true; checkAllLoaded(); });
 
             requestsUnsubscribe = onSnapshot(requestsRef, (snapshot) => {
                 state.requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                 if(!loaded.requests) { loaded.requests = true; checkAllLoaded(); } else { renderUI() }
+            }, (error) => { console.error("Error fetching requests: ", error); loaded.requests = true; checkAllLoaded(); });
+        };
+
+        const initializeAppLogic = () => {
+            if (periodsUnsubscribe) return; // Already initialized
+
+            periodsUnsubscribe = onSnapshot(periodsRef, (snapshot) => {
+                const hadPeriodsBefore = state.periods.length > 0;
+                state.periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const currentPeriodStillExists = state.periods.some(p => p.id === state.currentPeriodId);
+
+                let periodChanged = false;
+                if (!state.currentPeriodId || !currentPeriodStillExists) {
+                    state.currentPeriodId = state.periods.length > 0 ? state.periods[0].id : null;
+                    periodChanged = true;
+                }
+                
+                if (periodChanged || !hadPeriodsBefore) {
+                    App.setPeriod(state.currentPeriodId);
+                } else {
+                    renderUI();
+                }
+
+            }, (error) => {
+                console.error("Critical Error: Could not fetch periods.", error);
+                state.loading = false;
                 renderUI();
-            }, (error) => console.error("Error fetching requests: ", error));
+            });
         };
 
         const addPeriod = async () => {
@@ -259,7 +272,6 @@
                 renderUI();
             },
             setPeriod: (periodId) => {
-                const previousPeriodId = state.currentPeriodId;
                 state.currentPeriodId = periodId;
 
                 if (periodId) {
@@ -267,11 +279,12 @@
                 } else {
                     localStorage.removeItem('currentPeriodId');
                 }
-
-                if (state.currentPeriodId !== previousPeriodId) {
-                    setupPeriodSpecificRefs();
-                    startPeriodSpecificListeners();
-                }
+                
+                state.loading = true;
+                renderUI(); // Show loading indicator while new period data loads
+                
+                setupPeriodSpecificRefs();
+                startPeriodSpecificListeners();
             },
             deleteRequest: async (requestId) => {
                 if (requestsRef) {
@@ -531,13 +544,8 @@
             renderUI(); // Initial render with loading state
             onAuthStateChanged(auth, (user) => {
                 if (user) {
-                    // Only initialize if the main listener is not already running
-                    if (!periodsUnsubscribe) {
-                        setupPeriodSpecificRefs();
-                        startDataListeners();
-                    }
-                } else if (!user) {
-                    // User is signed out, sign them in anonymously.
+                    initializeAppLogic();
+                } else {
                     signInAnonymously(auth).catch((error) => {
                         console.error("Anonymous sign in failed:", error);
                         const appDiv = document.getElementById('app');
