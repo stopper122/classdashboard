@@ -163,6 +163,24 @@
             </form>
         </div>
     </div>
+
+    <!-- Score Assignment Modal -->
+    <div id="score-assignment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-2xl">
+            <h2 class="text-2xl font-bold mb-2">Score Assignment</h2>
+            <h3 class="text-lg text-gray-600 mb-6" id="score-assignment-title"></h3>
+            <form id="score-assignment-form">
+                <input type="hidden" id="score-assignment-id">
+                <div id="student-scores-list" class="space-y-4 max-h-96 overflow-y-auto pr-2">
+                    <!-- Student scoring inputs will be populated here -->
+                </div>
+                <div class="flex justify-end gap-4 mt-8">
+                    <button type="button" onclick="closeModal('score-assignment-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
+                    <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition">Save Scores</button>
+                </div>
+            </form>
+        </div>
+    </div>
     
     <!-- Add Student Modal -->
     <div id="add-student-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
@@ -285,9 +303,9 @@
             } else {
                 // Default data if nothing is in storage
                 assignments = [
-                    { id: 1, title: 'Algebra Worksheet', postedDate: '2025-09-08' },
-                    { id: 2, title: 'History Essay: The Renaissance', postedDate: '2025-09-01' },
-                    { id: 3, title: 'Science Fair Project Proposal', postedDate: '2025-08-25' },
+                    { id: 1, title: 'Algebra Worksheet', postedDate: '2025-09-08', scores: {} },
+                    { id: 2, title: 'History Essay: The Renaissance', postedDate: '2025-09-01', scores: {} },
+                    { id: 3, title: 'Science Fair Project Proposal', postedDate: '2025-08-25', scores: {} },
                 ];
             }
         }
@@ -350,6 +368,7 @@
                             <p class="text-sm text-gray-500">Posted: ${new Date(a.postedDate).toLocaleDateString()}</p>
                         </div>
                         <div class="flex items-center gap-3 mt-1">
+                            <button onclick="openScoreAssignmentModal(${a.id})" class="text-sm text-green-600 hover:text-green-800 font-medium">Score</button>
                             <button onclick="openEditAssignmentModal(${a.id})" class="text-sm text-blue-600 hover:text-blue-800 font-medium">Edit</button>
                             <button onclick="confirmDeleteAssignment(${a.id})" class="text-sm text-red-600 hover:text-red-800 font-medium">Delete</button>
                         </div>
@@ -377,15 +396,28 @@
         
         function renderStudentAssignmentList(student) {
              const list = document.getElementById('student-assignment-list');
-             list.innerHTML = assignments.map(a => `
-                <div class="p-4 border border-gray-200 rounded-lg flex justify-between items-center">
-                    <div>
-                        <h3 class="font-semibold text-lg">${a.title}</h3>
-                        <p class="text-sm text-gray-500">Posted: ${new Date(a.postedDate).toLocaleDateString()}</p>
+             list.innerHTML = assignments.map(a => {
+                const score = a.scores ? a.scores[student.id] : undefined;
+                let scoreDisplay = '';
+
+                if (score === undefined) {
+                    scoreDisplay = `<div class="bg-gray-200 text-gray-800 text-xs font-semibold px-2.5 py-1 rounded-full">Not Graded</div>`;
+                } else if (score === 'excused') {
+                    scoreDisplay = `<div class="bg-yellow-200 text-yellow-800 text-xs font-semibold px-2.5 py-1 rounded-full">Excused</div>`;
+                } else {
+                    scoreDisplay = `<div class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-1 rounded-full">Score: ${score}/4</div>`;
+                }
+
+                return `
+                    <div class="p-4 border border-gray-200 rounded-lg flex justify-between items-center">
+                        <div>
+                            <h3 class="font-semibold text-lg">${a.title}</h3>
+                            <p class="text-sm text-gray-500">Posted: ${new Date(a.postedDate).toLocaleDateString()}</p>
+                        </div>
+                        ${scoreDisplay}
                     </div>
-                    <div class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-1 rounded-full">In Progress</div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
         
         // --- ACTIONS ---
@@ -455,6 +487,7 @@
                     id: assignments.length > 0 ? Math.max(...assignments.map(a => a.id)) + 1 : 1,
                     title,
                     postedDate,
+                    scores: {},
                 };
                 assignments.push(newAssignment);
                 saveData(); // Save changes to localStorage
@@ -486,6 +519,25 @@
                 closeModal('edit-assignment-modal');
                 showSuccessMessage('Assignment updated successfully.');
             }
+        });
+
+        document.getElementById('score-assignment-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const assignmentId = parseInt(document.getElementById('score-assignment-id').value, 10);
+            const assignment = assignments.find(a => a.id === assignmentId);
+            if (!assignment) return;
+            
+            const formData = new FormData(e.target);
+            for (let [studentId, score] of formData.entries()) {
+                // The key is in the format 'score-1', 'score-2', etc.
+                const id = parseInt(studentId.split('-')[1], 10);
+                assignment.scores[id] = isNaN(parseInt(score, 10)) ? score : parseInt(score, 10);
+            }
+            
+            saveData();
+            renderStudentView();
+            closeModal('score-assignment-modal');
+            showSuccessMessage('Scores saved successfully.');
         });
 
         document.getElementById('add-student-form').addEventListener('submit', function(e) {
@@ -594,6 +646,41 @@
                 document.getElementById('assignment-posted-date-edit').value = assignment.postedDate;
                 openModal('edit-assignment-modal');
             }
+        }
+
+        function openScoreAssignmentModal(assignmentId) {
+            const assignment = assignments.find(a => a.id === assignmentId);
+            if (!assignment) return;
+
+            document.getElementById('score-assignment-title').textContent = assignment.title;
+            document.getElementById('score-assignment-id').value = assignmentId;
+
+            const listEl = document.getElementById('student-scores-list');
+            listEl.innerHTML = students.map(student => {
+                const currentScore = assignment.scores ? assignment.scores[student.id] : undefined;
+                const scoreOptions = [1, 2, 3, 4, 'excused'];
+                
+                const radioButtons = scoreOptions.map(score => {
+                    const isChecked = currentScore !== undefined && currentScore.toString() === score.toString();
+                    return `
+                        <label class="flex items-center space-x-2">
+                            <input type="radio" name="score-${student.id}" value="${score}" ${isChecked ? 'checked' : ''} class="form-radio h-4 w-4 text-blue-600">
+                            <span class="text-sm">${score.toString().charAt(0).toUpperCase() + score.toString().slice(1)}</span>
+                        </label>
+                    `;
+                }).join('');
+
+                return `
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                        <span class="font-medium">${student.firstName} ${student.lastName}</span>
+                        <div class="flex items-center space-x-4">
+                           ${radioButtons}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            openModal('score-assignment-modal');
         }
         
         function openModal(modalId) {
