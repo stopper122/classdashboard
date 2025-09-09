@@ -976,6 +976,7 @@
             } else {
                 listEl.innerHTML = assignments.map(assignment => {
                     const hasHelpRequest = helpRequests.some(req => req.studentId === student.id && req.assignmentId === assignment.id);
+                    const hasCheckRequest = checkRequests.some(req => req.studentId === student.id && req.assignmentId === assignment.id);
                     const score = assignment.scores ? assignment.scores[student.id] : undefined;
                     let scoreDisplay = '';
 
@@ -987,13 +988,21 @@
                         scoreDisplay = `<span class="text-xs font-medium text-blue-600">Score: ${score}/4</span>`;
                     }
 
+                    let indicatorsHTML = '';
+                    if (hasHelpRequest) {
+                        indicatorsHTML += '<span class="text-xs font-bold text-red-600 bg-red-100 px-2 py-1 rounded-full">HELP REQUESTED</span>';
+                    }
+                    if (hasCheckRequest) {
+                        indicatorsHTML += '<span class="text-xs font-bold text-sky-600 bg-sky-100 px-2 py-1 rounded-full">CHECK REQUESTED</span>';
+                    }
+
                     return `
-                        <li class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                            <div>
+                        <li class="p-3 bg-gray-50 rounded-lg">
+                            <div class="flex justify-between items-start">
                                 <span class="font-medium">${assignment.title}</span>
-                                ${hasHelpRequest ? '<span class="ml-2 text-xs font-bold text-red-600 bg-red-100 px-2 py-1 rounded-full">HELP REQUESTED</span>' : ''}
+                                ${scoreDisplay}
                             </div>
-                            ${scoreDisplay}
+                            ${ (hasHelpRequest || hasCheckRequest) ? `<div class="flex gap-2 mt-2">${indicatorsHTML}</div>` : '' }
                         </li>
                     `;
                 }).join('');
@@ -1136,4 +1145,5 @@
     </script>
 </body>
 </html>
+
 
