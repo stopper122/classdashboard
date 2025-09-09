@@ -82,38 +82,31 @@
             state.requests = [];
             
             if (!state.currentPeriodId) {
-                state.loading = false;
                 renderUI();
                 return;
             }
-
-            let loaded = { students: false, assignments: false, scores: false, requests: false };
-            const checkAllLoaded = () => {
-                if(Object.values(loaded).every(v => v)) {
-                    state.loading = false;
-                    renderUI();
-                }
-            }
+            
+            renderUI(); // Render empty state before new data comes in
 
             studentsUnsubscribe = onSnapshot(query(studentsRef), (snapshot) => {
                 state.students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                if(!loaded.students) { loaded.students = true; checkAllLoaded(); } else { renderUI() }
-            }, (error) => { console.error("Error fetching students: ", error); loaded.students = true; checkAllLoaded(); });
+                renderUI();
+            }, (error) => { console.error("Error fetching students: ", error); renderUI(); });
 
             assignmentsUnsubscribe = onSnapshot(assignmentsRef, (snapshot) => {
                 state.assignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                 if(!loaded.assignments) { loaded.assignments = true; checkAllLoaded(); } else { renderUI() }
-            }, (error) => { console.error("Error fetching assignments: ", error); loaded.assignments = true; checkAllLoaded(); });
+                renderUI();
+            }, (error) => { console.error("Error fetching assignments: ", error); renderUI(); });
 
             scoresUnsubscribe = onSnapshot(scoresRef, (snapshot) => {
                 state.scores = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                 if(!loaded.scores) { loaded.scores = true; checkAllLoaded(); } else { renderUI() }
-            }, (error) => { console.error("Error fetching scores: ", error); loaded.scores = true; checkAllLoaded(); });
+                renderUI();
+            }, (error) => { console.error("Error fetching scores: ", error); renderUI(); });
 
             requestsUnsubscribe = onSnapshot(requestsRef, (snapshot) => {
                 state.requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                 if(!loaded.requests) { loaded.requests = true; checkAllLoaded(); } else { renderUI() }
-            }, (error) => { console.error("Error fetching requests: ", error); loaded.requests = true; checkAllLoaded(); });
+                renderUI();
+            }, (error) => { console.error("Error fetching requests: ", error); renderUI(); });
         };
 
         const initializeAppLogic = () => {
@@ -123,6 +116,7 @@
                 const hadPeriodsBefore = state.periods.length > 0;
                 state.periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 const currentPeriodStillExists = state.periods.some(p => p.id === state.currentPeriodId);
+                state.loading = false; // App is now considered loaded
 
                 let periodChanged = false;
                 if (!state.currentPeriodId || !currentPeriodStillExists) {
@@ -131,7 +125,7 @@
                 }
                 
                 if (periodChanged || !hadPeriodsBefore) {
-                    App.setPeriod(state.currentPeriodId);
+                    App.setPeriod(state.currentPeriodId, true); // Force full re-initialization
                 } else {
                     renderUI();
                 }
@@ -271,7 +265,8 @@
                 localStorage.setItem('currentView', view);
                 renderUI();
             },
-            setPeriod: (periodId) => {
+            setPeriod: (periodId, forceUpdate = false) => {
+                const hasChanged = state.currentPeriodId !== periodId;
                 state.currentPeriodId = periodId;
 
                 if (periodId) {
@@ -280,11 +275,10 @@
                     localStorage.removeItem('currentPeriodId');
                 }
                 
-                state.loading = true;
-                renderUI(); // Show loading indicator while new period data loads
-                
-                setupPeriodSpecificRefs();
-                startPeriodSpecificListeners();
+                if (hasChanged || forceUpdate) {
+                    setupPeriodSpecificRefs();
+                    startPeriodSpecificListeners();
+                }
             },
             deleteRequest: async (requestId) => {
                 if (requestsRef) {
