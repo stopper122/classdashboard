@@ -38,6 +38,9 @@
             loading: true,
             editingAssignmentId: null,
             error: null,
+            showConfirmModal: false,
+            confirmAction: null,
+            confirmMessage: '',
         };
 
         const publicRootPath = `artifacts/${appId}/public/data`;
@@ -268,37 +271,50 @@
             renderUI();
         };
 
+        const executeClearAllData = async () => {
+            const collectionsToDelete = [studentsRef, assignmentsRef, scoresRef, requestsRef];
+            for (const ref of collectionsToDelete) {
+                if (ref) {
+                    try {
+                        const snapshot = await getDocs(ref);
+                        const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
+                        await Promise.all(deletePromises);
+                    } catch (e) {
+                        console.error("Error deleting collection:", e);
+                        state.error = "Failed to delete some data.";
+                    }
+                }
+            }
+            App.cancelConfirm();
+        };
+
         const clearAllData = async () => {
             const password = prompt("This is a destructive action. Enter password to continue:");
             if (password === "teacher") {
-                if (confirm("Are you sure you want to delete all data for this period?")) {
-                    const collectionsToDelete = [studentsRef, assignmentsRef, scoresRef, requestsRef];
-                    for (const ref of collectionsToDelete) {
-                        if (ref) {
-                            try {
-                                const snapshot = await getDocs(ref);
-                                const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
-                                await Promise.all(deletePromises);
-                            } catch (e) {
-                                console.error("Error deleting collection:", e);
-                                state.error = "Failed to delete some data.";
-                                renderUI();
-                            }
-                        }
-                    }
-                }
+                state.confirmMessage = "Are you sure you want to delete all data for this period? This cannot be undone.";
+                state.confirmAction = executeClearAllData;
+                state.showConfirmModal = true;
+                renderUI();
             } else if (password !== null) { // Don't show error if user clicks cancel
                 state.error = "Incorrect password.";
                 renderUI();
             }
         };
 
-        const deleteAllStudents = async () => {
-            if (confirm("Are you sure you want to delete all students in this period?") && studentsRef) {
+        const executeDeleteAllStudents = async () => {
+            if (studentsRef) {
                 const snapshot = await getDocs(studentsRef);
                 const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
                 await Promise.all(deletePromises);
             }
+            App.cancelConfirm();
+        };
+
+        const deleteAllStudents = async () => {
+            state.confirmMessage = "Are you sure you want to delete all students in this period?";
+            state.confirmAction = executeDeleteAllStudents;
+            state.showConfirmModal = true;
+            renderUI();
         };
 
         const clearAllRequests = async () => {
@@ -355,6 +371,17 @@
             },
             clearError: () => {
                 state.error = null;
+                renderUI();
+            },
+            confirmAction: () => {
+                if (state.confirmAction) {
+                    state.confirmAction();
+                }
+            },
+            cancelConfirm: () => {
+                state.showConfirmModal = false;
+                state.confirmAction = null;
+                state.confirmMessage = '';
                 renderUI();
             }
         };
@@ -476,6 +503,23 @@
             `;
         }
 
+        const ConfirmModal = () => {
+            if (!state.showConfirmModal) return '';
+
+            return `
+                <div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
+                    <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+                        <h3 class="text-lg font-bold mb-4">Confirm Action</h3>
+                        <p class="mb-6">${state.confirmMessage}</p>
+                        <div class="flex items-center justify-end">
+                            <button onclick="App.cancelConfirm()" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2">Cancel</button>
+                            <button onclick="App.confirmAction()" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Yes, Proceed</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
         const renderUI = () => {
             const appDiv = document.getElementById('app');
             if (!appDiv) return;
@@ -522,6 +566,8 @@
                         <button onclick="App.clearAllData()"    class="ml-2 bg-red-700 hover:bg-red-900 ${buttonClasses} ${disabledClasses}" ${!isPeriodSelected ? 'disabled' : ''}>Clear All Data</button>
                     </div>
                     ${viewHtml}
+                    ${state.editingAssignmentId ? EditAssignmentModal() : ''}
+                    ${state.showConfirmModal ? ConfirmModal() : ''}
                 </div>
             `;
 
