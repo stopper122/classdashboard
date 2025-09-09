@@ -114,6 +114,7 @@
             if (periodsUnsubscribe) return; // Already initialized
             
             state.loading = false;
+            setupPeriodSpecificRefs(); // Set up refs for period from localStorage immediately
             renderUI(); // Render the application shell immediately
 
             periodsUnsubscribe = onSnapshot(periodsRef, (snapshot) => {
