@@ -289,8 +289,12 @@
         };
 
         const LayoutView = () => {
-            const helpQueue = state.requests.filter(r => r.type === 'help' && r.timestamp).sort((a, b) => a.timestamp.seconds - b.timestamp.seconds);
-            const checkQueue = state.requests.filter(r => r.type === 'check' && r.timestamp).sort((a, b) => a.timestamp.seconds - b.timestamp.seconds);
+            const helpQueue = state.requests
+                .filter(r => r.type === 'help' && r.timestamp && typeof r.timestamp.seconds === 'number')
+                .sort((a, b) => a.timestamp.seconds - b.timestamp.seconds);
+            const checkQueue = state.requests
+                .filter(r => r.type === 'check' && r.timestamp && typeof r.timestamp.seconds === 'number')
+                .sort((a, b) => a.timestamp.seconds - b.timestamp.seconds);
             const allStudents = [...state.students];
             const sortedStudents = allStudents.sort((a, b) => (a.seatOrder || 0) - (b.seatOrder || 0));
 
