@@ -14,19 +14,18 @@
         // IMPORTANT: These global variables are provided by the canvas environment.
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = {
-  apiKey: "AIzaSyBX96xDY5ThDAZn-SckmsnfynMnQjvUc2I",
-  authDomain: "helprequest-469c0.firebaseapp.com",
-  projectId: "helprequest-469c0",
-  storageBucket: "helprequest-469c0.firebasestorage.app",
-  messagingSenderId: "362143493922",
-  appId: "1:362143493922:web:763262a5b658145a538260",
-  measurementId: "G-L5S59L4JSP"
-};
+          apiKey: "AIzaSyBX96xDY5ThDAZn-SckmsnfynMnQjvUc2I",
+          authDomain: "helprequest-469c0.firebaseapp.com",
+          projectId: "helprequest-469c0",
+          storageBucket: "helprequest-469c0.firebasestorage.app",
+          messagingSenderId: "362143493922",
+          appId: "1:362143493922:web:763262a5b658145a538260",
+          measurementId: "G-L5S59L4JSP"
+        };
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        signInAnonymously(auth);
 
         let state = {
             periods: [],
@@ -69,17 +68,30 @@
             if (periodsUnsubscribe) periodsUnsubscribe();
             periodsUnsubscribe = onSnapshot(periodsRef, (snapshot) => {
                 state.periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                if (!state.currentPeriodId && state.periods.length > 0) {
-                    state.currentPeriodId = state.periods[0].id;
-                    localStorage.setItem('currentPeriodId', state.currentPeriodId);
+
+                const isValidPeriod = state.periods.some(p => p.id === state.currentPeriodId);
+
+                if (!state.currentPeriodId || !isValidPeriod) {
+                    state.currentPeriodId = state.periods.length > 0 ? state.periods[0].id : null;
+                    if(state.currentPeriodId) {
+                        localStorage.setItem('currentPeriodId', state.currentPeriodId);
+                    } else {
+                        localStorage.removeItem('currentPeriodId');
+                    }
                 }
+                
                 setupRefs();
                 startPeriodSpecificListeners();
-                renderUI();
             });
         };
 
         const startPeriodSpecificListeners = () => {
+             // Clear previous listeners
+            if (studentsUnsubscribe) studentsUnsubscribe();
+            if (assignmentsUnsubscribe) assignmentsUnsubscribe();
+            if (scoresUnsubscribe) scoresUnsubscribe();
+            if (requestsUnsubscribe) requestsUnsubscribe();
+
             if (!state.currentPeriodId) {
                 state.students = [];
                 state.assignments = [];
@@ -90,31 +102,37 @@
                 return;
             }
 
-            if (studentsUnsubscribe) studentsUnsubscribe();
+            let loaded = { students: false, assignments: false, scores: false, requests: false };
+            const checkAllLoaded = () => {
+                if(Object.values(loaded).every(v => v)) {
+                    state.loading = false;
+                    renderUI();
+                }
+            }
+
             studentsUnsubscribe = onSnapshot(query(studentsRef, where("isActive", "==", true)), (snapshot) => {
                 state.students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderUI();
-            });
+                loaded.students = true;
+                checkAllLoaded();
+            }, (error) => console.error("Error fetching students: ", error));
 
-            if (assignmentsUnsubscribe) assignmentsUnsubscribe();
             assignmentsUnsubscribe = onSnapshot(assignmentsRef, (snapshot) => {
                 state.assignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderUI();
-            });
+                loaded.assignments = true;
+                checkAllLoaded();
+            }, (error) => console.error("Error fetching assignments: ", error));
 
-            if (scoresUnsubscribe) scoresUnsubscribe();
             scoresUnsubscribe = onSnapshot(scoresRef, (snapshot) => {
                 state.scores = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderUI();
-            });
+                loaded.scores = true;
+                checkAllLoaded();
+            }, (error) => console.error("Error fetching scores: ", error));
 
-            if (requestsUnsubscribe) requestsUnsubscribe();
             requestsUnsubscribe = onSnapshot(requestsRef, (snapshot) => {
                 state.requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderUI();
-            });
-
-            state.loading = false;
+                loaded.requests = true;
+                checkAllLoaded();
+            }, (error) => console.error("Error fetching requests: ", error));
         };
 
         const addPeriod = async () => {
@@ -169,23 +187,30 @@
 
                 const studentsQuery = await getDocs(studentsRef);
                 studentsQuery.forEach(async (studentDoc) => {
-                    await addDoc(scoresRef, {
-                        studentId: studentDoc.id,
-                        assignmentId: newAssignment.id,
-                        score: 'Not Graded'
-                    });
+                    if(studentDoc.data().isActive) {
+                        await addDoc(scoresRef, {
+                            studentId: studentDoc.id,
+                            assignmentId: newAssignment.id,
+                            score: 'Not Graded'
+                        });
+                    }
                 });
             }
         };
+        
+        const updateAssignment = async () => {
+            const assignmentId = state.editingAssignmentId;
+            if (!assignmentId) return;
 
-        const updateAssignment = async (assignmentId, newName, newNumber) => {
+            const newName = document.getElementById(`edit-assignment-name-${assignmentId}`).value;
+            const newNumber = document.getElementById(`edit-assignment-num-${assignmentId}`).value;
+
             const assignmentRef = doc(db, `${publicDataPath}/assignments/${assignmentId}`);
             await updateDoc(assignmentRef, {
                 name: newName,
-                assignmentNumber: parseInt(newNumber, 10)
+                assignmentNumber: parseInt(newNumber, 10) || 0
             });
             state.editingAssignmentId = null;
-            renderUI();
         };
 
         const clearAllData = async () => {
@@ -195,7 +220,8 @@
                     const collectionsToDelete = [studentsRef, assignmentsRef, scoresRef, requestsRef];
                     for (const ref of collectionsToDelete) {
                         const snapshot = await getDocs(ref);
-                        snapshot.forEach(doc => deleteDoc(doc.ref));
+                        const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
+                        await Promise.all(deletePromises);
                     }
                 }
             } else {
@@ -206,13 +232,15 @@
         const deleteAllStudents = async () => {
             if (confirm("Are you sure you want to delete all students in this period?")) {
                 const snapshot = await getDocs(studentsRef);
-                snapshot.forEach(doc => deleteDoc(doc.ref));
+                const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
+                await Promise.all(deletePromises);
             }
         };
 
         const clearAllRequests = async () => {
             const snapshot = await getDocs(requestsRef);
-            snapshot.forEach(doc => deleteDoc(doc.ref));
+            const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
+            await Promise.all(deletePromises);
         };
         
         window.App = {
@@ -232,28 +260,35 @@
             setPeriod: (periodId) => {
                 state.currentPeriodId = periodId;
                 localStorage.setItem('currentPeriodId', periodId);
+                state.loading = true;
+                renderUI(); 
                 setupRefs();
                 startPeriodSpecificListeners();
             },
             deleteRequest: async (requestId) => {
-                await deleteDoc(doc(db, `${requestsRef.path}/${requestId}`));
+                await deleteDoc(doc(requestsRef, requestId));
             },
             setEditingAssignment: (assignmentId) => {
                 state.editingAssignmentId = assignmentId;
+                renderUI();
+            },
+            cancelEditAssignment: () => {
+                state.editingAssignmentId = null;
                 renderUI();
             }
         };
 
         const LayoutView = () => {
-            const helpQueue = state.requests.filter(r => r.type === 'help').sort((a, b) => a.timestamp - b.timestamp);
-            const checkQueue = state.requests.filter(r => r.type === 'check').sort((a, b) => a.timestamp - b.timestamp);
+            const helpQueue = state.requests.filter(r => r.type === 'help').sort((a, b) => a.timestamp.seconds - b.timestamp.seconds);
+            const checkQueue = state.requests.filter(r => r.type === 'check').sort((a, b) => a.timestamp.seconds - b.timestamp.seconds);
+            const sortedStudents = [...state.students, ...state.students.filter(s => !s.isActive)].sort((a, b) => (a.seatOrder || 0) - (b.seatOrder || 0));
 
             return `
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4">
                     <div class="lg:col-span-2">
                         <h2 class="text-xl font-bold mb-2">Class Layout</h2>
                         <div id="student-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                            ${state.students.map(student => {
+                            ${sortedStudents.map(student => {
                                 const helpRequest = helpQueue.find(r => r.studentId === student.id);
                                 const checkRequest = checkQueue.find(r => r.studentId === student.id);
                                 let bgColor = 'bg-white';
@@ -262,7 +297,7 @@
                                 if (!student.isActive) bgColor = 'bg-gray-200';
 
                                 return `
-                                    <div class="student-card p-4 rounded-lg shadow-md text-center ${bgColor}" draggable="true" data-student-id="${student.id}">
+                                    <div class="student-card p-4 rounded-lg shadow-md text-center ${bgColor}" draggable="${student.isActive}" data-student-id="${student.id}">
                                         <p class="font-semibold">${student.firstName} ${student.lastName}</p>
                                     </div>
                                 `;
@@ -272,19 +307,19 @@
                     <div>
                         <div class="mb-4">
                             <h2 class="text-xl font-bold mb-2">Help Queue (${helpQueue.length})</h2>
-                            <ul class="bg-white p-4 rounded-lg shadow-md">
+                            <ul class="bg-white p-4 rounded-lg shadow-md min-h-[100px]">
                                 ${helpQueue.map(r => {
                                     const student = state.students.find(s => s.id === r.studentId);
-                                    return `<li class="flex justify-between items-center py-1">${student ? `${student.firstName} ${student.lastName}` : 'Unknown'}<button onclick="App.deleteRequest('${r.id}')" class="text-red-500 hover:text-red-700">X</button></li>`;
+                                    return `<li class="flex justify-between items-center py-1">${student ? `${student.firstName} ${student.lastName}` : 'Unknown'}<button onclick="App.deleteRequest('${r.id}')" class="text-red-500 hover:text-red-700 font-bold">X</button></li>`;
                                 }).join('')}
                             </ul>
                         </div>
                         <div>
                             <h2 class="text-xl font-bold mb-2">Check Queue (${checkQueue.length})</h2>
-                            <ul class="bg-white p-4 rounded-lg shadow-md">
+                            <ul class="bg-white p-4 rounded-lg shadow-md min-h-[100px]">
                                 ${checkQueue.map(r => {
                                     const student = state.students.find(s => s.id === r.studentId);
-                                    return `<li class="flex justify-between items-center py-1">${student ? `${student.firstName} ${student.lastName}` : 'Unknown'}<button onclick="App.deleteRequest('${r.id}')" class="text-red-500 hover:text-red-700">X</button></li>`;
+                                    return `<li class="flex justify-between items-center py-1">${student ? `${student.firstName} ${student.lastName}` : 'Unknown'}<button onclick="App.deleteRequest('${r.id}')" class="text-red-500 hover:text-red-700 font-bold">X</button></li>`;
                                 }).join('')}
                             </ul>
                         </div>
@@ -295,6 +330,8 @@
 
         const ScoresView = () => {
             const sortedAssignments = [...state.assignments].sort((a, b) => (a.assignmentNumber || 0) - (b.assignmentNumber || 0));
+            const activeStudents = state.students.filter(s => s.isActive).sort((a, b) => a.lastName.localeCompare(b.lastName));
+
             return `
                 <div class="p-4">
                     <h2 class="text-xl font-bold mb-2">Scores</h2>
@@ -304,50 +341,65 @@
                                 <tr class="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
                                     <th class="py-3 px-6 text-left">Student</th>
                                     ${sortedAssignments.map(assignment => `
-                                        <th class="py-3 px-6 text-left cursor-pointer" onclick="App.setEditingAssignment('${assignment.id}')">
-                                            ${state.editingAssignmentId === assignment.id ? `
-                                                <input id="edit-assignment-num-${assignment.id}" type="number" value="${assignment.assignmentNumber || 0}" class="w-12 p-1 border rounded">
-                                                <input id="edit-assignment-name-${assignment.id}" type="text" value="${assignment.name}" class="p-1 border rounded">
-                                            ` : `
-                                                ${assignment.assignmentNumber || 'N/A'}. ${assignment.name}
-                                            `}
+                                        <th class="py-3 px-6 text-center cursor-pointer hover:bg-gray-300" onclick="App.setEditingAssignment('${assignment.id}')">
+                                            ${assignment.assignmentNumber || 'N/A'}. ${assignment.name}
                                         </th>
                                     `).join('')}
                                 </tr>
                             </thead>
                             <tbody class="text-gray-600 text-sm font-light">
-                                ${state.students.filter(s => s.isActive).map(student => `
+                                ${activeStudents.map(student => `
                                     <tr class="border-b border-gray-200 hover:bg-gray-100">
                                         <td class="py-3 px-6 text-left whitespace-nowrap">${student.firstName} ${student.lastName}</td>
                                         ${sortedAssignments.map(assignment => {
                                             const score = state.scores.find(s => s.studentId === student.id && s.assignmentId === assignment.id);
-                                            return `<td class="py-3 px-6 text-left">${score ? score.score : 'N/A'}</td>`;
+                                            return `<td class="py-3 px-6 text-center">${score ? score.score : 'N/A'}</td>`;
                                         }).join('')}
                                     </tr>
                                 `).join('')}
-                                ${state.editingAssignmentId ? `
-                                    <tr>
-                                        <td colspan="${sortedAssignments.length + 1}" class="text-right p-2">
-                                            <button onclick="App.updateAssignment(state.editingAssignmentId, document.getElementById('edit-assignment-name-' + state.editingAssignmentId).value, document.getElementById('edit-assignment-num-' + state.editingAssignmentId).value)" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded">Save</button>
-                                            <button onclick="App.setEditingAssignment(null)" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-1 px-2 rounded">Cancel</button>
-                                        </td>
-                                    </tr>
-                                ` : ''}
                             </tbody>
                         </table>
                     </div>
                 </div>
+                ${state.editingAssignmentId ? EditAssignmentModal() : ''}
             `;
         };
         
+        const EditAssignmentModal = () => {
+            const assignment = state.assignments.find(a => a.id === state.editingAssignmentId);
+            if (!assignment) return '';
+
+            return `
+                <div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
+                    <div class="bg-white p-6 rounded-lg shadow-xl">
+                        <h3 class="text-lg font-bold mb-4">Edit Assignment</h3>
+                        <div class="mb-4">
+                            <label class="block text-gray-700 text-sm font-bold mb-2" for="edit-assignment-num-${assignment.id}">Number</label>
+                            <input id="edit-assignment-num-${assignment.id}" type="number" value="${assignment.assignmentNumber || 0}" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                        </div>
+                        <div class="mb-6">
+                             <label class="block text-gray-700 text-sm font-bold mb-2" for="edit-assignment-name-${assignment.id}">Name</label>
+                            <input id="edit-assignment-name-${assignment.id}" type="text" value="${assignment.name}" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                        </div>
+                        <div class="flex items-center justify-end">
+                            <button onclick="App.cancelEditAssignment()" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2">Cancel</button>
+                            <button onclick="App.updateAssignment()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Save</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
         const renderUI = () => {
             const appDiv = document.getElementById('app');
+            if (!appDiv) return;
+
             if (state.loading) {
-                appDiv.innerHTML = `<div class="p-4">Loading...</div>`;
+                appDiv.innerHTML = `<div class="p-4 text-center">Loading data...</div>`;
                 return;
             }
 
-            let viewHtml;
+            let viewHtml = '';
             if (state.currentView === 'layout') {
                 viewHtml = LayoutView();
             } else if (state.currentView === 'scores') {
@@ -356,20 +408,21 @@
 
             appDiv.innerHTML = `
                 <div class="min-h-screen bg-gray-100">
-                    <nav class="bg-white shadow-md p-4 flex justify-between items-center">
-                        <div>
-                            <h1 class="text-2xl font-bold">Instructor Dashboard</h1>
-                            <select onchange="App.setPeriod(this.value)" class="mt-2 p-2 rounded border">
+                    <nav class="bg-white shadow-md p-4 flex justify-between items-center flex-wrap">
+                        <div class="flex items-center mb-2 sm:mb-0">
+                            <h1 class="text-2xl font-bold mr-4">Instructor Dashboard</h1>
+                            <select onchange="App.setPeriod(this.value)" class="p-2 rounded border">
+                                ${state.periods.length === 0 ? '<option>No periods found</option>' : ''}
                                 ${state.periods.map(p => `<option value="${p.id}" ${state.currentPeriodId === p.id ? 'selected' : ''}>${p.name}</option>`).join('')}
                             </select>
                             <button onclick="App.addPeriod()" class="ml-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">+</button>
                         </div>
                         <div>
-                            <button onclick="App.setView('layout')" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-l">Layout</button>
-                            <button onclick="App.setView('scores')" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-r">Scores</button>
+                            <button onclick="App.setView('layout')" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-l ${state.currentView === 'layout' ? 'bg-gray-500 text-white' : ''}">Layout</button>
+                            <button onclick="App.setView('scores')" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-r ${state.currentView === 'scores' ? 'bg-gray-500 text-white' : ''}">Scores</button>
                         </div>
                     </nav>
-                    <div class="p-4">
+                    <div class="p-4 bg-gray-50 border-b border-t">
                         <button onclick="App.addStudent('${state.currentPeriodId}')" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Add Student</button>
                         <button onclick="App.addAssignment('${state.currentPeriodId}')" class="ml-2 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Add Assignment</button>
                         <button onclick="App.addEmptySeat()" class="ml-2 bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Add Empty Seat</button>
@@ -393,15 +446,16 @@
                 draggedItemId = e.currentTarget.dataset.studentId;
                 e.dataTransfer.effectAllowed = 'move';
                 e.dataTransfer.setData('text/plain', draggedItemId);
-                e.currentTarget.style.opacity = '0.5';
-                state.isDragging = true;
+                setTimeout(() => {
+                    e.currentTarget.classList.add('opacity-50');
+                }, 0);
             };
         
             const handleDragOver = (e) => {
                 e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-                if (e.currentTarget.dataset.studentId !== draggedItemId) {
-                    e.currentTarget.classList.add('bg-blue-200');
+                const targetCard = e.currentTarget;
+                if(targetCard.dataset.studentId !== draggedItemId && targetCard.draggable) {
+                    targetCard.classList.add('bg-blue-200');
                 }
             };
         
@@ -415,29 +469,26 @@
                 const targetItemId = e.currentTarget.dataset.studentId;
                 e.currentTarget.classList.remove('bg-blue-200');
         
-                if (draggedItemId === targetItemId) {
-                    return;
-                }
+                if (draggedItemId === targetItemId || !targetItemId) return;
+
                 await runTransaction(db, async (transaction) => {
-                    const students = [...state.students].sort((a, b) => a.seatOrder - b.seatOrder);
+                    const students = [...state.students].sort((a, b) => (a.seatOrder || 0) - (b.seatOrder || 0));
                     const draggedIndex = students.findIndex(s => s.id === draggedItemId);
                     const targetIndex = students.findIndex(s => s.id === targetItemId);
+
+                    if (draggedIndex === -1 || targetIndex === -1) return;
         
-                    const studentToMove = students.splice(draggedIndex, 1)[0];
-                    students.splice(targetIndex, 0, studentToMove);
+                    const [draggedItem] = students.splice(draggedIndex, 1);
+                    students.splice(targetIndex, 0, draggedItem);
         
-                    students.forEach((s, index) => {
-                        const newOrder = index;
-                        if (s.seatOrder !== newOrder) {
-                            transaction.update(doc(db, `${studentsRef.path}/${s.id}`), { seatOrder: newOrder });
-                        }
+                    students.forEach((student, index) => {
+                        transaction.update(doc(db, `${studentsRef.path}/${student.id}`), { seatOrder: index });
                     });
                 });
             };
         
             const handleDragEnd = (e) => {
-                e.currentTarget.style.opacity = '1';
-                state.isDragging = false;
+                e.currentTarget.classList.remove('opacity-50');
                 document.querySelectorAll('.student-card').forEach(card => card.classList.remove('bg-blue-200'));
             };
         
@@ -450,9 +501,22 @@
             });
         };
 
+        const initializeAppAndData = async () => {
+            try {
+                await signInAnonymously(auth);
+                setupRefs();
+                startDataListeners();
+            } catch (error) {
+                console.error("Error during app initialization:", error);
+                const appDiv = document.getElementById('app');
+                if (appDiv) {
+                    appDiv.innerHTML = `<div class="p-4 text-center text-red-600">Error initializing the application. Please check the console.</div>`;
+                }
+            }
+        };
+
         document.addEventListener('DOMContentLoaded', () => {
-            setupRefs();
-            startDataListeners();
+            initializeAppAndData();
         });
     </script>
     <style>
@@ -467,3 +531,4 @@
     <div id="app"></div>
 </body>
 </html>
+
