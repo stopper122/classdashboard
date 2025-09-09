@@ -114,25 +114,25 @@
             if (periodsUnsubscribe) return; // App is already initialized
 
             periodsUnsubscribe = onSnapshot(periodsRef, (snapshot) => {
-                const isInitialLoad = state.loading;
+                const wasLoading = state.loading;
+                const previousPeriodId = state.currentPeriodId;
                 state.periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-                if (isInitialLoad) {
-                    const storedPeriodId = localStorage.getItem('currentPeriodId');
-                    const periodExists = state.periods.some(p => p.id === storedPeriodId);
-                    
-                    state.currentPeriodId = (storedPeriodId && periodExists)
-                        ? storedPeriodId
-                        : (state.periods.length > 0 ? state.periods[0].id : null);
-                    
-                    App.setPeriod(state.currentPeriodId, true);
-                    state.loading = false;
-                } else {
-                    if (!state.periods.some(p => p.id === state.currentPeriodId)) {
-                        const newPeriodId = state.periods.length > 0 ? state.periods[0].id : null;
-                        App.setPeriod(newPeriodId, true);
-                    }
+                // Determine the correct period ID
+                let newPeriodId = localStorage.getItem('currentPeriodId');
+                if (!state.periods.some(p => p.id === newPeriodId)) {
+                    newPeriodId = state.periods.length > 0 ? state.periods[0].id : null;
                 }
+
+                state.currentPeriodId = newPeriodId;
+                
+                // If this is the first time loading or the period has changed, set up listeners.
+                if (wasLoading || state.currentPeriodId !== previousPeriodId) {
+                   App.setPeriod(state.currentPeriodId, true);
+                }
+
+                // The app is loaded once we have processed the first period snapshot.
+                state.loading = false;
                 renderUI();
                 
             }, (error) => {
