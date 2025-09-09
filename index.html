@@ -175,7 +175,10 @@
                     <div class="bg-white p-6 rounded-xl shadow-md text-center">
                         <h2 class="text-2xl font-bold mb-4">Need Help?</h2>
                         <p class="text-gray-600 mb-4">Don't hesitate to ask for help if you're stuck.</p>
-                        <button onclick="requestHelp()" class="w-full bg-green-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-green-700 transition">Request Help</button>
+                        <div id="help-button-container">
+                            <button id="request-help-btn" onclick="requestHelp()" class="w-full bg-green-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-green-700 transition">Request Help</button>
+                            <button id="cancel-help-btn" onclick="cancelHelpRequest()" class="w-full bg-red-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-red-700 transition hidden">Cancel Request</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -656,21 +659,18 @@
         }
 
         function updateHelpButtonState() {
-            const helpButton = document.querySelector('#student-view button[onclick="requestHelp()"]');
-            if (!helpButton) return;
+            const requestBtn = document.getElementById('request-help-btn');
+            const cancelBtn = document.getElementById('cancel-help-btn');
+            if (!requestBtn || !cancelBtn) return;
             
             const hasActiveRequest = helpRequests.some(req => req.studentId === currentStudentId);
 
             if (hasActiveRequest) {
-                helpButton.disabled = true;
-                helpButton.textContent = 'Help Request Sent';
-                helpButton.classList.remove('bg-green-600', 'hover:bg-green-700');
-                helpButton.classList.add('bg-gray-400', 'cursor-not-allowed');
+                requestBtn.classList.add('hidden');
+                cancelBtn.classList.remove('hidden');
             } else {
-                helpButton.disabled = false;
-                helpButton.textContent = 'Request Help';
-                helpButton.classList.add('bg-green-600', 'hover:bg-green-700');
-                helpButton.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                requestBtn.classList.remove('hidden');
+                cancelBtn.classList.add('hidden');
             }
         }
 
@@ -683,10 +683,20 @@
                     helpRequests.push({ studentId: student.id, studentName });
                     saveData();
                     showSuccessMessage('Help request sent!');
-                    updateHelpButtonState(); // Update button immediately
+                    updateHelpButtonState();
                 } else {
                     showSuccessMessage('You already have an active help request.');
                 }
+            }
+        }
+
+        function cancelHelpRequest() {
+            const requestIndex = helpRequests.findIndex(req => req.studentId === currentStudentId);
+            if (requestIndex !== -1) {
+                helpRequests.splice(requestIndex, 1);
+                saveData();
+                showSuccessMessage('Help request cancelled.');
+                updateHelpButtonState();
             }
         }
         
