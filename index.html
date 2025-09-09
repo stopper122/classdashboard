@@ -275,13 +275,19 @@
                     const collectionsToDelete = [studentsRef, assignmentsRef, scoresRef, requestsRef];
                     for (const ref of collectionsToDelete) {
                         if (ref) {
-                            const snapshot = await getDocs(ref);
-                            const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
-                            await Promise.all(deletePromises);
+                            try {
+                                const snapshot = await getDocs(ref);
+                                const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
+                                await Promise.all(deletePromises);
+                            } catch (e) {
+                                console.error("Error deleting collection:", e);
+                                state.error = "Failed to delete some data.";
+                                renderUI();
+                            }
                         }
                     }
                 }
-            } else {
+            } else if (password !== null) { // Don't show error if user clicks cancel
                 state.error = "Incorrect password.";
                 renderUI();
             }
