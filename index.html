@@ -63,6 +63,11 @@
                                 <button onclick="openModal('bulk-upload-modal')" class="bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-purple-700 transition">Bulk Upload</button>
                             </div>
                         </div>
+                        <div class="flex items-center gap-2 mb-4 border-b pb-4">
+                            <span class="text-sm font-medium text-gray-600">Sort by:</span>
+                            <button onclick="sortStudents('firstName')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-1 px-3 rounded-full hover:bg-gray-300 transition">First Name</button>
+                            <button onclick="sortStudents('lastName')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-1 px-3 rounded-full hover:bg-gray-300 transition">Last Name</button>
+                        </div>
                         <ul id="teacher-student-list" class="space-y-3">
                             <!-- Student data will be populated here -->
                         </ul>
@@ -282,6 +287,7 @@
         let helpRequests = [];
         let confirmAction = null;
         let currentStudentId = null;
+        let currentSortKey = null; // For student sorting
 
         // --- DATA PERSISTENCE ---
         function saveData() {
@@ -350,6 +356,23 @@
                  // This case might happen if a student is deleted while logged in.
                  logout();
             }
+        }
+
+        function sortStudents(key) {
+            // If a key is passed (from a button click), update the current sort key.
+            if (key) {
+                currentSortKey = key;
+            }
+
+            // If a sort key is set, sort the array.
+            if (currentSortKey) {
+                students.sort((a, b) => {
+                    // Use localeCompare for robust string comparison
+                    return String(a[currentSortKey]).localeCompare(String(b[currentSortKey]));
+                });
+            }
+            // Always re-render the list, sorted or not.
+            renderTeacherStudentList();
         }
 
         function renderTeacherStudentList() {
@@ -462,7 +485,7 @@
         function deleteStudent(studentId) {
             students = students.filter(s => s.id !== studentId);
             saveData(); // Save changes to localStorage
-            renderTeacherStudentList();
+            sortStudents(); // Re-sort and re-render
             renderStudentView(); // Rerender student view in case the deleted student was the one being shown
             closeModal('confirmation-modal');
             showSuccessMessage('Student deleted successfully.');
@@ -567,7 +590,7 @@
                 const newStudent = { id, firstName, lastName };
                 students.push(newStudent);
                 saveData(); // Save changes to localStorage
-                renderTeacherStudentList();
+                sortStudents(); // Re-sort and re-render
                 closeModal('add-student-modal');
                 this.reset();
             }
@@ -594,7 +617,7 @@
                     students[studentIndex].lastName = lastName;
                 }
                 saveData(); // Save changes to localStorage
-                renderTeacherStudentList();
+                sortStudents(); // Re-sort and re-render
                 closeModal('edit-student-modal');
                 showSuccessMessage('Student updated successfully.');
             }
@@ -629,7 +652,7 @@
 
             if (studentsAdded > 0) {
                 saveData(); // Save changes to localStorage
-                renderTeacherStudentList();
+                sortStudents(); // Re-sort and re-render
                 showSuccessMessage(`${studentsAdded} student(s) added successfully!`);
             } else {
                  showSuccessMessage(`No new students added. Check format or if IDs already exist.`);
