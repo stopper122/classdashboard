@@ -110,15 +110,14 @@
             }, (error) => { console.error("Error fetching requests: ", error); renderUI(); });
         };
 
-        const initializeAppLogic = async () => {
+        const initializeAppLogic = () => {
             if (periodsUnsubscribe) return; // App is already initialized
 
-            try {
-                // Step 1: Fetch the initial list of periods to determine state.
-                const periodsSnapshot = await getDocs(periodsRef);
-                state.periods = periodsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const unsubscribeInitial = onSnapshot(periodsRef, (snapshot) => {
+                unsubscribeInitial(); // We only need this listener once for initialization
 
-                // Step 2: Determine the correct current period.
+                state.periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
                 const storedPeriodId = localStorage.getItem('currentPeriodId');
                 const periodExists = state.periods.some(p => p.id === storedPeriodId);
                 
@@ -127,13 +126,13 @@
                 } else {
                     state.currentPeriodId = state.periods.length > 0 ? state.periods[0].id : null;
                 }
+                
                 App.setPeriod(state.currentPeriodId, true);
 
-                // Step 3: Now that we have a definite state, stop loading and render.
                 state.loading = false;
                 renderUI();
 
-                // Step 4: Start the real-time listener for ongoing period changes.
+                // Now, set up the permanent listener for ongoing changes
                 periodsUnsubscribe = onSnapshot(periodsRef, (snapshot) => {
                     state.periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     if (!state.periods.some(p => p.id === state.currentPeriodId)) {
@@ -144,12 +143,13 @@
                     }
                 });
 
-            } catch (error) {
+            }, (error) => {
                 console.error("Critical Error: Could not initialize application.", error);
+                unsubscribeInitial(); // Stop listening on error
                 state.loading = false;
                 state.error = "Could not load application data. Please refresh the page.";
                 renderUI();
-            }
+            });
         };
 
         const addPeriod = async () => {
