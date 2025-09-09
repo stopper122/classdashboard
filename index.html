@@ -3,567 +3,318 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Instructor Dashboard</title>
+    <title>Classroom Management App</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, collection, query, where, addDoc, updateDoc, deleteDoc, getDocs, runTransaction, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // --- CONFIGURATION ---
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = {
-          apiKey: "AIzaSyBX96xDY5ThDAZn-SckmsnfynMnQjvUc2I",
-          authDomain: "helprequest-469c0.firebaseapp.com",
-          projectId: "helprequest-469c0",
-          storageBucket: "helprequest-469c0.firebasestorage.app",
-          messagingSenderId: "362143493922",
-          appId: "1:362143493922:web:763262a5b658145a538260",
-          measurementId: "G-L5S59L4JSP"
-        };
-
-        // --- FIREBASE INITIALIZATION ---
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-
-        // --- APPLICATION STATE ---
-        let state = {
-            periods: [],
-            students: [],
-            assignments: [],
-            requests: [],
-            scores: [],
-            currentPeriodId: null,
-            currentView: localStorage.getItem('currentView') || 'layout',
-            loading: true,
-            error: null,
-            showConfirmModal: false,
-            confirmAction: null,
-            confirmMessage: '',
-            editingAssignmentId: null,
-        };
-
-        // --- FIREBASE REFERENCES ---
-        const publicRootPath = `artifacts/${appId}/public/data`;
-        let periodsRef;
-        let studentsRef, assignmentsRef, scoresRef, requestsRef;
-
-        // To hold our real-time listeners
-        let unsubscribe = {
-            periods: null,
-            students: null,
-            assignments: null,
-            scores: null,
-            requests: null,
-        };
-        
-        // --- CORE LOGIC ---
-
-        const setupPeriodSpecificRefs = () => {
-            if (state.currentPeriodId) {
-                const periodPath = `${publicRootPath}/${state.currentPeriodId}`;
-                studentsRef = collection(db, `${periodPath}/students`);
-                assignmentsRef = collection(db, `${periodPath}/assignments`);
-                scoresRef = collection(db, `${periodPath}/scores`);
-                requestsRef = collection(db, `${periodPath}/requests`);
-            } else {
-                [studentsRef, assignmentsRef, scoresRef, requestsRef] = [null, null, null, null];
-            }
-        };
-
-        const detachPeriodSpecificListeners = () => {
-            unsubscribe.students?.();
-            unsubscribe.assignments?.();
-            unsubscribe.scores?.();
-            unsubscribe.requests?.();
-        };
-
-        const attachPeriodListeners = () => {
-            if (!state.currentPeriodId) return;
-
-            unsubscribe.students = onSnapshot(query(studentsRef), snap => {
-                state.students = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                renderUI();
-            }, e => console.error("Error fetching students:", e));
-
-            unsubscribe.assignments = onSnapshot(query(assignmentsRef), snap => {
-                state.assignments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                renderUI();
-            }, e => console.error("Error fetching assignments:", e));
-
-            unsubscribe.scores = onSnapshot(query(scoresRef), snap => {
-                state.scores = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                renderUI();
-            }, e => console.error("Error fetching scores:", e));
-
-            unsubscribe.requests = onSnapshot(query(requestsRef), snap => {
-                state.requests = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                renderUI();
-            }, e => console.error("Error fetching requests:", e));
-        };
-
-        const initializeAppLogic = async () => {
-            if (unsubscribe.periods) return; // App is already initialized
-
-            try {
-                periodsRef = collection(db, `${publicRootPath}/periods`);
-                
-                // Step 1: Perform a one-time fetch to get the initial list of periods.
-                const periodsSnapshot = await getDocs(periodsRef);
-                state.periods = periodsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-                // Step 2: Determine the correct current period based on local storage and fetched data.
-                const storedPeriodId = localStorage.getItem('currentPeriodId');
-                const periodExists = state.periods.some(p => p.id === storedPeriodId);
-                
-                state.currentPeriodId = (storedPeriodId && periodExists)
-                    ? storedPeriodId
-                    : (state.periods.length > 0 ? state.periods[0].id : null);
-                
-                // Step 3: Set up the period-specific data listeners for the determined period.
-                App.setPeriod(state.currentPeriodId, true);
-
-                // Step 4: Now that initialization is complete, remove the loading screen.
-                state.loading = false;
-                renderUI();
-
-                // Step 5: Begin listening for any future changes to the list of periods.
-                unsubscribe.periods = onSnapshot(periodsRef, (snapshot) => {
-                    state.periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    // If the currently selected period gets deleted, switch to the first available one.
-                    if (!state.periods.some(p => p.id === state.currentPeriodId)) {
-                        const newPeriodId = state.periods.length > 0 ? state.periods[0].id : null;
-                        App.setPeriod(newPeriodId, true);
-                    } else {
-                        renderUI(); // Re-render to update the dropdown list.
-                    }
-                });
-
-            } catch (error) {
-                console.error("Critical Error: Could not initialize application.", error);
-                state.loading = false;
-                state.error = "Could not load application data. Please refresh the page.";
-                renderUI();
-            }
-        };
-
-        // --- ACTIONS (Exposed via window.App) ---
-
-        const App = {
-            setPeriod: (periodId, force = false) => {
-                if (state.currentPeriodId === periodId && !force) return;
-
-                state.currentPeriodId = periodId;
-                if (periodId) {
-                    localStorage.setItem('currentPeriodId', periodId);
-                } else {
-                    localStorage.removeItem('currentPeriodId');
-                }
-                
-                detachPeriodSpecificListeners();
-                setupPeriodSpecificRefs();
-                attachPeriodListeners();
-                renderUI();
-            },
-
-            setView: (view) => {
-                state.currentView = view;
-                localStorage.setItem('currentView', view);
-                renderUI();
-            },
-
-            addPeriod: async () => {
-                const periodName = prompt("Enter new period name:");
-                if (periodName) {
-                    try {
-                        await addDoc(periodsRef, { name: periodName });
-                    } catch (e) {
-                        console.error("Error adding period:", e);
-                        state.error = "Failed to add period.";
-                        renderUI();
-                    }
-                }
-            },
-
-            addStudent: async () => {
-                if (!studentsRef) return;
-                const firstName = prompt("Enter student's first name:");
-                if (!firstName) return;
-                const lastName = prompt("Enter student's last name:");
-                if (!lastName) return;
-
-                try {
-                    const newStudentRef = await addDoc(studentsRef, { firstName, lastName, seatOrder: 999, isActive: true });
-                    const assignmentsSnap = await getDocs(assignmentsRef);
-                    const scorePromises = assignmentsSnap.docs.map(assignDoc => 
-                        addDoc(scoresRef, { studentId: newStudentRef.id, assignmentId: assignDoc.id, score: 'Not Graded' })
-                    );
-                    await Promise.all(scorePromises);
-                } catch (e) {
-                    console.error("Error adding student:", e);
-                    state.error = "Failed to add student.";
-                    renderUI();
-                }
-            },
-
-            addEmptySeat: async () => {
-                if (!studentsRef) return;
-                try {
-                    await addDoc(studentsRef, { firstName: 'Empty', lastName: 'Seat', seatOrder: 999, isActive: false });
-                } catch (e) {
-                    console.error("Error adding empty seat:", e);
-                    state.error = "Failed to add empty seat.";
-                    renderUI();
-                }
-            },
-
-            addAssignment: async () => {
-                if (!assignmentsRef) return;
-                const name = prompt("Enter new assignment name:");
-                if (!name) return;
-                
-                try {
-                    const maxNum = state.assignments.reduce((max, a) => Math.max(max, a.assignmentNumber || 0), 0);
-                    const newAssignmentRef = await addDoc(assignmentsRef, { name, assignmentNumber: maxNum + 1, postedDate: serverTimestamp() });
-                    const studentsSnap = await getDocs(query(studentsRef, where("isActive", "==", true)));
-                    const scorePromises = studentsSnap.docs.map(studentDoc => 
-                        addDoc(scoresRef, { studentId: studentDoc.id, assignmentId: newAssignmentRef.id, score: 'Not Graded' })
-                    );
-                    await Promise.all(scorePromises);
-                } catch (e) {
-                    console.error("Error adding assignment:", e);
-                    state.error = "Failed to add assignment.";
-                    renderUI();
-                }
-            },
-
-            clearAllRequests: async () => {
-                if (!requestsRef) return;
-                const reqsSnap = await getDocs(requestsRef);
-                const deletePromises = reqsSnap.docs.map(d => deleteDoc(d.ref));
-                await Promise.all(deletePromises);
-            },
-            
-            _showConfirm: (message, action) => {
-                state.confirmMessage = message;
-                state.confirmAction = action;
-                state.showConfirmModal = true;
-                renderUI();
-            },
-
-            deleteAllStudents: () => {
-                App._showConfirm("Are you sure you want to delete all students?", async () => {
-                    if (studentsRef) {
-                        const studentsSnap = await getDocs(studentsRef);
-                        await Promise.all(studentsSnap.docs.map(d => deleteDoc(d.ref)));
-                    }
-                    App.cancelConfirm();
-                });
-            },
-
-            clearAllData: () => {
-                const password = prompt("This is a destructive action. Enter password to continue:");
-                if (password === "teacher") {
-                    App._showConfirm("Are you sure you want to delete ALL data for this period?", async () => {
-                        const refs = [studentsRef, assignmentsRef, scoresRef, requestsRef];
-                        for (const ref of refs) {
-                            if (ref) {
-                                const snap = await getDocs(ref);
-                                await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
-                            }
-                        }
-                        App.cancelConfirm();
-                    });
-                } else if (password !== null) {
-                    state.error = "Incorrect password.";
-                    renderUI();
-                }
-            },
-
-            deleteRequest: async (requestId) => {
-                if (requestsRef) await deleteDoc(doc(requestsRef, requestId));
-            },
-            
-            setEditingAssignment: (assignmentId) => {
-                state.editingAssignmentId = assignmentId;
-                renderUI();
-            },
-            
-            cancelEditAssignment: () => {
-                state.editingAssignmentId = null;
-                renderUI();
-            },
-            
-            updateAssignment: async () => {
-                const id = state.editingAssignmentId;
-                if (!id || !assignmentsRef) return;
-                const name = document.getElementById(`edit-name-${id}`).value;
-                const num = document.getElementById(`edit-num-${id}`).value;
-                await updateDoc(doc(assignmentsRef, id), { name, assignmentNumber: parseInt(num, 10) || 0 });
-                state.editingAssignmentId = null;
-                renderUI();
-            },
-
-            confirmAction: () => {
-                if (state.confirmAction) state.confirmAction();
-            },
-
-            cancelConfirm: () => {
-                state.showConfirmModal = false;
-                state.confirmAction = null;
-                state.confirmMessage = '';
-                renderUI();
-            },
-            
-            clearError: () => {
-                state.error = null;
-                renderUI();
-            }
-        };
-
-        window.App = App;
-
-        // --- UI COMPONENTS ---
-
-        const LayoutView = () => {
-            const helpQueue = state.requests.filter(r => r.type === 'help').sort((a,b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
-            const checkQueue = state.requests.filter(r => r.type === 'check').sort((a,b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
-            const sortedStudents = [...state.students].sort((a, b) => (a.seatOrder || 0) - (b.seatOrder || 0));
-
-            return `
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4">
-                    <div class="lg:col-span-2">
-                        <h2 class="text-xl font-bold mb-2">Class Layout</h2>
-                        <div id="student-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                            ${sortedStudents.map(student => {
-                                const hasHelp = helpQueue.some(r => r.studentId === student.id);
-                                const hasCheck = checkQueue.some(r => r.studentId === student.id);
-                                let bgColor = 'bg-white';
-                                if (hasHelp) bgColor = 'bg-yellow-300';
-                                if (hasCheck) bgColor = 'bg-green-300';
-                                if (!student.isActive) bgColor = 'bg-gray-200';
-
-                                return `<div class="student-card p-4 rounded-lg shadow-md text-center ${bgColor}" draggable="${student.isActive}" data-student-id="${student.id}">
-                                            <p class="font-semibold">${student.firstName} ${student.lastName}</p>
-                                        </div>`;
-                            }).join('')}
-                        </div>
-                    </div>
-                    <div>
-                        <div class="mb-4">
-                            <h2 class="text-xl font-bold mb-2">Help Queue (${helpQueue.length})</h2>
-                            <ul class="bg-white p-4 rounded-lg shadow-md min-h-[100px]">${helpQueue.map(r => {
-                                const s = state.students.find(s => s.id === r.studentId);
-                                return `<li class="flex justify-between items-center py-1">${s ? `${s.firstName} ${s.lastName}` : '...'}
-                                            <button onclick="App.deleteRequest('${r.id}')" class="text-red-500 font-bold">X</button>
-                                        </li>`;
-                            }).join('')}</ul>
-                        </div>
-                        <div>
-                            <h2 class="text-xl font-bold mb-2">Check Queue (${checkQueue.length})</h2>
-                            <ul class="bg-white p-4 rounded-lg shadow-md min-h-[100px]">${checkQueue.map(r => {
-                                const s = state.students.find(s => s.id === r.studentId);
-                                return `<li class="flex justify-between items-center py-1">${s ? `${s.firstName} ${s.lastName}` : '...'}
-                                            <button onclick="App.deleteRequest('${r.id}')" class="text-red-500 font-bold">X</button>
-                                        </li>`;
-                            }).join('')}</ul>
-                        </div>
-                    </div>
-                </div>`;
-        };
-
-        const ScoresView = () => {
-            const sortedAssignments = [...state.assignments].sort((a, b) => (a.assignmentNumber || 0) - (b.assignmentNumber || 0));
-            const activeStudents = state.students.filter(s => s.isActive && s.lastName).sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
-
-            return `<div class="p-4 overflow-x-auto">
-                        <h2 class="text-xl font-bold mb-2">Scores</h2>
-                        <table class="min-w-full bg-white rounded-lg shadow-md">
-                            <thead>
-                                <tr class="bg-gray-200 text-gray-600 uppercase text-sm">
-                                    <th class="py-3 px-6 text-left">Student</th>
-                                    ${sortedAssignments.map(a => `<th class="py-3 px-6 text-center cursor-pointer hover:bg-gray-300" onclick="App.setEditingAssignment('${a.id}')">${a.assignmentNumber || '#'}. ${a.name}</th>`).join('')}
-                                </tr>
-                            </thead>
-                            <tbody class="text-gray-600 text-sm">
-                                ${activeStudents.map(student => `
-                                    <tr class="border-b border-gray-200 hover:bg-gray-100">
-                                        <td class="py-3 px-6 text-left whitespace-nowrap">${student.firstName} ${student.lastName}</td>
-                                        ${sortedAssignments.map(a => {
-                                            const score = state.scores.find(s => s.studentId === student.id && s.assignmentId === a.id);
-                                            return `<td class="py-3 px-6 text-center">${score ? score.score : 'N/A'}</td>`;
-                                        }).join('')}
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>`;
-        };
-        
-        const EditAssignmentModal = () => {
-            const assignment = state.assignments.find(a => a.id === state.editingAssignmentId);
-            if (!assignment) return '';
-
-            return `<div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
-                        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
-                            <h3 class="text-lg font-bold mb-4">Edit Assignment</h3>
-                            <div class="mb-4">
-                                <label class="block text-sm font-bold mb-2">Number</label>
-                                <input id="edit-num-${assignment.id}" type="number" value="${assignment.assignmentNumber || 0}" class="shadow border rounded w-full py-2 px-3">
-                            </div>
-                            <div class="mb-6">
-                                <label class="block text-sm font-bold mb-2">Name</label>
-                                <input id="edit-name-${assignment.id}" type="text" value="${assignment.name}" class="shadow border rounded w-full py-2 px-3">
-                            </div>
-                            <div class="flex justify-end">
-                                <button onclick="App.cancelEditAssignment()" class="bg-gray-500 text-white font-bold py-2 px-4 rounded mr-2">Cancel</button>
-                                <button onclick="App.updateAssignment()" class="bg-blue-500 text-white font-bold py-2 px-4 rounded">Save</button>
-                            </div>
-                        </div>
-                    </div>`;
-        };
-
-        const ConfirmModal = () => {
-            if (!state.showConfirmModal) return '';
-            return `<div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
-                        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
-                            <h3 class="text-lg font-bold mb-4">Confirm Action</h3>
-                            <p class="mb-6">${state.confirmMessage}</p>
-                            <div class="flex justify-end">
-                                <button onclick="App.cancelConfirm()" class="bg-gray-500 text-white font-bold py-2 px-4 rounded mr-2">Cancel</button>
-                                <button onclick="App.confirmAction()" class="bg-red-500 text-white font-bold py-2 px-4 rounded">Yes, Proceed</button>
-                            </div>
-                        </div>
-                    </div>`;
-        };
-
-        const renderUI = () => {
-            const appDiv = document.getElementById('app');
-            if (!appDiv) return;
-
-            if (state.loading) {
-                appDiv.innerHTML = `<div class="p-4 text-center">Loading data...</div>`;
-                return;
-            }
-
-            const isPeriodSelected = !!state.currentPeriodId;
-            const buttonClasses = "text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed";
-
-            appDiv.innerHTML = `
-                <div class="min-h-screen bg-gray-100">
-                    ${state.error ? `<div class="bg-red-500 text-white p-3 text-center relative">${state.error}<button onclick="App.clearError()" class="absolute top-0 right-0 mt-3 mr-3 font-bold text-xl">&times;</button></div>` : ''}
-                    <nav class="bg-white shadow-md p-4 flex justify-between items-center flex-wrap gap-4">
-                        <div class="flex items-center">
-                            <h1 class="text-2xl font-bold mr-4">Instructor Dashboard</h1>
-                            <select onchange="App.setPeriod(this.value)" class="p-2 rounded border">
-                                ${state.periods.length === 0 ? '<option>No periods yet</option>' : ''}
-                                ${state.periods.map(p => `<option value="${p.id}" ${state.currentPeriodId === p.id ? 'selected' : ''}>${p.name}</option>`).join('')}
-                            </select>
-                            <button onclick="App.addPeriod()" class="ml-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">+</button>
-                        </div>
-                        <div>
-                            <button onclick="App.setView('layout')" class="bg-gray-300 hover:bg-gray-400 font-bold py-2 px-4 rounded-l ${state.currentView === 'layout' ? 'bg-gray-500 text-white' : ''}">Layout</button>
-                            <button onclick="App.setView('scores')" class="bg-gray-300 hover:bg-gray-400 font-bold py-2 px-4 rounded-r ${state.currentView === 'scores' ? 'bg-gray-500 text-white' : ''}">Scores</button>
-                        </div>
-                    </nav>
-                    <div class="p-4 bg-gray-50 border-y flex flex-wrap gap-2">
-                        <button onclick="App.addStudent()" class="bg-green-500 hover:bg-green-700 ${buttonClasses}" ${!isPeriodSelected ? 'disabled' : ''}>Add Student</button>
-                        <button onclick="App.addAssignment()" class="bg-green-500 hover:bg-green-700 ${buttonClasses}" ${!isPeriodSelected ? 'disabled' : ''}>Add Assignment</button>
-                        <button onclick="App.addEmptySeat()" class="bg-gray-500 hover:bg-gray-700 ${buttonClasses}" ${!isPeriodSelected ? 'disabled' : ''}>Add Empty Seat</button>
-                        <button onclick="App.clearAllRequests()" class="bg-yellow-500 hover:bg-yellow-700 ${buttonClasses}" ${!isPeriodSelected ? 'disabled' : ''}>Clear Requests</button>
-                        <button onclick="App.deleteAllStudents()" class="bg-red-500 hover:bg-red-700 ${buttonClasses}" ${!isPeriodSelected ? 'disabled' : ''}>Delete Students</button>
-                        <button onclick="App.clearAllData()" class="bg-red-700 hover:bg-red-900 ${buttonClasses}" ${!isPeriodSelected ? 'disabled' : ''}>Clear All Data</button>
-                    </div>
-                    ${state.currentView === 'layout' ? LayoutView() : ScoresView()}
-                    ${ConfirmModal()}
-                    ${EditAssignmentModal()}
-                </div>
-            `;
-            
-            if (state.currentView === 'layout') {
-                attachDragAndDrop();
-            }
-        };
-
-        const attachDragAndDrop = () => {
-             let draggedItemId = null;
-        
-            const handleDragStart = (e) => {
-                draggedItemId = e.currentTarget.dataset.studentId;
-                e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('text/plain', draggedItemId);
-                setTimeout(() => e.currentTarget.classList.add('opacity-50'), 0);
-            };
-        
-            const handleDragOver = (e) => {
-                e.preventDefault();
-                const target = e.currentTarget;
-                if(target.dataset.studentId !== draggedItemId && target.getAttribute('draggable') === 'true') {
-                    target.classList.add('bg-blue-200');
-                }
-            };
-        
-            const handleDragLeave = (e) => e.currentTarget.classList.remove('bg-blue-200');
-        
-            const handleDrop = async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const targetId = e.currentTarget.dataset.studentId;
-                e.currentTarget.classList.remove('bg-blue-200');
-                if (draggedItemId === targetId || !targetId || !studentsRef) return;
-                
-                await runTransaction(db, async (transaction) => {
-                    const studentsSnap = await getDocs(query(studentsRef));
-                    const students = studentsSnap.docs.map(d => ({id: d.id, ...d.data()})).sort((a, b) => (a.seatOrder || 0) - (b.seatOrder || 0));
-                    
-                    const draggedIndex = students.findIndex(s => s.id === draggedItemId);
-                    const targetIndex = students.findIndex(s => s.id === targetId);
-                    if (draggedIndex === -1 || targetIndex === -1) return;
-        
-                    const [draggedItem] = students.splice(draggedIndex, 1);
-                    students.splice(targetIndex, 0, draggedItem);
-        
-                    students.forEach((student, index) => {
-                        transaction.update(doc(studentsRef, student.id), { seatOrder: index });
-                    });
-                });
-            };
-        
-            const handleDragEnd = (e) => e.currentTarget.classList.remove('opacity-50');
-        
-            document.querySelectorAll('.student-card[draggable="true"]').forEach(card => {
-                card.addEventListener('dragstart', handleDragStart);
-                card.addEventListener('dragover', handleDragOver);
-                card.addEventListener('dragleave', handleDragLeave);
-                card.addEventListener('drop', handleDrop);
-                card.addEventListener('dragend', handleDragEnd);
-            });
-        };
-
-        // --- APP START ---
-        document.addEventListener('DOMContentLoaded', () => {
-            renderUI();
-            onAuthStateChanged(auth, user => {
-                if (user) {
-                    initializeAppLogic();
-                } else {
-                    signInAnonymously(auth).catch(e => {
-                        console.error("Anonymous sign in failed:", e);
-                        state.error = "Could not connect to the service.";
-                        state.loading = false;
-                        renderUI();
-                    });
-                }
-            });
-        });
-    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; color: #1f2937; }
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .view {
+            display: none;
+        }
+        .view.active {
+            display: block;
+        }
     </style>
 </head>
-<body>
-    <div id="app"></div>
+<body class="bg-gray-100 text-gray-800">
+
+    <div id="app" class="max-w-7xl mx-auto p-4 md:p-8">
+        <!-- Role Selection -->
+        <div id="role-selection" class="text-center bg-white p-8 rounded-xl shadow-md">
+            <h1 class="text-3xl font-bold mb-4 text-gray-900">Welcome to Your Classroom</h1>
+            <p class="text-gray-600 mb-8">Please select your role to continue.</p>
+            <div class="flex justify-center gap-4">
+                <button onclick="switchView('teacher')" class="bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    I am a Teacher
+                </button>
+                <button onclick="switchView('student')" class="bg-green-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-green-700 transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                    I am a Student
+                </button>
+            </div>
+        </div>
+
+        <!-- Teacher View -->
+        <div id="teacher-view" class="view">
+            <header class="flex justify-between items-center mb-8">
+                <div>
+                    <h1 class="text-4xl font-bold text-gray-900">Teacher Dashboard</h1>
+                    <p class="text-gray-500">Manage your classroom assignments, students, and help requests.</p>
+                </div>
+                 <button onclick="switchView('role-selection')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Switch Role</button>
+            </header>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Left Column: Students & Help Requests -->
+                <div class="lg:col-span-1 space-y-8">
+                    <!-- Student Roster -->
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h2 class="text-2xl font-bold mb-4">Student Roster</h2>
+                        <ul id="teacher-student-list" class="space-y-3">
+                            <!-- Student data will be populated here -->
+                        </ul>
+                    </div>
+
+                    <!-- Help Requests -->
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h2 class="text-2xl font-bold mb-4">Help Requests</h2>
+                        <ul id="help-requests-list" class="space-y-4">
+                            <!-- Help requests will be populated here -->
+                             <li class="text-gray-500 italic">No help requests at the moment.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Right Column: Assignments -->
+                <div class="lg:col-span-2">
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-2xl font-bold">Assignments</h2>
+                            <button onclick="openModal('add-assignment-modal')" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition">Add Assignment</button>
+                        </div>
+                        <div id="teacher-assignment-list" class="space-y-4">
+                            <!-- Assignments will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Student View -->
+        <div id="student-view" class="view">
+            <header class="flex justify-between items-center mb-8">
+                 <div>
+                    <h1 class="text-4xl font-bold text-gray-900">Student Dashboard</h1>
+                    <p class="text-gray-500">Welcome, <span id="student-name" class="font-semibold">Alice</span>!</p>
+                </div>
+                 <button onclick="switchView('role-selection')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Switch Role</button>
+            </header>
+
+             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Left Column: Assignments -->
+                <div class="lg:col-span-2">
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h2 class="text-2xl font-bold mb-4">Your Assignments</h2>
+                        <div id="student-assignment-list" class="space-y-4">
+                             <!-- Student assignments will be populated here -->
+                        </div>
+                    </div>
+                </div>
+                 <!-- Right Column: Scores & Help -->
+                <div class="lg:col-span-1 space-y-8">
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h2 class="text-2xl font-bold mb-4">Your Scores</h2>
+                        <ul id="student-scores-list" class="space-y-3">
+                            <!-- Scores will be populated here -->
+                        </ul>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md text-center">
+                        <h2 class="text-2xl font-bold mb-4">Need Help?</h2>
+                        <p class="text-gray-600 mb-4">Don't hesitate to ask for help if you're stuck.</p>
+                        <button onclick="requestHelp()" class="w-full bg-green-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-green-700 transition">Request Help</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Assignment Modal -->
+    <div id="add-assignment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
+            <h2 class="text-2xl font-bold mb-6">New Assignment</h2>
+            <form id="add-assignment-form">
+                <div class="mb-4">
+                    <label for="assignment-title" class="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                    <input type="text" id="assignment-title" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
+                </div>
+                <div class="mb-6">
+                    <label for="assignment-due-date" class="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                    <input type="date" id="assignment-due-date" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
+                </div>
+                <div class="flex justify-end gap-4">
+                    <button type="button" onclick="closeModal('add-assignment-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
+                    <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition">Add</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Success Message -->
+    <div id="success-message" class="fixed bottom-8 right-8 bg-green-500 text-white py-3 px-6 rounded-lg shadow-xl transform translate-y-20 opacity-0 transition-all duration-300 ease-out">
+        Help request sent!
+    </div>
+
+
+    <script>
+        // --- DATA ---
+        let students = [
+            { id: 1, name: 'Alice', score: 95 },
+            { id: 2, name: 'Bob', score: 88 },
+            { id: 3, name: 'Charlie', score: 72 },
+            { id: 4, name: 'Diana', score: 91 },
+        ];
+
+        let assignments = [
+            { id: 1, title: 'Algebra Worksheet', dueDate: '2025-09-15' },
+            { id: 2, title: 'History Essay: The Renaissance', dueDate: '2025-09-22' },
+            { id: 3, title: 'Science Fair Project Proposal', dueDate: '2025-10-01' },
+        ];
+        
+        let helpRequests = [];
+
+        // --- VIEWS & RENDERING ---
+        const views = {
+            'role-selection': document.getElementById('role-selection'),
+            'teacher': document.getElementById('teacher-view'),
+            'student': document.getElementById('student-view'),
+        };
+
+        let currentView = 'role-selection';
+
+        function switchView(viewName) {
+            views[currentView].classList.remove('active');
+            views[viewName].classList.add('active');
+            currentView = viewName;
+            
+            if (viewName === 'teacher') renderTeacherView();
+            if (viewName === 'student') renderStudentView();
+        }
+        
+        function renderTeacherView() {
+            renderTeacherStudentList();
+            renderTeacherAssignmentList();
+            renderHelpRequests();
+        }
+        
+        function renderStudentView() {
+            // For simplicity, we'll always show the dashboard for the first student, Alice.
+            const currentStudent = students[0];
+            document.getElementById('student-name').textContent = currentStudent.name;
+            renderStudentAssignmentList(currentStudent);
+            renderStudentScoresList();
+        }
+
+        function renderTeacherStudentList() {
+            const list = document.getElementById('teacher-student-list');
+            list.innerHTML = students.map(s => `
+                <li class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                    <span class="font-medium">${s.name}</span>
+                    <span class="text-sm font-semibold text-gray-600 bg-gray-200 px-3 py-1 rounded-full">${s.score} / 100</span>
+                </li>
+            `).join('');
+        }
+
+        function renderTeacherAssignmentList() {
+            const list = document.getElementById('teacher-assignment-list');
+            list.innerHTML = assignments.map(a => `
+                <div class="p-4 border border-gray-200 rounded-lg">
+                    <h3 class="font-semibold text-lg">${a.title}</h3>
+                    <p class="text-sm text-gray-500">Due: ${new Date(a.dueDate).toLocaleDateString()}</p>
+                </div>
+            `).join('');
+        }
+        
+        function renderHelpRequests() {
+            const list = document.getElementById('help-requests-list');
+            if (helpRequests.length === 0) {
+                 list.innerHTML = `<li class="text-gray-500 italic">No help requests at the moment.</li>`;
+                 return;
+            }
+            list.innerHTML = helpRequests.map((req, index) => `
+                <li class="flex justify-between items-center p-3 bg-yellow-100 border border-yellow-200 rounded-lg">
+                    <div>
+                        <span class="font-semibold">${req.studentName}</span>
+                        <span class="text-sm text-yellow-800"> needs help.</span>
+                    </div>
+                    <button onclick="resolveHelpRequest(${index})" class="text-sm bg-green-200 text-green-800 font-semibold py-1 px-3 rounded-full hover:bg-green-300">Resolve</button>
+                </li>
+            `).join('');
+        }
+        
+        function renderStudentAssignmentList(student) {
+             const list = document.getElementById('student-assignment-list');
+             list.innerHTML = assignments.map(a => `
+                <div class="p-4 border border-gray-200 rounded-lg flex justify-between items-center">
+                    <div>
+                        <h3 class="font-semibold text-lg">${a.title}</h3>
+                        <p class="text-sm text-gray-500">Due: ${new Date(a.dueDate).toLocaleDateString()}</p>
+                    </div>
+                    <div class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-1 rounded-full">In Progress</div>
+                </div>
+            `).join('');
+        }
+        
+        function renderStudentScoresList() {
+             const list = document.getElementById('student-scores-list');
+             list.innerHTML = students.map(s => `
+                <li class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                    <span class="font-medium">${s.name}</span>
+                    <span class="text-lg font-bold text-green-600">${s.score}</span>
+                </li>
+            `).join('');
+        }
+
+
+        // --- ACTIONS ---
+        function requestHelp() {
+            // Assuming the current student is Alice
+            const studentName = students[0].name;
+            helpRequests.push({ studentName });
+            
+            showSuccessMessage();
+            // In a real app, you would also update the teacher's view in real-time.
+            // For this demo, the teacher will see it on the next render.
+        }
+        
+        function resolveHelpRequest(index) {
+            helpRequests.splice(index, 1);
+            renderHelpRequests();
+        }
+
+        document.getElementById('add-assignment-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const title = document.getElementById('assignment-title').value;
+            const dueDate = document.getElementById('assignment-due-date').value;
+            
+            if (title && dueDate) {
+                const newAssignment = {
+                    id: assignments.length + 1,
+                    title,
+                    dueDate,
+                };
+                assignments.push(newAssignment);
+                
+                renderTeacherAssignmentList();
+                closeModal('add-assignment-modal');
+                this.reset();
+            }
+        });
+        
+        // --- UTILITIES ---
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.remove('hidden');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+        
+        function showSuccessMessage() {
+            const message = document.getElementById('success-message');
+            message.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                message.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // --- INITIALIZATION ---
+        function init() {
+            switchView('role-selection');
+        }
+
+        init();
+    </script>
 </body>
 </html>
 
