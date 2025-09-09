@@ -139,6 +139,28 @@
             </form>
         </div>
     </div>
+
+    <!-- Edit Assignment Modal -->
+    <div id="edit-assignment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
+            <h2 class="text-2xl font-bold mb-6">Edit Assignment</h2>
+            <form id="edit-assignment-form">
+                <input type="hidden" id="assignment-original-id-edit">
+                <div class="mb-4">
+                    <label for="assignment-title-edit" class="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                    <input type="text" id="assignment-title-edit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
+                </div>
+                <div class="mb-6">
+                    <label for="assignment-due-date-edit" class="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                    <input type="date" id="assignment-due-date-edit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
+                </div>
+                <div class="flex justify-end gap-4">
+                    <button type="button" onclick="closeModal('edit-assignment-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
+                    <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
     
     <!-- Add Student Modal -->
     <div id="add-student-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
@@ -320,8 +342,16 @@
             const list = document.getElementById('teacher-assignment-list');
             list.innerHTML = assignments.map(a => `
                 <div class="p-4 border border-gray-200 rounded-lg">
-                    <h3 class="font-semibold text-lg">${a.title}</h3>
-                    <p class="text-sm text-gray-500">Due: ${new Date(a.dueDate).toLocaleDateString()}</p>
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="font-semibold text-lg">${a.title}</h3>
+                            <p class="text-sm text-gray-500">Due: ${new Date(a.dueDate).toLocaleDateString()}</p>
+                        </div>
+                        <div class="flex items-center gap-3 mt-1">
+                            <button onclick="openEditAssignmentModal(${a.id})" class="text-sm text-blue-600 hover:text-blue-800 font-medium">Edit</button>
+                            <button onclick="confirmDeleteAssignment(${a.id})" class="text-sm text-red-600 hover:text-red-800 font-medium">Delete</button>
+                        </div>
+                    </div>
                 </div>
             `).join('');
         }
@@ -391,6 +421,23 @@
             showSuccessMessage('Student deleted successfully.');
         }
 
+        function confirmDeleteAssignment(assignmentId) {
+            const assignment = assignments.find(a => a.id === assignmentId);
+            if (assignment) {
+                document.getElementById('confirmation-message').textContent = `Are you sure you want to delete the assignment "${assignment.title}"? This action cannot be undone.`;
+                confirmAction = () => deleteAssignment(assignmentId);
+                openModal('confirmation-modal');
+            }
+        }
+
+        function deleteAssignment(assignmentId) {
+            assignments = assignments.filter(a => a.id !== assignmentId);
+            saveData();
+            renderTeacherAssignmentList();
+            renderStudentView(); 
+            closeModal('confirmation-modal');
+            showSuccessMessage('Assignment deleted successfully.');
+        }
 
         document.getElementById('add-assignment-form').addEventListener('submit', function(e) {
             e.preventDefault();
@@ -408,6 +455,26 @@
                 renderTeacherAssignmentList();
                 closeModal('add-assignment-modal');
                 this.reset();
+            }
+        });
+
+        document.getElementById('edit-assignment-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const originalId = parseInt(document.getElementById('assignment-original-id-edit').value, 10);
+            const title = document.getElementById('assignment-title-edit').value;
+            const dueDate = document.getElementById('assignment-due-date-edit').value;
+
+            if (title && dueDate) {
+                const assignmentIndex = assignments.findIndex(a => a.id === originalId);
+                if (assignmentIndex !== -1) {
+                    assignments[assignmentIndex].title = title;
+                    assignments[assignmentIndex].dueDate = dueDate;
+                }
+                saveData();
+                renderTeacherAssignmentList();
+                renderStudentView();
+                closeModal('edit-assignment-modal');
+                showSuccessMessage('Assignment updated successfully.');
             }
         });
 
@@ -506,6 +573,16 @@
                 document.getElementById('student-firstName-edit').value = student.firstName;
                 document.getElementById('student-lastName-edit').value = student.lastName;
                 openModal('edit-student-modal');
+            }
+        }
+
+        function openEditAssignmentModal(assignmentId) {
+            const assignment = assignments.find(a => a.id === assignmentId);
+            if (assignment) {
+                document.getElementById('assignment-original-id-edit').value = assignment.id;
+                document.getElementById('assignment-title-edit').value = assignment.title;
+                document.getElementById('assignment-due-date-edit').value = assignment.dueDate;
+                openModal('edit-assignment-modal');
             }
         }
         
