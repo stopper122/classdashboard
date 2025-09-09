@@ -523,16 +523,15 @@
             });
         };
 
-        let appInitialized = false;
         document.addEventListener('DOMContentLoaded', () => {
             renderUI(); // Initial render with loading state
             onAuthStateChanged(auth, (user) => {
-                if (user && !appInitialized) {
-                    appInitialized = true;
-                    // Initialize refs based on localStorage before starting listeners
-                    setupPeriodSpecificRefs();
-                    // User is signed in, start the app logic.
-                    startDataListeners();
+                if (user) {
+                    // Only initialize if the main listener is not already running
+                    if (!periodsUnsubscribe) {
+                        setupPeriodSpecificRefs();
+                        startDataListeners();
+                    }
                 } else if (!user) {
                     // User is signed out, sign them in anonymously.
                     signInAnonymously(auth).catch((error) => {
