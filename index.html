@@ -76,27 +76,15 @@
             if (periodsUnsubscribe) periodsUnsubscribe();
             
             periodsUnsubscribe = onSnapshot(periodsRef, (snapshot) => {
-                const previousPeriodId = state.currentPeriodId;
                 state.periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const currentPeriodStillExists = state.periods.some(p => p.id === state.currentPeriodId);
 
-                const isValidPeriod = state.periods.some(p => p.id === state.currentPeriodId);
-
-                if (!state.currentPeriodId || !isValidPeriod) {
-                    state.currentPeriodId = state.periods.length > 0 ? state.periods[0].id : null;
-                    if(state.currentPeriodId) {
-                        localStorage.setItem('currentPeriodId', state.currentPeriodId);
-                    } else {
-                        localStorage.removeItem('currentPeriodId');
-                    }
-                }
-                
-                if (state.currentPeriodId !== previousPeriodId) {
-                    setupPeriodSpecificRefs();
-                    startPeriodSpecificListeners();
+                if (!state.currentPeriodId || !currentPeriodStillExists) {
+                    const newPeriodId = state.periods.length > 0 ? state.periods[0].id : null;
+                    App.setPeriod(newPeriodId);
                 } else {
-                    renderUI(); // Just update the periods list if the selection hasn't changed
+                    renderUI();
                 }
-
             }, (error) => {
                 console.error("Error fetching periods:", error);
                 state.loading = false;
@@ -273,7 +261,12 @@
             setPeriod: (periodId) => {
                 const previousPeriodId = state.currentPeriodId;
                 state.currentPeriodId = periodId;
-                localStorage.setItem('currentPeriodId', periodId);
+
+                if (periodId) {
+                    localStorage.setItem('currentPeriodId', periodId);
+                } else {
+                    localStorage.removeItem('currentPeriodId');
+                }
 
                 if (state.currentPeriodId !== previousPeriodId) {
                     setupPeriodSpecificRefs();
@@ -424,6 +417,10 @@
                 viewHtml = ScoresView();
             }
 
+            const isPeriodSelected = !!state.currentPeriodId;
+            const buttonClasses = "text-white font-bold py-2 px-4 rounded";
+            const disabledClasses = "disabled:opacity-50 disabled:cursor-not-allowed";
+
             appDiv.innerHTML = `
                 <div class="min-h-screen bg-gray-100">
                     <nav class="bg-white shadow-md p-4 flex justify-between items-center flex-wrap">
@@ -441,12 +438,12 @@
                         </div>
                     </nav>
                     <div class="p-4 bg-gray-50 border-b border-t">
-                        <button onclick="App.addStudent()" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Add Student</button>
-                        <button onclick="App.addAssignment()" class="ml-2 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Add Assignment</button>
-                        <button onclick="App.addEmptySeat()" class="ml-2 bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Add Empty Seat</button>
-                        <button onclick="App.clearAllRequests()" class="ml-2 bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded">Clear All Requests</button>
-                        <button onclick="App.deleteAllStudents()" class="ml-2 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">Delete All Students</button>
-                        <button onclick="App.clearAllData()" class="ml-2 bg-red-700 hover:bg-red-900 text-white font-bold py-2 px-4 rounded">Clear All Data</button>
+                        <button onclick="App.addStudent()"      class="bg-green-500 hover:bg-green-700 ${buttonClasses} ${disabledClasses}" ${!isPeriodSelected ? 'disabled' : ''}>Add Student</button>
+                        <button onclick="App.addAssignment()"   class="ml-2 bg-green-500 hover:bg-green-700 ${buttonClasses} ${disabledClasses}" ${!isPeriodSelected ? 'disabled' : ''}>Add Assignment</button>
+                        <button onclick="App.addEmptySeat()"    class="ml-2 bg-gray-500 hover:bg-gray-700 ${buttonClasses} ${disabledClasses}" ${!isPeriodSelected ? 'disabled' : ''}>Add Empty Seat</button>
+                        <button onclick="App.clearAllRequests()"class="ml-2 bg-yellow-500 hover:bg-yellow-700 ${buttonClasses} ${disabledClasses}" ${!isPeriodSelected ? 'disabled' : ''}>Clear All Requests</button>
+                        <button onclick="App.deleteAllStudents()" class="ml-2 bg-red-500 hover:bg-red-700 ${buttonClasses} ${disabledClasses}" ${!isPeriodSelected ? 'disabled' : ''}>Delete All Students</button>
+                        <button onclick="App.clearAllData()"    class="ml-2 bg-red-700 hover:bg-red-900 ${buttonClasses} ${disabledClasses}" ${!isPeriodSelected ? 'disabled' : ''}>Clear All Data</button>
                     </div>
                     ${viewHtml}
                 </div>
