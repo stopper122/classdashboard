@@ -352,7 +352,7 @@
 
         const ScoresView = () => {
             const sortedAssignments = [...state.assignments].sort((a, b) => (a.assignmentNumber || 0) - (b.assignmentNumber || 0));
-            const activeStudents = state.students.filter(s => s.isActive).sort((a, b) => a.lastName.localeCompare(b.lastName));
+            const activeStudents = state.students.filter(s => s.isActive && s.lastName).sort((a, b) => a.lastName.localeCompare(b.lastName));
 
             return `
                 <div class="p-4">
@@ -563,4 +563,5 @@
     <div id="app"></div>
 </body>
 </html>
+
 
