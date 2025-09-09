@@ -18,354 +18,201 @@
   authDomain: "helprequest-469c0.firebaseapp.com",
   projectId: "helprequest-469c0",
   storageBucket: "helprequest-469c0.firebasestorage.app",
-  messagingSenderId: "1092775554304",
-  appId: "1:1092775554304:web:e771c3ebac1e6ba4f597e5"
+  messagingSenderId: "362143493922",
+  appId: "1:362143493922:web:763262a5b658145a538260",
+  measurementId: "G-L5S59L4JSP"
 };
-        setLogLevel('debug');
 
-        let auth, db;
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        signInAnonymously(auth);
+
         let state = {
             student: null,
             assignments: [],
+            scores: [],
             requests: [],
             loading: true,
-            assignmentSortOption: 'postedDateDesc',
-            showClearModal: false,
+            sortBy: 'date' // 'date' or 'score'
         };
 
-        const app = initializeApp(firebaseConfig);
-        db = getFirestore(app);
-        auth = getAuth(app);
-        
-        const urlParams = new URLSearchParams(window.location.search);
-        const studentIdFromUrl = urlParams.get('studentId');
-        const publicDataPath = `artifacts/${appId}/public/data`;
-        let assignmentUnsubscribe, requestUnsubscribe;
-        let initialLoadCompleted = { student: false, assignments: false, requests: false };
+        let publicDataPath;
+        let studentUnsubscribe = null;
+        let assignmentsUnsubscribe = null;
+        let scoresUnsubscribe = null;
+        let requestUnsubscribe = null;
 
-        function sortAssignments() {
-            let sorted = [...state.assignments];
-            if (state.assignmentSortOption === 'postedDateAsc') {
-                return sorted.sort((a, b) => {
-                    const dateA = a.datePosted ? new Date(a.datePosted).getTime() : Infinity;
-                    const dateB = b.datePosted ? new Date(b.datePosted).getTime() : Infinity;
-                    return dateA - dateB;
-                });
-            } else if (state.assignmentSortOption === 'postedDateDesc') {
-                 return sorted.sort((a, b) => {
-                    const dateA = a.datePosted ? new Date(a.datePosted).getTime() : Infinity;
-                    const dateB = b.datePosted ? new Date(b.datePosted).getTime() : Infinity;
-                    return dateB - dateA;
-                });
-            } else if (state.assignmentSortOption === 'scoreAsc') {
-                return sorted.sort((a, b) => {
-                    const completionA = a.completions.find(c => c.studentId === state.student.studentId);
-                    const completionB = b.completions.find(c => c.studentId === state.student.studentId);
-                    
-                    let valueA;
-                    if (completionA?.isExcused) {
-                        valueA = 6;
-                    } else if (completionA?.score) {
-                        valueA = completionA.score;
-                    } else {
-                        valueA = 5;
-                    }
-                    
-                    let valueB;
-                    if (completionB?.isExcused) {
-                        valueB = 6;
-                    } else if (completionB?.score) {
-                        valueB = completionB.score;
-                    } else {
-                        valueB = 5;
-                    }
-                    
-                    return valueA - valueB;
-                });
-            } else if (state.assignmentSortOption === 'scoreDesc') {
-                return sorted.sort((a, b) => {
-                    const completionA = a.completions.find(c => c.studentId === state.student.studentId);
-                    const completionB = b.completions.find(c => c.studentId === state.student.studentId);
-                    
-                    let valueA;
-                    if (completionA?.isExcused) {
-                        valueA = -2;
-                    } else if (completionA?.score) {
-                        valueA = completionA.score;
-                    } else {
-                        valueA = -1;
-                    }
-                    
-                    let valueB;
-                    if (completionB?.isExcused) {
-                        valueB = -2;
-                    } else if (completionB?.score) {
-                        valueB = completionB.score;
-                    } else {
-                        valueB = -1;
-                    }
-                    
-                    return valueB - valueA;
-                });
+        const requestHelp = async (assignmentId) => {
+            await addDoc(collection(db, `${publicDataPath}/requests`), {
+                studentId: state.student.id,
+                assignmentId: assignmentId,
+                type: 'help',
+                timestamp: new Date()
+            });
+        };
+
+        const requestCheck = async (assignmentId) => {
+            await addDoc(collection(db, `${publicDataPath}/requests`), {
+                studentId: state.student.id,
+                assignmentId: assignmentId,
+                type: 'check',
+                timestamp: new Date()
+            });
+        };
+
+        const clearRequest = async (assignmentId) => {
+            const request = state.requests.find(r => r.assignmentId === assignmentId);
+            if (request) {
+                await deleteDoc(doc(db, `${publicDataPath}/requests/${request.id}`));
             }
-            return sorted;
-        }
+        };
 
-        function checkAndRender() {
-            if (initialLoadCompleted.student && initialLoadCompleted.assignments && initialLoadCompleted.requests) {
-                state.loading = false;
+        window.App = {
+            requestHelp,
+            requestCheck,
+            clearRequest,
+            setSortBy: (sortBy) => {
+                state.sortBy = sortBy;
                 renderUI();
             }
-        }
+        };
 
-        function renderAssignmentCard(a) {
-            const completion = a.completions.find(c => c.studentId === state.student.studentId);
-            const score = completion ? completion.score : null;
-            const isExcused = completion ? completion.isExcused : false;
-            
-            const hasHelpRequest = state.requests.some(r => r.assignmentId === a.id && r.type === 'help');
-            const hasCheckRequest = state.requests.some(r => r.assignmentId === a.id && r.type === 'check');
-            
-            const helpQueuePosition = hasHelpRequest ? state.requests.filter(r => r.type === 'help').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).findIndex(r => r.studentId === state.student.studentId && r.assignmentId === a.id) + 1 : null;
-            const checkQueuePosition = hasCheckRequest ? state.requests.filter(r => r.type === 'check').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).findIndex(r => r.studentId === state.student.studentId && r.assignmentId === a.id) + 1 : null;
-
-            let statusBadge;
-            if (isExcused) {
-                statusBadge = `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">Excused</span>`;
-            } else if (score !== null) {
-                const colors = { 1: 'red', 2: 'orange', 3: 'yellow', 4: 'green' };
-                const color = colors[score] || 'gray';
-                statusBadge = `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-${color}-100 text-${color}-800">Score: ${score}</span>`;
-            } else {
-                statusBadge = `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">Not Graded</span>`;
-            }
-            
-            const helpButtonClasses = hasHelpRequest ? 'bg-red-700 text-white hover:bg-red-800' : 'bg-gray-300 text-gray-800 hover:bg-gray-400';
-            const checkButtonClasses = hasCheckRequest ? 'bg-blue-700 text-white hover:bg-blue-800' : 'bg-gray-300 text-gray-800 hover:bg-gray-400';
-
-            const descriptionHtml = a.description ? `<p class="mt-2 text-gray-700">${a.description}</p>` : '';
-
-            return `
-                <div class="bg-white p-6 rounded-lg shadow-md border-b border-gray-200">
-                    <div class="flex items-start justify-between mb-2">
-                        <div>
-                            <h3 class="text-xl font-bold text-gray-800">${a.title}</h3>
-                            <p class="text-sm text-gray-500">Posted: ${a.datePosted ? new Date(a.datePosted).toLocaleDateString() : 'N/A'}</p>
-                            ${descriptionHtml}
-                        </div>
-                        ${statusBadge}
-                    </div>
-                    <div class="flex space-x-2 mt-4">
-                        <button class="flex-1 font-semibold text-xs py-1 px-2 rounded-lg transition-colors duration-200 ${helpButtonClasses}"
-                                onclick="handleRequest('help', '${a.id}')" ${hasHelpRequest || hasCheckRequest || isExcused ? 'disabled' : ''}>
-                            ${hasHelpRequest ? `Help Requested (#${helpQueuePosition})` : 'Request Help'}
-                        </button>
-                        <button class="flex-1 font-semibold text-xs py-1 px-2 rounded-lg transition-colors duration-200 ${checkButtonClasses}"
-                                onclick="handleRequest('check', '${a.id}')" ${hasCheckRequest || hasHelpRequest || isExcused ? 'disabled' : ''}>
-                            ${hasCheckRequest ? `Check Requested (#${checkQueuePosition})` : 'Request Check'}
-                        </button>
-                    </div>
-                    ${(hasHelpRequest || hasCheckRequest) ? `
-                        <button class="w-full mt-2 bg-gray-300 text-gray-800 font-semibold text-sm py-1 px-2 rounded-lg hover:bg-gray-400 transition-colors duration-200"
-                                onclick="clearRequest('${a.id}')">
-                            Clear My Request
-                        </button>
-                    ` : ''}
-                </div>
-            `;
-        }
-        
-        function renderLogin() {
-            const app = document.getElementById('app');
-            app.innerHTML = `
-                <div class="flex items-center justify-center min-h-screen bg-gray-100">
-                    <div class="p-8 bg-white rounded-xl shadow-lg w-full max-w-lg text-center">
-                        <h2 class="text-2xl font-bold text-gray-800 mb-4">Student Login</h2>
-                        <form id="student-login-form" class="flex flex-col space-y-4">
-                            ${!studentIdFromUrl ? '' : `<p id="login-message" class="mt-4 text-red-500">Student not found. Please check your link.</p>`}
-                            <input type="text" id="student-id" placeholder="Your Student ID"
-                                class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <button type="submit" class="bg-red-600 text-white font-bold py-2 rounded-lg hover:bg-red-700 transition-colors duration-200">
-                                Log In
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            `;
-            document.getElementById('student-login-form').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const studentId = document.getElementById('student-id').value;
-                window.location.href = `?studentId=${studentId}`;
-            });
-        }
-        
-        function attachEventListeners() {
-             document.querySelectorAll('input[name="assignment-sort-option"]').forEach(radio => {
-                radio.addEventListener('change', (e) => {
-                    state.assignmentSortOption = e.target.value;
-                    renderUI();
-                });
-            });
-            document.getElementById('clear-progress-btn').addEventListener('click', () => {
-                state.showClearModal = true;
-                renderUI();
-            });
-            const modalConfirmBtn = document.getElementById('modal-confirm-btn');
-            if (modalConfirmBtn) {
-                modalConfirmBtn.addEventListener('click', handleClearStudentProgress);
-            }
-            const modalCancelBtn = document.getElementById('modal-cancel-btn');
-            if (modalCancelBtn) {
-                modalCancelBtn.addEventListener('click', () => {
-                    state.showClearModal = false;
-                    renderUI();
-                });
-            }
-        }
-        
-        function renderUI() {
-            const app = document.getElementById('app');
-
+        const renderUI = () => {
+            const appDiv = document.getElementById('app');
             if (state.loading) {
-                app.innerHTML = `<div class="flex items-center justify-center h-screen"><div class="text-xl font-semibold">Loading...</div></div>`;
+                appDiv.innerHTML = `<div class="p-4">Loading student data...</div>`;
                 return;
             }
 
             if (!state.student) {
-                renderLogin();
+                appDiv.innerHTML = `<div class="p-4">Student not found.</div>`;
                 return;
             }
             
-            const sortedAssignments = sortAssignments();
+            let sortedAssignments = [...state.assignments];
 
-            app.innerHTML = `
-                <div class="min-h-screen bg-gray-100 p-4 font-sans">
-                    <div class="max-w-4xl mx-auto bg-white p-6 rounded-xl shadow-lg">
-                        <div class="flex justify-between items-center mb-6">
-                            <h1 class="text-3xl font-bold text-gray-800">Welcome, ${state.student.firstName} ${state.student.lastName}!</h1>
-                        </div>
-                        <p class="text-sm text-gray-500 mb-4">Student ID: ${state.student.studentId}</p>
+            if (state.sortBy === 'date') {
+                sortedAssignments.sort((a, b) => (b.assignmentNumber || 0) - (a.assignmentNumber || 0));
+            } else if (state.sortBy === 'score') {
+                sortedAssignments.sort((a, b) => {
+                    const scoreA = state.scores.find(s => s.assignmentId === a.id);
+                    const scoreB = state.scores.find(s => s.assignmentId === b.id);
+                    const valA = scoreA ? (typeof scoreA.score === 'number' ? scoreA.score : -1) : -1;
+                    const valB = scoreB ? (typeof scoreB.score === 'number' ? scoreB.score : -1) : -1;
+                    return valB - valA;
+                });
+            }
 
-                        <div class="flex items-center space-x-4 mb-4">
-                            <span class="text-sm font-medium text-gray-700">Sort By:</span>
-                            <div class="flex items-center space-x-2">
-                                <label class="inline-flex items-center" title="Sort by Posted Date (Ascending)">
-                                    <input type="radio" name="assignment-sort-option" value="postedDateAsc" class="form-radio" ${state.assignmentSortOption === 'postedDateAsc' ? 'checked' : ''}>
-                                    <span class="ml-2 text-gray-700">Date &uarr;</span>
-                                </label>
-                                <label class="inline-flex items-center" title="Sort by Posted Date (Descending)">
-                                    <input type="radio" name="assignment-sort-option" value="postedDateDesc" class="form-radio" ${state.assignmentSortOption === 'postedDateDesc' ? 'checked' : ''}>
-                                    <span class="ml-2 text-gray-700">Date &darr;</span>
-                                </label>
-                                <label class="inline-flex items-center" title="Sort by Score (Ascending)">
-                                    <input type="radio" name="assignment-sort-option" value="scoreAsc" class="form-radio" ${state.assignmentSortOption === 'scoreAsc' ? 'checked' : ''}>
-                                    <span class="ml-2 text-gray-700">Score &uarr;</span>
-                                </label>
-                                <label class="inline-flex items-center" title="Sort by Score (Descending)">
-                                    <input type="radio" name="assignment-sort-option" value="scoreDesc" class="form-radio" ${state.assignmentSortOption === 'scoreDesc' ? 'checked' : ''}>
-                                    <span class="ml-2 text-gray-700">Score &darr;</span>
-                                </label>
-                            </div>
-                        </div>
 
-                        <div class="space-y-4">
-                            ${sortedAssignments.map(renderAssignmentCard).join('')}
+            const helpQueue = state.requests.filter(r => r.type === 'help').sort((a, b) => a.timestamp - b.timestamp);
+            const checkQueue = state.requests.filter(r => r.type === 'check').sort((a, b) => a.timestamp - b.timestamp);
+
+            appDiv.innerHTML = `
+                <div class="container mx-auto p-4">
+                    <div class="flex justify-between items-center mb-4">
+                         <h1 class="text-3xl font-bold">Welcome, ${state.student.firstName} ${state.student.lastName}</h1>
+                        <div>
+                            <label for="sort" class="mr-2">Sort by:</label>
+                            <select id="sort" onchange="App.setSortBy(this.value)" class="p-2 rounded border">
+                                <option value="date" ${state.sortBy === 'date' ? 'selected' : ''}>Assignment Number</option>
+                                <option value="score" ${state.sortBy === 'score' ? 'selected' : ''}>Score</option>
+                            </select>
                         </div>
-                        <button id="clear-progress-btn" class="mt-4 w-full bg-red-500 text-white font-bold py-2 rounded-lg hover:bg-red-600 transition-colors duration-200">Clear All My Progress</button>
                     </div>
-                </div>
-                <!-- Confirmation Modal for Clearing Data -->
-                <div id="clear-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full ${state.showClearModal ? '' : 'hidden'}">
-                    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-                        <div class="mt-3 text-center">
-                            <h3 class="text-lg leading-6 font-medium text-gray-900">Confirm Deletion</h3>
-                            <div class="mt-2 px-7 py-3">
-                                <p class="text-sm text-gray-500">Are you sure you want to clear all your progress? This will delete all your scores and requests. This action cannot be undone.</p>
-                            </div>
-                            <div class="items-center px-4 py-3">
-                                <button id="modal-confirm-btn" class="px-4 py-2 bg-red-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
-                                    Confirm
-                                </button>
-                                <button id="modal-cancel-btn" class="mt-2 px-4 py-2 bg-gray-300 text-gray-800 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500">
-                                    Cancel
-                                </button>
-                            </div>
-                        </div>
+                   
+                    <div class="space-y-4">
+                        ${sortedAssignments.map(assignment => {
+                            const score = state.scores.find(s => s.assignmentId === assignment.id);
+                            const helpRequest = helpQueue.find(r => r.assignmentId === assignment.id);
+                            const checkRequest = checkQueue.find(r => r.assignmentId === assignment.id);
+                            const helpQueuePosition = helpQueue.findIndex(r => r.assignmentId === assignment.id) + 1;
+                            const checkQueuePosition = checkQueue.findIndex(r => r.assignmentId === assignment.id) + 1;
+
+                            let scoreDisplay = '<span class="text-gray-500">Not Graded</span>';
+                            if (score) {
+                                if (score.score === 'Excused') {
+                                    scoreDisplay = `<span class="text-blue-500">${score.score}</span>`;
+                                } else if (typeof score.score === 'number') {
+                                    scoreDisplay = `<span class="font-bold">${score.score}%</span>`;
+                                }
+                            }
+                            
+                            return `
+                                <div class="bg-white p-4 rounded-lg shadow-md flex justify-between items-center">
+                                    <div>
+                                        <h2 class="text-xl font-semibold">${assignment.assignmentNumber}. ${assignment.name}</h2>
+                                        <p class="text-lg">${scoreDisplay}</p>
+                                    </div>
+                                    <div>
+                                        ${helpRequest ? `
+                                            <button onclick="App.clearRequest('${assignment.id}')" class="bg-yellow-500 text-white font-bold py-2 px-4 rounded">Help Requested (#${helpQueuePosition})</button>
+                                        ` : `
+                                            <button onclick="App.requestHelp('${assignment.id}')" class="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded">Request Help</button>
+                                        `}
+                                        ${checkRequest ? `
+                                            <button onclick="App.clearRequest('${assignment.id}')" class="bg-green-600 text-white font-bold py-2 px-4 rounded">Check Requested (#${checkQueuePosition})</button>
+                                        ` : `
+                                            <button onclick="App.requestCheck('${assignment.id}')" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded">Request Check</button>
+                                        `}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
                     </div>
                 </div>
             `;
-            
-            attachEventListeners();
-        }
+        };
 
-        async function handleRequest(type, assignmentId) {
-            const requestsRef = collection(db, `${publicDataPath}/requests`);
-            const studentId = state.student.studentId;
-            const periodId = state.student.periodId;
-            const existingRequest = state.requests.find(r => r.assignmentId === assignmentId && r.type === type);
-            
-            if (!existingRequest) {
-                await addDoc(requestsRef, {
-                    studentId,
-                    periodId,
-                    assignmentId,
-                    type,
-                    timestamp: new Date().toISOString()
-                });
-            }
-        }
-        window.handleRequest = handleRequest;
+        const startDataListeners = () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const studentIdFromUrl = urlParams.get('student');
+            const periodIdFromUrl = urlParams.get('period');
 
-        async function clearRequest(assignmentId) {
-            const requestsRef = collection(db, `${publicDataPath}/requests`);
-            const requestToDelete = state.requests.find(r => r.assignmentId === assignmentId);
-            
-            if (requestToDelete) {
-                await deleteDoc(doc(requestsRef, requestToDelete.id));
-            }
-        }
-        window.clearRequest = clearRequest;
-        
-        async function handleClearStudentProgress() {
-            state.showClearModal = false;
-            await runTransaction(db, async (transaction) => {
-                const requestsToDelete = state.requests.filter(r => r.studentId === state.student.studentId);
-                for (const request of requestsToDelete) {
-                    transaction.delete(doc(db, `${publicDataPath}/requests`, request.id));
-                }
-
-                const assignmentsToUpdate = state.assignments.filter(a => a.completions.some(c => c.studentId === state.student.studentId));
-                for (const assignment of assignmentsToUpdate) {
-                    const updatedCompletions = assignment.completions.filter(c => c.studentId !== state.student.studentId);
-                    const assignmentRef = doc(db, `${publicDataPath}/assignments`, assignment.id);
-                    transaction.update(assignmentRef, { completions: updatedCompletions });
-                }
-            });
-            renderUI();
-        }
-        window.handleClearStudentProgress = handleClearStudentProgress;
-        
-        async function startDataListeners() {
-            if (!studentIdFromUrl) {
+            if (!studentIdFromUrl || !periodIdFromUrl) {
                 state.loading = false;
                 renderUI();
                 return;
             }
 
-            await signInAnonymously(auth);
+            publicDataPath = `publicData/${appId}/${periodIdFromUrl}`;
+            const studentRef = doc(db, `${publicDataPath}/students/${studentIdFromUrl}`);
+            
+            let initialLoadCompleted = {
+                student: false,
+                assignments: false,
+                scores: false,
+                requests: false
+            };
 
-            // Listen for student changes
-            const studentQuery = query(collection(db, `${publicDataPath}/students`), where('studentId', '==', studentIdFromUrl));
-            onSnapshot(studentQuery, (studentSnapshot) => {
-                if (!studentSnapshot.empty) {
-                    const studentDoc = studentSnapshot.docs[0];
-                    state.student = { id: studentDoc.id, ...studentDoc.data() };
+            const checkAndRender = () => {
+                if (Object.values(initialLoadCompleted).every(v => v)) {
+                    state.loading = false;
+                    renderUI();
+                }
+            };
+
+            studentUnsubscribe = onSnapshot(studentRef, (doc) => {
+                if (doc.exists()) {
+                    state.student = { id: doc.id, ...doc.data() };
                     
-                    if (!assignmentUnsubscribe) {
-                        assignmentUnsubscribe = onSnapshot(query(collection(db, `${publicDataPath}/assignments`), where('periodId', '==', state.student.periodId)), (assignmentsSnapshot) => {
+                    if (!assignmentsUnsubscribe) {
+                        assignmentsUnsubscribe = onSnapshot(collection(db, `${publicDataPath}/assignments`), (assignmentsSnapshot) => {
                             state.assignments = assignmentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                             if (!initialLoadCompleted.assignments) {
                                 initialLoadCompleted.assignments = true;
+                                checkAndRender();
+                            } else {
+                                renderUI();
+                            }
+                        });
+                    }
+
+                    if (!scoresUnsubscribe) {
+                        scoresUnsubscribe = onSnapshot(query(collection(db, `${publicDataPath}/scores`), where('studentId', '==', studentIdFromUrl)), (scoresSnapshot) => {
+                            state.scores = scoresSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                            if (!initialLoadCompleted.scores) {
+                                initialLoadCompleted.scores = true;
                                 checkAndRender();
                             } else {
                                 renderUI();
