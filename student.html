@@ -8,25 +8,23 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, onSnapshot, collection, query, where, addDoc, deleteDoc, runTransaction, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, onSnapshot, collection, query, where, addDoc, deleteDoc, runTransaction, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // IMPORTANT: These global variables are provided by the canvas environment.
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = {
-  apiKey: "AIzaSyBX96xDY5ThDAZn-SckmsnfynMnQjvUc2I",
-  authDomain: "helprequest-469c0.firebaseapp.com",
-  projectId: "helprequest-469c0",
-  storageBucket: "helprequest-469c0.firebasestorage.app",
-  messagingSenderId: "362143493922",
-  appId: "1:362143493922:web:763262a5b658145a538260",
-  measurementId: "G-L5S59L4JSP"
-};
+          apiKey: "AIzaSyBX96xDY5ThDAZn-SckmsnfynMnQjvUc2I",
+          authDomain: "helprequest-469c0.firebaseapp.com",
+          projectId: "helprequest-469c0",
+          storageBucket: "helprequest-469c0.firebasestorage.app",
+          messagingSenderId: "362143493922",
+          appId: "1:362143493922:web:763262a5b658145a538260",
+          measurementId: "G-L5S59L4JSP"
+        };
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        signInAnonymously(auth);
 
         let state = {
             student: null,
@@ -38,33 +36,34 @@
         };
 
         let publicDataPath;
+        let requestsRef;
         let studentUnsubscribe = null;
         let assignmentsUnsubscribe = null;
         let scoresUnsubscribe = null;
         let requestUnsubscribe = null;
 
         const requestHelp = async (assignmentId) => {
-            await addDoc(collection(db, `${publicDataPath}/requests`), {
+            await addDoc(requestsRef, {
                 studentId: state.student.id,
                 assignmentId: assignmentId,
                 type: 'help',
-                timestamp: new Date()
+                timestamp: serverTimestamp()
             });
         };
 
         const requestCheck = async (assignmentId) => {
-            await addDoc(collection(db, `${publicDataPath}/requests`), {
+            await addDoc(requestsRef, {
                 studentId: state.student.id,
                 assignmentId: assignmentId,
                 type: 'check',
-                timestamp: new Date()
+                timestamp: serverTimestamp()
             });
         };
 
         const clearRequest = async (assignmentId) => {
             const request = state.requests.find(r => r.assignmentId === assignmentId);
             if (request) {
-                await deleteDoc(doc(db, `${publicDataPath}/requests/${request.id}`));
+                await deleteDoc(doc(requestsRef, request.id));
             }
         };
 
@@ -80,20 +79,22 @@
 
         const renderUI = () => {
             const appDiv = document.getElementById('app');
+            if (!appDiv) return;
+
             if (state.loading) {
-                appDiv.innerHTML = `<div class="p-4">Loading student data...</div>`;
+                appDiv.innerHTML = `<div class="p-4 text-center">Loading student data...</div>`;
                 return;
             }
 
             if (!state.student) {
-                appDiv.innerHTML = `<div class="p-4">Student not found.</div>`;
+                appDiv.innerHTML = `<div class="p-4 text-center">Student not found. Please check the URL.</div>`;
                 return;
             }
             
             let sortedAssignments = [...state.assignments];
 
             if (state.sortBy === 'date') {
-                sortedAssignments.sort((a, b) => (b.assignmentNumber || 0) - (a.assignmentNumber || 0));
+                sortedAssignments.sort((a, b) => (a.assignmentNumber || 0) - (b.assignmentNumber || 0));
             } else if (state.sortBy === 'score') {
                 sortedAssignments.sort((a, b) => {
                     const scoreA = state.scores.find(s => s.assignmentId === a.id);
@@ -105,13 +106,13 @@
             }
 
 
-            const helpQueue = state.requests.filter(r => r.type === 'help').sort((a, b) => a.timestamp - b.timestamp);
-            const checkQueue = state.requests.filter(r => r.type === 'check').sort((a, b) => a.timestamp - b.timestamp);
+            const helpQueue = state.requests.filter(r => r.type === 'help').sort((a, b) => a.timestamp.seconds - b.timestamp.seconds);
+            const checkQueue = state.requests.filter(r => r.type === 'check').sort((a, b) => a.timestamp.seconds - b.timestamp.seconds);
 
             appDiv.innerHTML = `
                 <div class="container mx-auto p-4">
-                    <div class="flex justify-between items-center mb-4">
-                         <h1 class="text-3xl font-bold">Welcome, ${state.student.firstName} ${state.student.lastName}</h1>
+                    <div class="flex justify-between items-center mb-4 flex-wrap">
+                         <h1 class="text-3xl font-bold mb-2 sm:mb-0">Welcome, ${state.student.firstName} ${state.student.lastName}</h1>
                         <div>
                             <label for="sort" class="mr-2">Sort by:</label>
                             <select id="sort" onchange="App.setSortBy(this.value)" class="p-2 rounded border">
@@ -132,28 +133,28 @@
                             let scoreDisplay = '<span class="text-gray-500">Not Graded</span>';
                             if (score) {
                                 if (score.score === 'Excused') {
-                                    scoreDisplay = `<span class="text-blue-500">${score.score}</span>`;
+                                    scoreDisplay = `<span class="text-blue-500 font-semibold">${score.score}</span>`;
                                 } else if (typeof score.score === 'number') {
-                                    scoreDisplay = `<span class="font-bold">${score.score}%</span>`;
+                                    scoreDisplay = `<span class="font-bold text-lg">${score.score}%</span>`;
                                 }
                             }
                             
                             return `
-                                <div class="bg-white p-4 rounded-lg shadow-md flex justify-between items-center">
-                                    <div>
+                                <div class="bg-white p-4 rounded-lg shadow-md flex justify-between items-center flex-wrap">
+                                    <div class="mb-2 sm:mb-0">
                                         <h2 class="text-xl font-semibold">${assignment.assignmentNumber}. ${assignment.name}</h2>
-                                        <p class="text-lg">${scoreDisplay}</p>
+                                        <p>${scoreDisplay}</p>
                                     </div>
-                                    <div>
+                                    <div class="flex space-x-2">
                                         ${helpRequest ? `
-                                            <button onclick="App.clearRequest('${assignment.id}')" class="bg-yellow-500 text-white font-bold py-2 px-4 rounded">Help Requested (#${helpQueuePosition})</button>
+                                            <button onclick="App.clearRequest('${assignment.id}')" class="bg-yellow-500 text-white font-bold py-2 px-4 rounded w-40 text-center">Help Requested (#${helpQueuePosition})</button>
                                         ` : `
-                                            <button onclick="App.requestHelp('${assignment.id}')" class="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded">Request Help</button>
+                                            <button onclick="App.requestHelp('${assignment.id}')" class="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded w-40 text-center">Request Help</button>
                                         `}
                                         ${checkRequest ? `
-                                            <button onclick="App.clearRequest('${assignment.id}')" class="bg-green-600 text-white font-bold py-2 px-4 rounded">Check Requested (#${checkQueuePosition})</button>
+                                            <button onclick="App.clearRequest('${assignment.id}')" class="bg-green-600 text-white font-bold py-2 px-4 rounded w-40 text-center">Check Requested (#${checkQueuePosition})</button>
                                         ` : `
-                                            <button onclick="App.requestCheck('${assignment.id}')" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded">Request Check</button>
+                                            <button onclick="App.requestCheck('${assignment.id}')" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded w-40 text-center">Request Check</button>
                                         `}
                                     </div>
                                 </div>
@@ -176,6 +177,7 @@
             }
 
             publicDataPath = `publicData/${appId}/${periodIdFromUrl}`;
+            requestsRef = collection(db, `${publicDataPath}/requests`);
             const studentRef = doc(db, `${publicDataPath}/students/${studentIdFromUrl}`);
             
             let initialLoadCompleted = {
@@ -185,7 +187,7 @@
                 requests: false
             };
 
-            const checkAndRender = () => {
+            const checkAllLoaded = () => {
                 if (Object.values(initialLoadCompleted).every(v => v)) {
                     state.loading = false;
                     renderUI();
@@ -197,54 +199,56 @@
                     state.student = { id: doc.id, ...doc.data() };
                     
                     if (!assignmentsUnsubscribe) {
-                        assignmentsUnsubscribe = onSnapshot(collection(db, `${publicDataPath}/assignments`), (assignmentsSnapshot) => {
-                            state.assignments = assignmentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                            if (!initialLoadCompleted.assignments) {
-                                initialLoadCompleted.assignments = true;
-                                checkAndRender();
-                            } else {
-                                renderUI();
-                            }
-                        });
+                        assignmentsUnsubscribe = onSnapshot(collection(db, `${publicDataPath}/assignments`), (snapshot) => {
+                            state.assignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                            initialLoadCompleted.assignments = true;
+                            checkAllLoaded();
+                        }, (error) => console.error(error));
                     }
 
                     if (!scoresUnsubscribe) {
-                        scoresUnsubscribe = onSnapshot(query(collection(db, `${publicDataPath}/scores`), where('studentId', '==', studentIdFromUrl)), (scoresSnapshot) => {
-                            state.scores = scoresSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                            if (!initialLoadCompleted.scores) {
-                                initialLoadCompleted.scores = true;
-                                checkAndRender();
-                            } else {
-                                renderUI();
-                            }
-                        });
+                        scoresUnsubscribe = onSnapshot(query(collection(db, `${publicDataPath}/scores`), where('studentId', '==', studentIdFromUrl)), (snapshot) => {
+                            state.scores = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                            initialLoadCompleted.scores = true;
+                            checkAllLoaded();
+                        }, (error) => console.error(error));
                     }
 
                     if (!requestUnsubscribe) {
-                        requestUnsubscribe = onSnapshot(query(collection(db, `${publicDataPath}/requests`), where('studentId', '==', studentIdFromUrl)), (requestsSnapshot) => {
-                            state.requests = requestsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                            if (!initialLoadCompleted.requests) {
-                                initialLoadCompleted.requests = true;
-                                checkAndRender();
-                            } else {
-                                renderUI();
-                            }
-                        });
+                        requestUnsubscribe = onSnapshot(query(collection(db, `${publicDataPath}/requests`), where('studentId', '==', studentIdFromUrl)), (snapshot) => {
+                            state.requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                            initialLoadCompleted.requests = true;
+                            checkAllLoaded();
+                        }, (error) => console.error(error));
                     }
                     
-                    if (!initialLoadCompleted.student) {
-                        initialLoadCompleted.student = true;
-                        checkAndRender();
-                    }
+                    initialLoadCompleted.student = true;
+                    checkAllLoaded();
                 } else {
                     state.student = null;
-                    state.loading = false;
-                    renderUI();
+                    initialLoadCompleted.student = true;
+                    checkAllLoaded();
                 }
-            });
+            }, (error) => console.error(error));
         }
+
+        const initializeAppAndData = async () => {
+            try {
+                await signInAnonymously(auth);
+                startDataListeners();
+            } catch (error) {
+                console.error("Error signing in:", error);
+                const appDiv = document.getElementById('app');
+                if(appDiv) {
+                     appDiv.innerHTML = `<div class="p-4 text-center text-red-500">Could not connect to the service.</div>`;
+                }
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeAppAndData();
+        });
         
-        startDataListeners();
     </script>
     <style>
         body {
