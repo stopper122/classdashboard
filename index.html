@@ -33,7 +33,7 @@
             assignments: [],
             requests: [],
             scores: [],
-            currentPeriodId: localStorage.getItem('currentPeriodId') || null,
+            currentPeriodId: null, // Start with null, determine after fetch
             currentView: localStorage.getItem('currentView') || 'layout',
             loading: true,
             editingAssignmentId: null,
@@ -87,60 +87,68 @@
                 return;
             }
             
-            renderUI(); // Render empty state before new data comes in
-
             studentsUnsubscribe = onSnapshot(query(studentsRef), (snapshot) => {
                 state.students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderUI();
-            }, (error) => { console.error("Error fetching students: ", error); renderUI(); });
+            }, (error) => { console.error("Error fetching students: ", error); });
 
             assignmentsUnsubscribe = onSnapshot(assignmentsRef, (snapshot) => {
                 state.assignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderUI();
-            }, (error) => { console.error("Error fetching assignments: ", error); renderUI(); });
+            }, (error) => { console.error("Error fetching assignments: ", error); });
 
             scoresUnsubscribe = onSnapshot(scoresRef, (snapshot) => {
                 state.scores = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderUI();
-            }, (error) => { console.error("Error fetching scores: ", error); renderUI(); });
+            }, (error) => { console.error("Error fetching scores: ", error); });
 
             requestsUnsubscribe = onSnapshot(requestsRef, (snapshot) => {
                 state.requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderUI();
-            }, (error) => { console.error("Error fetching requests: ", error); renderUI(); });
+            }, (error) => { console.error("Error fetching requests: ", error); });
         };
 
-        const initializeAppLogic = () => {
+        const initializeAppLogic = async () => {
             if (periodsUnsubscribe) return; // App is already initialized
 
-            periodsUnsubscribe = onSnapshot(periodsRef, (snapshot) => {
-                const wasLoading = state.loading;
-                const previousPeriodId = state.currentPeriodId;
-                state.periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            try {
+                // Step 1: Perform a one-time fetch to get the initial list of periods.
+                const periodsSnapshot = await getDocs(periodsRef);
+                state.periods = periodsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-                // Determine the correct period ID
-                let newPeriodId = localStorage.getItem('currentPeriodId');
-                if (!state.periods.some(p => p.id === newPeriodId)) {
-                    newPeriodId = state.periods.length > 0 ? state.periods[0].id : null;
-                }
-
-                state.currentPeriodId = newPeriodId;
+                // Step 2: Determine the correct current period based on local storage and fetched data.
+                const storedPeriodId = localStorage.getItem('currentPeriodId');
+                const periodExists = state.periods.some(p => p.id === storedPeriodId);
                 
-                // If this is the first time loading or the period has changed, set up listeners.
-                if (wasLoading || state.currentPeriodId !== previousPeriodId) {
-                   App.setPeriod(state.currentPeriodId, true);
-                }
+                state.currentPeriodId = (storedPeriodId && periodExists)
+                    ? storedPeriodId
+                    : (state.periods.length > 0 ? state.periods[0].id : null);
+                
+                // Step 3: Set up the period-specific data listeners for the determined period.
+                App.setPeriod(state.currentPeriodId, true);
 
-                // The app is loaded once we have processed the first period snapshot.
+                // Step 4: Now that initialization is complete, remove the loading screen.
                 state.loading = false;
                 renderUI();
-                
-            }, (error) => {
-                console.error("Critical Error: Could not load application data.", error);
+
+                // Step 5: Begin listening for any future changes to the list of periods.
+                periodsUnsubscribe = onSnapshot(periodsRef, (snapshot) => {
+                    state.periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    // If the currently selected period gets deleted, switch to the first available one.
+                    if (!state.periods.some(p => p.id === state.currentPeriodId)) {
+                        const newPeriodId = state.periods.length > 0 ? state.periods[0].id : null;
+                        App.setPeriod(newPeriodId, true);
+                    } else {
+                        renderUI(); // Re-render to update the dropdown list.
+                    }
+                });
+
+            } catch (error) {
+                console.error("Critical Error: Could not initialize application.", error);
                 state.loading = false;
                 state.error = "Could not load application data. Please refresh the page.";
                 renderUI();
-            });
+            }
         };
 
         const addPeriod = async () => {
@@ -322,6 +330,8 @@
                 if (hasChanged || forceUpdate) {
                     setupPeriodSpecificRefs();
                     startPeriodSpecificListeners();
+                } else {
+                    renderUI(); // Re-render if only the selection in the dropdown changes
                 }
             },
             deleteRequest: async (requestId) => {
