@@ -529,6 +529,8 @@
             onAuthStateChanged(auth, (user) => {
                 if (user && !appInitialized) {
                     appInitialized = true;
+                    // Initialize refs based on localStorage before starting listeners
+                    setupPeriodSpecificRefs();
                     // User is signed in, start the app logic.
                     startDataListeners();
                 } else if (!user) {
