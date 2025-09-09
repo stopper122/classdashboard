@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, onSnapshot, collection, query, where, addDoc, deleteDoc, runTransaction, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
@@ -106,8 +106,8 @@
             }
 
 
-            const helpQueue = state.requests.filter(r => r.type === 'help').sort((a, b) => a.timestamp.seconds - b.timestamp.seconds);
-            const checkQueue = state.requests.filter(r => r.type === 'check').sort((a, b) => a.timestamp.seconds - b.timestamp.seconds);
+            const helpQueue = state.requests.filter(r => r.type === 'help' && r.timestamp).sort((a, b) => a.timestamp.seconds - b.timestamp.seconds);
+            const checkQueue = state.requests.filter(r => r.type === 'check' && r.timestamp).sort((a, b) => a.timestamp.seconds - b.timestamp.seconds);
 
             appDiv.innerHTML = `
                 <div class="container mx-auto p-4">
@@ -232,21 +232,22 @@
             }, (error) => console.error(error));
         }
 
-        const initializeAppAndData = async () => {
-            try {
-                await signInAnonymously(auth);
-                startDataListeners();
-            } catch (error) {
-                console.error("Error signing in:", error);
-                const appDiv = document.getElementById('app');
-                if(appDiv) {
-                     appDiv.innerHTML = `<div class="p-4 text-center text-red-500">Could not connect to the service.</div>`;
-                }
-            }
-        };
-
         document.addEventListener('DOMContentLoaded', () => {
-            initializeAppAndData();
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    // User is signed in.
+                    startDataListeners();
+                } else {
+                    // User is signed out, sign them in anonymously.
+                    signInAnonymously(auth).catch((error) => {
+                        console.error("Anonymous sign in failed:", error);
+                        const appDiv = document.getElementById('app');
+                        if(appDiv) {
+                             appDiv.innerHTML = `<div class="p-4 text-center text-red-500">Could not connect to the service.</div>`;
+                        }
+                    });
+                }
+            });
         });
         
     </script>
@@ -262,3 +263,4 @@
     <div id="app"></div>
 </body>
 </html>
+
