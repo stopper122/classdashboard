@@ -229,21 +229,44 @@
 
     <script>
         // --- DATA ---
-        let students = [
-            { id: 1, firstName: 'Alice', lastName: 'Smith' },
-            { id: 2, firstName: 'Bob', lastName: 'Johnson' },
-            { id: 3, firstName: 'Charlie', lastName: 'Brown' },
-            { id: 4, firstName: 'Diana', lastName: 'Prince' },
-        ];
-
-        let assignments = [
-            { id: 1, title: 'Algebra Worksheet', dueDate: '2025-09-15' },
-            { id: 2, title: 'History Essay: The Renaissance', dueDate: '2025-09-22' },
-            { id: 3, title: 'Science Fair Project Proposal', dueDate: '2025-10-01' },
-        ];
-        
+        let students = [];
+        let assignments = [];
         let helpRequests = [];
         let confirmAction = null;
+
+        // --- DATA PERSISTENCE ---
+        function saveData() {
+            localStorage.setItem('classroom_students', JSON.stringify(students));
+            localStorage.setItem('classroom_assignments', JSON.stringify(assignments));
+        }
+
+        function loadData() {
+            const storedStudents = localStorage.getItem('classroom_students');
+            const storedAssignments = localStorage.getItem('classroom_assignments');
+
+            if (storedStudents) {
+                students = JSON.parse(storedStudents);
+            } else {
+                // Default data if nothing is in storage
+                students = [
+                    { id: 1, firstName: 'Alice', lastName: 'Smith' },
+                    { id: 2, firstName: 'Bob', lastName: 'Johnson' },
+                    { id: 3, firstName: 'Charlie', lastName: 'Brown' },
+                    { id: 4, firstName: 'Diana', lastName: 'Prince' },
+                ];
+            }
+
+            if (storedAssignments) {
+                assignments = JSON.parse(storedAssignments);
+            } else {
+                // Default data if nothing is in storage
+                assignments = [
+                    { id: 1, title: 'Algebra Worksheet', dueDate: '2025-09-15' },
+                    { id: 2, title: 'History Essay: The Renaissance', dueDate: '2025-09-22' },
+                    { id: 3, title: 'Science Fair Project Proposal', dueDate: '2025-10-01' },
+                ];
+            }
+        }
 
         // --- VIEWS & RENDERING ---
         const views = {
@@ -276,7 +299,7 @@
                 document.getElementById('student-name').textContent = `${currentStudent.firstName} ${currentStudent.lastName}`;
                 renderStudentAssignmentList(currentStudent);
             } else {
-                 document.getElementById('student-name').textContent = ``;
+                 document.getElementById('student-name').textContent = `No Students`;
             }
         }
 
@@ -361,6 +384,7 @@
 
         function deleteStudent(studentId) {
             students = students.filter(s => s.id !== studentId);
+            saveData(); // Save changes to localStorage
             renderTeacherStudentList();
             renderStudentView(); // Rerender student view in case the deleted student was the one being shown
             closeModal('confirmation-modal');
@@ -380,7 +404,7 @@
                     dueDate,
                 };
                 assignments.push(newAssignment);
-                
+                saveData(); // Save changes to localStorage
                 renderTeacherAssignmentList();
                 closeModal('add-assignment-modal');
                 this.reset();
@@ -400,7 +424,7 @@
                 }
                 const newStudent = { id, firstName, lastName };
                 students.push(newStudent);
-
+                saveData(); // Save changes to localStorage
                 renderTeacherStudentList();
                 closeModal('add-student-modal');
                 this.reset();
@@ -427,7 +451,7 @@
                     students[studentIndex].firstName = firstName;
                     students[studentIndex].lastName = lastName;
                 }
-
+                saveData(); // Save changes to localStorage
                 renderTeacherStudentList();
                 closeModal('edit-student-modal');
                 showSuccessMessage('Student updated successfully.');
@@ -462,6 +486,7 @@
             });
 
             if (studentsAdded > 0) {
+                saveData(); // Save changes to localStorage
                 renderTeacherStudentList();
                 showSuccessMessage(`${studentsAdded} student(s) added successfully!`);
             } else {
@@ -503,6 +528,8 @@
 
         // --- INITIALIZATION ---
         function init() {
+            loadData(); // Load data from localStorage on startup
+
             // Confirmation modal listeners
             document.getElementById('confirm-button').addEventListener('click', () => {
                 if (typeof confirmAction === 'function') {
