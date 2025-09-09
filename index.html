@@ -96,46 +96,35 @@
             if (scoresUnsubscribe) scoresUnsubscribe();
             if (requestsUnsubscribe) requestsUnsubscribe();
 
+            state.loading = false;
+
             if (!state.currentPeriodId) {
                 state.students = [];
                 state.assignments = [];
                 state.scores = [];
                 state.requests = [];
-                state.loading = false;
                 renderUI();
                 return;
             }
 
-            let loaded = { students: false, assignments: false, scores: false, requests: false };
-            const checkAllLoaded = () => {
-                if(Object.values(loaded).every(v => v)) {
-                    state.loading = false;
-                    renderUI();
-                }
-            }
-
             studentsUnsubscribe = onSnapshot(query(studentsRef), (snapshot) => {
                 state.students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                loaded.students = true;
-                checkAllLoaded();
+                renderUI();
             }, (error) => console.error("Error fetching students: ", error));
 
             assignmentsUnsubscribe = onSnapshot(assignmentsRef, (snapshot) => {
                 state.assignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                loaded.assignments = true;
-                checkAllLoaded();
+                renderUI();
             }, (error) => console.error("Error fetching assignments: ", error));
 
             scoresUnsubscribe = onSnapshot(scoresRef, (snapshot) => {
                 state.scores = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                loaded.scores = true;
-                checkAllLoaded();
+                renderUI();
             }, (error) => console.error("Error fetching scores: ", error));
 
             requestsUnsubscribe = onSnapshot(requestsRef, (snapshot) => {
                 state.requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                loaded.requests = true;
-                checkAllLoaded();
+                renderUI();
             }, (error) => console.error("Error fetching requests: ", error));
         };
 
@@ -270,8 +259,14 @@
             setPeriod: (periodId) => {
                 state.currentPeriodId = periodId;
                 localStorage.setItem('currentPeriodId', periodId);
-                state.loading = true;
-                renderUI(); 
+                
+                // Clear old data to prevent showing stale information
+                state.students = [];
+                state.assignments = [];
+                state.scores = [];
+                state.requests = [];
+                renderUI(); // Render immediately with empty lists for the new period
+
                 setupPeriodSpecificRefs();
                 startPeriodSpecificListeners();
             },
