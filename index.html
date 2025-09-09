@@ -113,39 +113,30 @@
         const initializeAppLogic = () => {
             if (periodsUnsubscribe) return; // App is already initialized
 
-            const unsubscribeInitial = onSnapshot(periodsRef, (snapshot) => {
-                unsubscribeInitial(); // We only need this listener once for initialization
-
+            periodsUnsubscribe = onSnapshot(periodsRef, (snapshot) => {
+                const isInitialLoad = state.loading;
                 state.periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-                const storedPeriodId = localStorage.getItem('currentPeriodId');
-                const periodExists = state.periods.some(p => p.id === storedPeriodId);
-                
-                if (storedPeriodId && periodExists) {
-                    state.currentPeriodId = storedPeriodId;
+                if (isInitialLoad) {
+                    const storedPeriodId = localStorage.getItem('currentPeriodId');
+                    const periodExists = state.periods.some(p => p.id === storedPeriodId);
+                    
+                    state.currentPeriodId = (storedPeriodId && periodExists)
+                        ? storedPeriodId
+                        : (state.periods.length > 0 ? state.periods[0].id : null);
+                    
+                    App.setPeriod(state.currentPeriodId, true);
+                    state.loading = false;
                 } else {
-                    state.currentPeriodId = state.periods.length > 0 ? state.periods[0].id : null;
-                }
-                
-                App.setPeriod(state.currentPeriodId, true);
-
-                state.loading = false;
-                renderUI();
-
-                // Now, set up the permanent listener for ongoing changes
-                periodsUnsubscribe = onSnapshot(periodsRef, (snapshot) => {
-                    state.periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     if (!state.periods.some(p => p.id === state.currentPeriodId)) {
                         const newPeriodId = state.periods.length > 0 ? state.periods[0].id : null;
                         App.setPeriod(newPeriodId, true);
-                    } else {
-                        renderUI();
                     }
-                });
-
+                }
+                renderUI();
+                
             }, (error) => {
-                console.error("Critical Error: Could not initialize application.", error);
-                unsubscribeInitial(); // Stop listening on error
+                console.error("Critical Error: Could not load application data.", error);
                 state.loading = false;
                 state.error = "Could not load application data. Please refresh the page.";
                 renderUI();
