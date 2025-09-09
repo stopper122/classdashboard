@@ -8,10 +8,9 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, collection, query, where, addDoc, updateDoc, deleteDoc, getDoc, getDocs, runTransaction, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, collection, query, where, addDoc, updateDoc, deleteDoc, getDocs, runTransaction, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // IMPORTANT: These global variables are provided by the canvas environment.
+        // --- CONFIGURATION ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = {
           apiKey: "AIzaSyBX96xDY5ThDAZn-SckmsnfynMnQjvUc2I",
@@ -23,378 +22,309 @@
           measurementId: "G-L5S59L4JSP"
         };
 
+        // --- FIREBASE INITIALIZATION ---
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
 
+        // --- APPLICATION STATE ---
         let state = {
             periods: [],
             students: [],
             assignments: [],
             requests: [],
             scores: [],
-            currentPeriodId: null, // Start with null, determine after fetch
+            currentPeriodId: null,
             currentView: localStorage.getItem('currentView') || 'layout',
             loading: true,
-            editingAssignmentId: null,
             error: null,
             showConfirmModal: false,
             confirmAction: null,
             confirmMessage: '',
+            editingAssignmentId: null,
         };
 
+        // --- FIREBASE REFERENCES ---
         const publicRootPath = `artifacts/${appId}/public/data`;
-        let publicDataPath;
-        let periodsRef = collection(db, `${publicRootPath}/periods`);
-        let studentsRef;
-        let assignmentsRef;
-        let scoresRef;
-        let requestsRef;
+        let periodsRef;
+        let studentsRef, assignmentsRef, scoresRef, requestsRef;
 
-        let periodsUnsubscribe = null;
-        let studentsUnsubscribe = null;
-        let assignmentsUnsubscribe = null;
-        let scoresUnsubscribe = null;
-        let requestsUnsubscribe = null;
+        // To hold our real-time listeners
+        let unsubscribe = {
+            periods: null,
+            students: null,
+            assignments: null,
+            scores: null,
+            requests: null,
+        };
+        
+        // --- CORE LOGIC ---
 
+        /**
+         * Sets up Firestore collection references based on the current period ID.
+         */
         const setupPeriodSpecificRefs = () => {
             if (state.currentPeriodId) {
-                publicDataPath = `${publicRootPath}/${state.currentPeriodId}`;
-                studentsRef = collection(db, `${publicDataPath}/students`);
-                assignmentsRef = collection(db, `${publicDataPath}/assignments`);
-                scoresRef = collection(db, `${publicDataPath}/scores`);
-                requestsRef = collection(db, `${publicDataPath}/requests`);
+                const periodPath = `${publicRootPath}/${state.currentPeriodId}`;
+                studentsRef = collection(db, `${periodPath}/students`);
+                assignmentsRef = collection(db, `${periodPath}/assignments`);
+                scoresRef = collection(db, `${periodPath}/scores`);
+                requestsRef = collection(db, `${periodPath}/requests`);
             } else {
-                publicDataPath = null;
-                studentsRef = null;
-                assignmentsRef = null;
-                scoresRef = null;
-                requestsRef = null;
+                [studentsRef, assignmentsRef, scoresRef, requestsRef] = [null, null, null, null];
             }
         };
 
-        const startPeriodSpecificListeners = () => {
-             // Clear previous listeners
-            if (studentsUnsubscribe) studentsUnsubscribe();
-            if (assignmentsUnsubscribe) assignmentsUnsubscribe();
-            if (scoresUnsubscribe) scoresUnsubscribe();
-            if (requestsUnsubscribe) requestsUnsubscribe();
-
-            state.students = [];
-            state.assignments = [];
-            state.scores = [];
-            state.requests = [];
-            
-            if (!state.currentPeriodId) {
-                renderUI();
-                return;
-            }
-            
-            studentsUnsubscribe = onSnapshot(query(studentsRef), (snapshot) => {
-                state.students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderUI();
-            }, (error) => { console.error("Error fetching students: ", error); });
-
-            assignmentsUnsubscribe = onSnapshot(assignmentsRef, (snapshot) => {
-                state.assignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderUI();
-            }, (error) => { console.error("Error fetching assignments: ", error); });
-
-            scoresUnsubscribe = onSnapshot(scoresRef, (snapshot) => {
-                state.scores = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderUI();
-            }, (error) => { console.error("Error fetching scores: ", error); });
-
-            requestsUnsubscribe = onSnapshot(requestsRef, (snapshot) => {
-                state.requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderUI();
-            }, (error) => { console.error("Error fetching requests: ", error); });
+        /**
+         * Detaches all active Firestore listeners.
+         */
+        const detachAllListeners = () => {
+            Object.values(unsubscribe).forEach(unsub => unsub && unsub());
         };
 
-        const initializeAppLogic = async () => {
-            if (periodsUnsubscribe) return; // App is already initialized
+        /**
+         * Attaches real-time listeners for the currently selected period.
+         */
+        const attachPeriodListeners = () => {
+            if (!state.currentPeriodId) return;
 
-            try {
-                // Step 1: Perform a one-time fetch to get the initial list of periods.
-                const periodsSnapshot = await getDocs(periodsRef);
-                state.periods = periodsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            unsubscribe.students = onSnapshot(query(studentsRef), snap => {
+                state.students = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderUI();
+            }, e => console.error("Error fetching students:", e));
 
-                // Step 2: Determine the correct current period based on local storage and fetched data.
-                const storedPeriodId = localStorage.getItem('currentPeriodId');
-                const periodExists = state.periods.some(p => p.id === storedPeriodId);
+            unsubscribe.assignments = onSnapshot(query(assignmentsRef), snap => {
+                state.assignments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderUI();
+            }, e => console.error("Error fetching assignments:", e));
+
+            unsubscribe.scores = onSnapshot(query(scoresRef), snap => {
+                state.scores = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderUI();
+            }, e => console.error("Error fetching scores:", e));
+
+            unsubscribe.requests = onSnapshot(query(requestsRef), snap => {
+                state.requests = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderUI();
+            }, e => console.error("Error fetching requests:", e));
+        };
+
+        /**
+         * Main initialization function. Runs once after user is authenticated.
+         */
+        const initializeAppLogic = () => {
+            if (unsubscribe.periods) return; // Already initialized
+
+            periodsRef = collection(db, `${publicRootPath}/periods`);
+
+            unsubscribe.periods = onSnapshot(periodsRef, (snapshot) => {
+                const isInitialLoad = state.loading;
+                state.periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                let newPeriodId = state.currentPeriodId;
+                const periodStillExists = state.periods.some(p => p.id === newPeriodId);
                 
-                state.currentPeriodId = (storedPeriodId && periodExists)
-                    ? storedPeriodId
-                    : (state.periods.length > 0 ? state.periods[0].id : null);
-                
-                // Step 3: Set up the period-specific data listeners for the determined period.
-                App.setPeriod(state.currentPeriodId, true);
+                if (isInitialLoad || !periodStillExists) {
+                    const storedPeriodId = localStorage.getItem('currentPeriodId');
+                    newPeriodId = state.periods.some(p => p.id === storedPeriodId)
+                        ? storedPeriodId
+                        : (state.periods.length > 0 ? state.periods[0].id : null);
+                }
 
-                // Step 4: Now that initialization is complete, remove the loading screen.
+                if (isInitialLoad || newPeriodId !== state.currentPeriodId) {
+                    App.setPeriod(newPeriodId);
+                }
+
                 state.loading = false;
                 renderUI();
-
-                // Step 5: Begin listening for any future changes to the list of periods.
-                periodsUnsubscribe = onSnapshot(periodsRef, (snapshot) => {
-                    state.periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    // If the currently selected period gets deleted, switch to the first available one.
-                    if (!state.periods.some(p => p.id === state.currentPeriodId)) {
-                        const newPeriodId = state.periods.length > 0 ? state.periods[0].id : null;
-                        App.setPeriod(newPeriodId, true);
-                    } else {
-                        renderUI(); // Re-render to update the dropdown list.
-                    }
-                });
-
-            } catch (error) {
-                console.error("Critical Error: Could not initialize application.", error);
+            }, (error) => {
+                console.error("Critical Error initializing periods:", error);
                 state.loading = false;
-                state.error = "Could not load application data. Please refresh the page.";
+                state.error = "Could not connect to the periods database.";
                 renderUI();
-            }
-        };
-
-        const addPeriod = async () => {
-            const periodName = prompt("Enter period name:");
-            if (periodName) {
-                await addDoc(periodsRef, { name: periodName });
-            }
-        };
-
-        const addStudent = async () => {
-            if (!studentsRef) {
-                state.error = "Please select a period before adding a student.";
-                renderUI();
-                return;
-            }
-            const studentName = prompt("Enter student's first name:");
-            if (!studentName) return;
-            const studentLastName = prompt("Enter student's last name:");
-            if (!studentLastName) return;
-
-            try {
-                const newStudentRef = await addDoc(studentsRef, {
-                    firstName: studentName,
-                    lastName: studentLastName,
-                    seatOrder: 999, // Add to end of layout
-                    isActive: true
-                });
-                
-                // Create scores for existing assignments
-                if (assignmentsRef && scoresRef) {
-                    const assignmentsQuery = await getDocs(assignmentsRef);
-                    const scorePromises = assignmentsQuery.docs.map(assignmentDoc => {
-                        return addDoc(scoresRef, {
-                            studentId: newStudentRef.id,
-                            assignmentId: assignmentDoc.id,
-                            score: 'Not Graded'
-                        });
-                    });
-                    await Promise.all(scorePromises);
-                }
-            } catch (error) {
-                console.error("Error adding student:", error);
-                state.error = "Could not add the student. Please check the console for errors.";
-                renderUI();
-            }
-        };
-        
-        const addEmptySeat = async () => {
-            if (!studentsRef) {
-                state.error = "Please select a period before adding an empty seat.";
-                renderUI();
-                return;
-            }
-            try {
-                await addDoc(studentsRef, {
-                    firstName: 'Empty',
-                    lastName: 'Seat',
-                    seatOrder: 999,
-                    isActive: false 
-                });
-            } catch (error) {
-                console.error("Error adding empty seat:", error);
-                state.error = "Could not add empty seat. Please check the console for errors.";
-                renderUI();
-            }
-        };
-
-        const addAssignment = async () => {
-            if (!assignmentsRef) {
-                state.error = "Please select a period before adding an assignment.";
-                renderUI();
-                return;
-            }
-            const assignmentName = prompt("Enter assignment name:");
-            if (!assignmentName) return;
-            
-            try {
-                const maxAssignmentNum = state.assignments.reduce((max, a) => Math.max(max, a.assignmentNumber || 0), 0);
-                const newAssignmentRef = await addDoc(assignmentsRef, {
-                    name: assignmentName,
-                    assignmentNumber: maxAssignmentNum + 1,
-                    postedDate: serverTimestamp()
-                });
-
-                // Create scores for existing students
-                if (studentsRef && scoresRef) {
-                    const studentsQuery = await getDocs(query(studentsRef, where("isActive", "==", true)));
-                    const scorePromises = studentsQuery.docs.map(studentDoc => {
-                        return addDoc(scoresRef, {
-                            studentId: studentDoc.id,
-                            assignmentId: newAssignmentRef.id,
-                            score: 'Not Graded'
-                        });
-                    });
-                    await Promise.all(scorePromises);
-                }
-            } catch (error) {
-                console.error("Error adding assignment:", error);
-                state.error = "Could not add assignment. Please check the console for errors.";
-                renderUI();
-            }
-        };
-        
-        const updateAssignment = async () => {
-            const assignmentId = state.editingAssignmentId;
-            if (!assignmentId || !assignmentsRef) return;
-
-            const newName = document.getElementById(`edit-assignment-name-${assignmentId}`).value;
-            const newNumber = document.getElementById(`edit-assignment-num-${assignmentId}`).value;
-
-            const assignmentRef = doc(assignmentsRef, assignmentId);
-            await updateDoc(assignmentRef, {
-                name: newName,
-                assignmentNumber: parseInt(newNumber, 10) || 0
             });
-            state.editingAssignmentId = null;
-            renderUI();
         };
 
-        const executeClearAllData = async () => {
-            const collectionsToDelete = [studentsRef, assignmentsRef, scoresRef, requestsRef];
-            for (const ref of collectionsToDelete) {
-                if (ref) {
-                    try {
-                        const snapshot = await getDocs(ref);
-                        const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
-                        await Promise.all(deletePromises);
-                    } catch (e) {
-                        console.error("Error deleting collection:", e);
-                        state.error = "Failed to delete some data.";
-                    }
-                }
-            }
-            App.cancelConfirm();
-        };
+        // --- ACTIONS (Exposed via window.App) ---
 
-        const clearAllData = async () => {
-            const password = prompt("This is a destructive action. Enter password to continue:");
-            if (password === "teacher") {
-                state.confirmMessage = "Are you sure you want to delete all data for this period? This cannot be undone.";
-                state.confirmAction = executeClearAllData;
-                state.showConfirmModal = true;
-                renderUI();
-            } else if (password !== null) { // Don't show error if user clicks cancel
-                state.error = "Incorrect password.";
-                renderUI();
-            }
-        };
-
-        const executeDeleteAllStudents = async () => {
-            if (studentsRef) {
-                const snapshot = await getDocs(studentsRef);
-                const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
-                await Promise.all(deletePromises);
-            }
-            App.cancelConfirm();
-        };
-
-        const deleteAllStudents = async () => {
-            state.confirmMessage = "Are you sure you want to delete all students in this period?";
-            state.confirmAction = executeDeleteAllStudents;
-            state.showConfirmModal = true;
-            renderUI();
-        };
-
-        const clearAllRequests = async () => {
-            if (requestsRef) {
-                const snapshot = await getDocs(requestsRef);
-                const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
-                await Promise.all(deletePromises);
-            }
-        };
-        
-        window.App = {
-            addPeriod,
-            addStudent,
-            addAssignment,
-            addEmptySeat,
-            clearAllData,
-            deleteAllStudents,
-            clearAllRequests,
-            updateAssignment,
-            setView: (view) => {
-                state.currentView = view;
-                localStorage.setItem('currentView', view);
-                renderUI();
-            },
-            setPeriod: (periodId, forceUpdate = false) => {
-                const hasChanged = state.currentPeriodId !== periodId;
+        const App = {
+            setPeriod: (periodId) => {
                 state.currentPeriodId = periodId;
-
                 if (periodId) {
                     localStorage.setItem('currentPeriodId', periodId);
                 } else {
                     localStorage.removeItem('currentPeriodId');
                 }
                 
-                if (hasChanged || forceUpdate) {
-                    setupPeriodSpecificRefs();
-                    startPeriodSpecificListeners();
-                } else {
-                    renderUI(); // Re-render if only the selection in the dropdown changes
+                detachAllListeners(); // Stop listening to old period data
+                setupPeriodSpecificRefs();
+                attachPeriodListeners(); // Start listening to new period data
+                renderUI();
+            },
+
+            setView: (view) => {
+                state.currentView = view;
+                localStorage.setItem('currentView', view);
+                renderUI();
+            },
+
+            addPeriod: async () => {
+                const periodName = prompt("Enter new period name:");
+                if (periodName) {
+                    try {
+                        await addDoc(periodsRef, { name: periodName });
+                    } catch (e) {
+                        console.error("Error adding period:", e);
+                        state.error = "Failed to add period.";
+                        renderUI();
+                    }
                 }
             },
+
+            addStudent: async () => {
+                if (!studentsRef) return;
+                const firstName = prompt("Enter student's first name:");
+                if (!firstName) return;
+                const lastName = prompt("Enter student's last name:");
+                if (!lastName) return;
+
+                try {
+                    const newStudentRef = await addDoc(studentsRef, { firstName, lastName, seatOrder: 999, isActive: true });
+                    const assignmentsSnap = await getDocs(assignmentsRef);
+                    const scorePromises = assignmentsSnap.docs.map(assignDoc => 
+                        addDoc(scoresRef, { studentId: newStudentRef.id, assignmentId: assignDoc.id, score: 'Not Graded' })
+                    );
+                    await Promise.all(scorePromises);
+                } catch (e) {
+                    console.error("Error adding student:", e);
+                    state.error = "Failed to add student.";
+                    renderUI();
+                }
+            },
+
+            addEmptySeat: async () => {
+                if (!studentsRef) return;
+                try {
+                    await addDoc(studentsRef, { firstName: 'Empty', lastName: 'Seat', seatOrder: 999, isActive: false });
+                } catch (e) {
+                    console.error("Error adding empty seat:", e);
+                    state.error = "Failed to add empty seat.";
+                    renderUI();
+                }
+            },
+
+            addAssignment: async () => {
+                if (!assignmentsRef) return;
+                const name = prompt("Enter new assignment name:");
+                if (!name) return;
+                
+                try {
+                    const maxNum = state.assignments.reduce((max, a) => Math.max(max, a.assignmentNumber || 0), 0);
+                    const newAssignmentRef = await addDoc(assignmentsRef, { name, assignmentNumber: maxNum + 1, postedDate: serverTimestamp() });
+                    const studentsSnap = await getDocs(query(studentsRef, where("isActive", "==", true)));
+                    const scorePromises = studentsSnap.docs.map(studentDoc => 
+                        addDoc(scoresRef, { studentId: studentDoc.id, assignmentId: newAssignmentRef.id, score: 'Not Graded' })
+                    );
+                    await Promise.all(scorePromises);
+                } catch (e) {
+                    console.error("Error adding assignment:", e);
+                    state.error = "Failed to add assignment.";
+                    renderUI();
+                }
+            },
+
+            clearAllRequests: async () => {
+                if (!requestsRef) return;
+                const reqsSnap = await getDocs(requestsRef);
+                const deletePromises = reqsSnap.docs.map(d => deleteDoc(d.ref));
+                await Promise.all(deletePromises);
+            },
+            
+            _showConfirm: (message, action) => {
+                state.confirmMessage = message;
+                state.confirmAction = action;
+                state.showConfirmModal = true;
+                renderUI();
+            },
+
+            deleteAllStudents: () => {
+                App._showConfirm("Are you sure you want to delete all students?", async () => {
+                    if (studentsRef) {
+                        const studentsSnap = await getDocs(studentsRef);
+                        await Promise.all(studentsSnap.docs.map(d => deleteDoc(d.ref)));
+                    }
+                    App.cancelConfirm();
+                });
+            },
+
+            clearAllData: () => {
+                const password = prompt("This is a destructive action. Enter password to continue:");
+                if (password === "teacher") {
+                    App._showConfirm("Are you sure you want to delete ALL data for this period?", async () => {
+                        const refs = [studentsRef, assignmentsRef, scoresRef, requestsRef];
+                        for (const ref of refs) {
+                            if (ref) {
+                                const snap = await getDocs(ref);
+                                await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
+                            }
+                        }
+                        App.cancelConfirm();
+                    });
+                } else if (password !== null) {
+                    state.error = "Incorrect password.";
+                    renderUI();
+                }
+            },
+
             deleteRequest: async (requestId) => {
-                if (requestsRef) {
-                    await deleteDoc(doc(requestsRef, requestId));
-                }
+                if (requestsRef) await deleteDoc(doc(requestsRef, requestId));
             },
+            
             setEditingAssignment: (assignmentId) => {
                 state.editingAssignmentId = assignmentId;
                 renderUI();
             },
+            
             cancelEditAssignment: () => {
                 state.editingAssignmentId = null;
                 renderUI();
             },
-            clearError: () => {
-                state.error = null;
+            
+            updateAssignment: async () => {
+                const id = state.editingAssignmentId;
+                if (!id || !assignmentsRef) return;
+                const name = document.getElementById(`edit-name-${id}`).value;
+                const num = document.getElementById(`edit-num-${id}`).value;
+                await updateDoc(doc(assignmentsRef, id), { name, assignmentNumber: parseInt(num, 10) || 0 });
+                state.editingAssignmentId = null;
                 renderUI();
             },
+
             confirmAction: () => {
-                if (state.confirmAction) {
-                    state.confirmAction();
-                }
+                if (state.confirmAction) state.confirmAction();
             },
+
             cancelConfirm: () => {
                 state.showConfirmModal = false;
                 state.confirmAction = null;
                 state.confirmMessage = '';
                 renderUI();
+            },
+            
+            clearError: () => {
+                state.error = null;
+                renderUI();
             }
         };
 
+        window.App = App;
+
+        // --- UI COMPONENTS ---
+
         const LayoutView = () => {
-            const helpQueue = state.requests
-                .filter(r => r.type === 'help' && r.timestamp && typeof r.timestamp.seconds === 'number')
-                .sort((a, b) => a.timestamp.seconds - b.timestamp.seconds);
-            const checkQueue = state.requests
-                .filter(r => r.type === 'check' && r.timestamp && typeof r.timestamp.seconds === 'number')
-                .sort((a, b) => a.timestamp.seconds - b.timestamp.seconds);
-            const allStudents = [...state.students];
-            const sortedStudents = allStudents.sort((a, b) => (a.seatOrder || 0) - (b.seatOrder || 0));
+            const helpQueue = state.requests.filter(r => r.type === 'help').sort((a,b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
+            const checkQueue = state.requests.filter(r => r.type === 'check').sort((a,b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
+            const sortedStudents = [...state.students].sort((a, b) => (a.seatOrder || 0) - (b.seatOrder || 0));
 
             return `
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4">
@@ -402,123 +332,106 @@
                         <h2 class="text-xl font-bold mb-2">Class Layout</h2>
                         <div id="student-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                             ${sortedStudents.map(student => {
-                                const helpRequest = helpQueue.find(r => r.studentId === student.id);
-                                const checkRequest = checkQueue.find(r => r.studentId === student.id);
+                                const hasHelp = helpQueue.some(r => r.studentId === student.id);
+                                const hasCheck = checkQueue.some(r => r.studentId === student.id);
                                 let bgColor = 'bg-white';
-                                if (helpRequest) bgColor = 'bg-yellow-300';
-                                if (checkRequest) bgColor = 'bg-green-300';
+                                if (hasHelp) bgColor = 'bg-yellow-300';
+                                if (hasCheck) bgColor = 'bg-green-300';
                                 if (!student.isActive) bgColor = 'bg-gray-200';
 
-                                return `
-                                    <div class="student-card p-4 rounded-lg shadow-md text-center ${bgColor}" draggable="${student.isActive}" data-student-id="${student.id}">
-                                        <p class="font-semibold">${student.firstName} ${student.lastName}</p>
-                                    </div>
-                                `;
+                                return `<div class="student-card p-4 rounded-lg shadow-md text-center ${bgColor}" draggable="${student.isActive}" data-student-id="${student.id}">
+                                            <p class="font-semibold">${student.firstName} ${student.lastName}</p>
+                                        </div>`;
                             }).join('')}
                         </div>
                     </div>
                     <div>
                         <div class="mb-4">
                             <h2 class="text-xl font-bold mb-2">Help Queue (${helpQueue.length})</h2>
-                            <ul class="bg-white p-4 rounded-lg shadow-md min-h-[100px]">
-                                ${helpQueue.map(r => {
-                                    const student = state.students.find(s => s.id === r.studentId);
-                                    return `<li class="flex justify-between items-center py-1">${student ? `${student.firstName} ${student.lastName}` : 'Unknown'}<button onclick="App.deleteRequest('${r.id}')" class="text-red-500 hover:text-red-700 font-bold">X</button></li>`;
-                                }).join('')}
-                            </ul>
+                            <ul class="bg-white p-4 rounded-lg shadow-md min-h-[100px]">${helpQueue.map(r => {
+                                const s = state.students.find(s => s.id === r.studentId);
+                                return `<li class="flex justify-between items-center py-1">${s ? `${s.firstName} ${s.lastName}` : '...'}
+                                            <button onclick="App.deleteRequest('${r.id}')" class="text-red-500 font-bold">X</button>
+                                        </li>`;
+                            }).join('')}</ul>
                         </div>
                         <div>
                             <h2 class="text-xl font-bold mb-2">Check Queue (${checkQueue.length})</h2>
-                            <ul class="bg-white p-4 rounded-lg shadow-md min-h-[100px]">
-                                ${checkQueue.map(r => {
-                                    const student = state.students.find(s => s.id === r.studentId);
-                                    return `<li class="flex justify-between items-center py-1">${student ? `${student.firstName} ${student.lastName}` : 'Unknown'}<button onclick="App.deleteRequest('${r.id}')" class="text-red-500 hover:text-red-700 font-bold">X</button></li>`;
-                                }).join('')}
-                            </ul>
+                            <ul class="bg-white p-4 rounded-lg shadow-md min-h-[100px]">${checkQueue.map(r => {
+                                const s = state.students.find(s => s.id === r.studentId);
+                                return `<li class="flex justify-between items-center py-1">${s ? `${s.firstName} ${s.lastName}` : '...'}
+                                            <button onclick="App.deleteRequest('${r.id}')" class="text-red-500 font-bold">X</button>
+                                        </li>`;
+                            }).join('')}</ul>
                         </div>
                     </div>
-                </div>
-            `;
+                </div>`;
         };
 
         const ScoresView = () => {
             const sortedAssignments = [...state.assignments].sort((a, b) => (a.assignmentNumber || 0) - (b.assignmentNumber || 0));
-            const activeStudents = state.students.filter(s => s.isActive && s.lastName).sort((a, b) => a.lastName.localeCompare(b.lastName));
+            const activeStudents = state.students.filter(s => s.isActive && s.lastName).sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
 
-            return `
-                <div class="p-4">
-                    <h2 class="text-xl font-bold mb-2">Scores</h2>
-                    <div class="overflow-x-auto">
+            return `<div class="p-4 overflow-x-auto">
+                        <h2 class="text-xl font-bold mb-2">Scores</h2>
                         <table class="min-w-full bg-white rounded-lg shadow-md">
                             <thead>
-                                <tr class="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
+                                <tr class="bg-gray-200 text-gray-600 uppercase text-sm">
                                     <th class="py-3 px-6 text-left">Student</th>
-                                    ${sortedAssignments.map(assignment => `
-                                        <th class="py-3 px-6 text-center cursor-pointer hover:bg-gray-300" onclick="App.setEditingAssignment('${assignment.id}')">
-                                            ${assignment.assignmentNumber || 'N/A'}. ${assignment.name}
-                                        </th>
-                                    `).join('')}
+                                    ${sortedAssignments.map(a => `<th class="py-3 px-6 text-center cursor-pointer hover:bg-gray-300" onclick="App.setEditingAssignment('${a.id}')">${a.assignmentNumber || '#'}. ${a.name}</th>`).join('')}
                                 </tr>
                             </thead>
-                            <tbody class="text-gray-600 text-sm font-light">
+                            <tbody class="text-gray-600 text-sm">
                                 ${activeStudents.map(student => `
                                     <tr class="border-b border-gray-200 hover:bg-gray-100">
                                         <td class="py-3 px-6 text-left whitespace-nowrap">${student.firstName} ${student.lastName}</td>
-                                        ${sortedAssignments.map(assignment => {
-                                            const score = state.scores.find(s => s.studentId === student.id && s.assignmentId === assignment.id);
+                                        ${sortedAssignments.map(a => {
+                                            const score = state.scores.find(s => s.studentId === student.id && s.assignmentId === a.id);
                                             return `<td class="py-3 px-6 text-center">${score ? score.score : 'N/A'}</td>`;
                                         }).join('')}
                                     </tr>
                                 `).join('')}
                             </tbody>
                         </table>
-                    </div>
-                </div>
-                ${state.editingAssignmentId ? EditAssignmentModal() : ''}
-            `;
+                    </div>`;
         };
         
         const EditAssignmentModal = () => {
             const assignment = state.assignments.find(a => a.id === state.editingAssignmentId);
             if (!assignment) return '';
 
-            return `
-                <div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
-                    <div class="bg-white p-6 rounded-lg shadow-xl">
-                        <h3 class="text-lg font-bold mb-4">Edit Assignment</h3>
-                        <div class="mb-4">
-                            <label class="block text-gray-700 text-sm font-bold mb-2" for="edit-assignment-num-${assignment.id}">Number</label>
-                            <input id="edit-assignment-num-${assignment.id}" type="number" value="${assignment.assignmentNumber || 0}" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            return `<div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
+                        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
+                            <h3 class="text-lg font-bold mb-4">Edit Assignment</h3>
+                            <div class="mb-4">
+                                <label class="block text-sm font-bold mb-2">Number</label>
+                                <input id="edit-num-${assignment.id}" type="number" value="${assignment.assignmentNumber || 0}" class="shadow border rounded w-full py-2 px-3">
+                            </div>
+                            <div class="mb-6">
+                                <label class="block text-sm font-bold mb-2">Name</label>
+                                <input id="edit-name-${assignment.id}" type="text" value="${assignment.name}" class="shadow border rounded w-full py-2 px-3">
+                            </div>
+                            <div class="flex justify-end">
+                                <button onclick="App.cancelEditAssignment()" class="bg-gray-500 text-white font-bold py-2 px-4 rounded mr-2">Cancel</button>
+                                <button onclick="App.updateAssignment()" class="bg-blue-500 text-white font-bold py-2 px-4 rounded">Save</button>
+                            </div>
                         </div>
-                        <div class="mb-6">
-                             <label class="block text-gray-700 text-sm font-bold mb-2" for="edit-assignment-name-${assignment.id}">Name</label>
-                            <input id="edit-assignment-name-${assignment.id}" type="text" value="${assignment.name}" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-                        </div>
-                        <div class="flex items-center justify-end">
-                            <button onclick="App.cancelEditAssignment()" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2">Cancel</button>
-                            <button onclick="App.updateAssignment()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Save</button>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
+                    </div>`;
+        };
 
         const ConfirmModal = () => {
             if (!state.showConfirmModal) return '';
-
-            return `
-                <div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
-                    <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
-                        <h3 class="text-lg font-bold mb-4">Confirm Action</h3>
-                        <p class="mb-6">${state.confirmMessage}</p>
-                        <div class="flex items-center justify-end">
-                            <button onclick="App.cancelConfirm()" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2">Cancel</button>
-                            <button onclick="App.confirmAction()" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Yes, Proceed</button>
+            return `<div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
+                        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+                            <h3 class="text-lg font-bold mb-4">Confirm Action</h3>
+                            <p class="mb-6">${state.confirmMessage}</p>
+                            <div class="flex justify-end">
+                                <button onclick="App.cancelConfirm()" class="bg-gray-500 text-white font-bold py-2 px-4 rounded mr-2">Cancel</button>
+                                <button onclick="App.confirmAction()" class="bg-red-500 text-white font-bold py-2 px-4 rounded">Yes, Proceed</button>
+                            </div>
                         </div>
-                    </div>
-                </div>
-            `;
-        }
+                    </div>`;
+        };
 
         const renderUI = () => {
             const appDiv = document.getElementById('app');
@@ -529,112 +442,90 @@
                 return;
             }
 
-            let viewHtml = '';
-            if (state.currentView === 'layout') {
-                viewHtml = LayoutView();
-            } else if (state.currentView === 'scores') {
-                viewHtml = ScoresView();
-            }
-
             const isPeriodSelected = !!state.currentPeriodId;
-            const buttonClasses = "text-white font-bold py-2 px-4 rounded";
-            const disabledClasses = "disabled:opacity-50 disabled:cursor-not-allowed";
+            const buttonClasses = "text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed";
 
             appDiv.innerHTML = `
                 <div class="min-h-screen bg-gray-100">
                     ${state.error ? `<div class="bg-red-500 text-white p-3 text-center relative">${state.error}<button onclick="App.clearError()" class="absolute top-0 right-0 mt-3 mr-3 font-bold text-xl">&times;</button></div>` : ''}
-                    <nav class="bg-white shadow-md p-4 flex justify-between items-center flex-wrap">
-                        <div class="flex items-center mb-2 sm:mb-0">
+                    <nav class="bg-white shadow-md p-4 flex justify-between items-center flex-wrap gap-4">
+                        <div class="flex items-center">
                             <h1 class="text-2xl font-bold mr-4">Instructor Dashboard</h1>
                             <select onchange="App.setPeriod(this.value)" class="p-2 rounded border">
-                                ${state.periods.length === 0 ? '<option>No periods found</option>' : ''}
+                                ${state.periods.length === 0 ? '<option>No periods yet</option>' : ''}
                                 ${state.periods.map(p => `<option value="${p.id}" ${state.currentPeriodId === p.id ? 'selected' : ''}>${p.name}</option>`).join('')}
                             </select>
                             <button onclick="App.addPeriod()" class="ml-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">+</button>
                         </div>
                         <div>
-                            <button onclick="App.setView('layout')" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-l ${state.currentView === 'layout' ? 'bg-gray-500 text-white' : ''}">Layout</button>
-                            <button onclick="App.setView('scores')" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-r ${state.currentView === 'scores' ? 'bg-gray-500 text-white' : ''}">Scores</button>
+                            <button onclick="App.setView('layout')" class="bg-gray-300 hover:bg-gray-400 font-bold py-2 px-4 rounded-l ${state.currentView === 'layout' ? 'bg-gray-500 text-white' : ''}">Layout</button>
+                            <button onclick="App.setView('scores')" class="bg-gray-300 hover:bg-gray-400 font-bold py-2 px-4 rounded-r ${state.currentView === 'scores' ? 'bg-gray-500 text-white' : ''}">Scores</button>
                         </div>
                     </nav>
-                    <div class="p-4 bg-gray-50 border-b border-t">
-                        <button onclick="App.addStudent()"      class="bg-green-500 hover:bg-green-700 ${buttonClasses} ${disabledClasses}" ${!isPeriodSelected ? 'disabled' : ''}>Add Student</button>
-                        <button onclick="App.addAssignment()"   class="ml-2 bg-green-500 hover:bg-green-700 ${buttonClasses} ${disabledClasses}" ${!isPeriodSelected ? 'disabled' : ''}>Add Assignment</button>
-                        <button onclick="App.addEmptySeat()"    class="ml-2 bg-gray-500 hover:bg-gray-700 ${buttonClasses} ${disabledClasses}" ${!isPeriodSelected ? 'disabled' : ''}>Add Empty Seat</button>
-                        <button onclick="App.clearAllRequests()"class="ml-2 bg-yellow-500 hover:bg-yellow-700 ${buttonClasses} ${disabledClasses}" ${!isPeriodSelected ? 'disabled' : ''}>Clear All Requests</button>
-                        <button onclick="App.deleteAllStudents()" class="ml-2 bg-red-500 hover:bg-red-700 ${buttonClasses} ${disabledClasses}" ${!isPeriodSelected ? 'disabled' : ''}>Delete All Students</button>
-                        <button onclick="App.clearAllData()"    class="ml-2 bg-red-700 hover:bg-red-900 ${buttonClasses} ${disabledClasses}" ${!isPeriodSelected ? 'disabled' : ''}>Clear All Data</button>
+                    <div class="p-4 bg-gray-50 border-y flex flex-wrap gap-2">
+                        <button onclick="App.addStudent()" class="bg-green-500 hover:bg-green-700 ${buttonClasses}" ${!isPeriodSelected ? 'disabled' : ''}>Add Student</button>
+                        <button onclick="App.addAssignment()" class="bg-green-500 hover:bg-green-700 ${buttonClasses}" ${!isPeriodSelected ? 'disabled' : ''}>Add Assignment</button>
+                        <button onclick="App.addEmptySeat()" class="bg-gray-500 hover:bg-gray-700 ${buttonClasses}" ${!isPeriodSelected ? 'disabled' : ''}>Add Empty Seat</button>
+                        <button onclick="App.clearAllRequests()" class="bg-yellow-500 hover:bg-yellow-700 ${buttonClasses}" ${!isPeriodSelected ? 'disabled' : ''}>Clear Requests</button>
+                        <button onclick="App.deleteAllStudents()" class="bg-red-500 hover:bg-red-700 ${buttonClasses}" ${!isPeriodSelected ? 'disabled' : ''}>Delete Students</button>
+                        <button onclick="App.clearAllData()" class="bg-red-700 hover:bg-red-900 ${buttonClasses}" ${!isPeriodSelected ? 'disabled' : ''}>Clear All Data</button>
                     </div>
-                    ${viewHtml}
-                    ${state.editingAssignmentId ? EditAssignmentModal() : ''}
-                    ${state.showConfirmModal ? ConfirmModal() : ''}
+                    ${state.currentView === 'layout' ? LayoutView() : ScoresView()}
+                    ${ConfirmModal()}
+                    ${EditAssignmentModal()}
                 </div>
             `;
-
+            
             if (state.currentView === 'layout') {
                 attachDragAndDrop();
             }
         };
 
         const attachDragAndDrop = () => {
-            let draggedItemId = null;
+             let draggedItemId = null;
         
             const handleDragStart = (e) => {
                 draggedItemId = e.currentTarget.dataset.studentId;
                 e.dataTransfer.effectAllowed = 'move';
                 e.dataTransfer.setData('text/plain', draggedItemId);
-                setTimeout(() => {
-                    e.currentTarget.classList.add('opacity-50');
-                }, 0);
+                setTimeout(() => e.currentTarget.classList.add('opacity-50'), 0);
             };
         
             const handleDragOver = (e) => {
                 e.preventDefault();
-                const targetCard = e.currentTarget;
-                if(targetCard.dataset.studentId !== draggedItemId && targetCard.getAttribute('draggable') === 'true') {
-                    targetCard.classList.add('bg-blue-200');
+                const target = e.currentTarget;
+                if(target.dataset.studentId !== draggedItemId && target.getAttribute('draggable') === 'true') {
+                    target.classList.add('bg-blue-200');
                 }
             };
         
-            const handleDragLeave = (e) => {
-                e.currentTarget.classList.remove('bg-blue-200');
-            };
+            const handleDragLeave = (e) => e.currentTarget.classList.remove('bg-blue-200');
         
             const handleDrop = async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                const targetItemId = e.currentTarget.dataset.studentId;
+                const targetId = e.currentTarget.dataset.studentId;
                 e.currentTarget.classList.remove('bg-blue-200');
-        
-                if (draggedItemId === targetItemId || !targetItemId) return;
-
-                if (!studentsRef) return;
+                if (draggedItemId === targetId || !targetId || !studentsRef) return;
                 
                 await runTransaction(db, async (transaction) => {
-                    // Re-fetch students within the transaction to ensure fresh data
-                    const studentsSnapshot = await getDocs(query(studentsRef));
-                    const students = studentsSnapshot.docs.map(d => ({id: d.id, ...d.data()}));
-                    students.sort((a, b) => (a.seatOrder || 0) - (b.seatOrder || 0));
-
+                    const studentsSnap = await getDocs(query(studentsRef));
+                    const students = studentsSnap.docs.map(d => ({id: d.id, ...d.data()})).sort((a, b) => (a.seatOrder || 0) - (b.seatOrder || 0));
+                    
                     const draggedIndex = students.findIndex(s => s.id === draggedItemId);
-                    const targetIndex = students.findIndex(s => s.id === targetItemId);
-
+                    const targetIndex = students.findIndex(s => s.id === targetId);
                     if (draggedIndex === -1 || targetIndex === -1) return;
         
                     const [draggedItem] = students.splice(draggedIndex, 1);
                     students.splice(targetIndex, 0, draggedItem);
         
                     students.forEach((student, index) => {
-                        const studentRef = doc(studentsRef, student.id);
-                        transaction.update(studentRef, { seatOrder: index });
+                        transaction.update(doc(studentsRef, student.id), { seatOrder: index });
                     });
                 });
             };
         
-            const handleDragEnd = (e) => {
-                e.currentTarget.classList.remove('opacity-50');
-                document.querySelectorAll('.student-card').forEach(card => card.classList.remove('bg-blue-200'));
-            };
+            const handleDragEnd = (e) => e.currentTarget.classList.remove('opacity-50');
         
             document.querySelectorAll('.student-card[draggable="true"]').forEach(card => {
                 card.addEventListener('dragstart', handleDragStart);
@@ -645,29 +536,25 @@
             });
         };
 
+        // --- APP START ---
         document.addEventListener('DOMContentLoaded', () => {
-            renderUI(); // Initial render with loading state
-            onAuthStateChanged(auth, (user) => {
+            renderUI();
+            onAuthStateChanged(auth, user => {
                 if (user) {
                     initializeAppLogic();
                 } else {
-                    signInAnonymously(auth).catch((error) => {
-                        console.error("Anonymous sign in failed:", error);
-                        const appDiv = document.getElementById('app');
-                        if (appDiv) {
-                            appDiv.innerHTML = `<div class="p-4 text-center text-red-600">Could not connect to the service.</div>`;
-                        }
+                    signInAnonymously(auth).catch(e => {
+                        console.error("Anonymous sign in failed:", e);
+                        state.error = "Could not connect to the service.";
+                        state.loading = false;
+                        renderUI();
                     });
                 }
             });
         });
     </script>
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
-            color: #1f2937;
-        }
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; color: #1f2937; }
     </style>
 </head>
 <body>
