@@ -160,26 +160,10 @@
                  <button onclick="logout()" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Logout</button>
             </header>
 
-             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <!-- Left Column: Assignments -->
-                <div class="lg:col-span-2">
-                    <div class="bg-white p-6 rounded-xl shadow-md">
-                        <h2 class="text-2xl font-bold mb-4">Your Assignments</h2>
-                        <div id="student-assignment-list" class="space-y-4">
-                             <!-- Student assignments will be populated here -->
-                        </div>
-                    </div>
-                </div>
-                 <!-- Right Column: Help -->
-                <div class="lg:col-span-1 space-y-8">
-                    <div class="bg-white p-6 rounded-xl shadow-md text-center">
-                        <h2 class="text-2xl font-bold mb-4">Need Help?</h2>
-                        <p class="text-gray-600 mb-4">Don't hesitate to ask for help if you're stuck.</p>
-                        <div id="help-button-container">
-                            <button id="request-help-btn" onclick="requestHelp()" class="w-full bg-green-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-green-700 transition">Request Help</button>
-                            <button id="cancel-help-btn" onclick="cancelHelpRequest()" class="w-full bg-red-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-red-700 transition hidden">Cancel Request</button>
-                        </div>
-                    </div>
+            <div class="bg-white p-6 rounded-xl shadow-md">
+                <h2 class="text-2xl font-bold mb-4">Your Assignments</h2>
+                <div id="student-assignment-list" class="space-y-4">
+                     <!-- Student assignments will be populated here -->
                 </div>
             </div>
         </div>
@@ -453,7 +437,6 @@
             if (currentStudent) {
                 document.getElementById('student-name').textContent = `${currentStudent.firstName} ${currentStudent.lastName}`;
                 renderStudentAssignmentList(currentStudent);
-                updateHelpButtonState();
             } else {
                  logout();
             }
@@ -566,7 +549,8 @@
                 <li class="flex justify-between items-center p-3 bg-yellow-100 border border-yellow-200 rounded-lg">
                     <div>
                         <span class="font-semibold">${req.studentName}</span>
-                        <span class="text-sm text-yellow-800"> needs help.</span>
+                        <span class="text-sm text-yellow-800"> needs help on: </span>
+                        <span class="font-medium text-sm text-yellow-900">"${req.assignmentTitle}"</span>
                     </div>
                     <button onclick="resolveHelpRequest(${index})" class="text-sm bg-green-200 text-green-800 font-semibold py-1 px-3 rounded-full hover:bg-green-300">Resolve</button>
                 </li>
@@ -586,14 +570,31 @@
                 } else {
                     scoreDisplay = `<div class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-1 rounded-full">Score: ${score}/4</div>`;
                 }
+                
+                const hasActiveRequest = helpRequests.some(req => req.studentId === student.id && req.assignmentId === a.id);
+                let helpButtonHtml = '';
+
+                if (hasActiveRequest) {
+                    helpButtonHtml = `<button onclick="cancelHelpRequest(${a.id})" class="w-full bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition">Cancel Request</button>`;
+                } else {
+                    helpButtonHtml = `<button onclick="requestHelp(${a.id})" class="w-full bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700 transition">Request Help</button>`;
+                }
+
 
                 return `
-                    <div class="p-4 border border-gray-200 rounded-lg flex justify-between items-center">
-                        <div>
-                            <h3 class="font-semibold text-lg">${a.title}</h3>
-                            <p class="text-sm text-gray-500">Posted: ${new Date(a.postedDate).toLocaleDateString()}</p>
+                    <div class="p-4 border border-gray-200 rounded-lg">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h3 class="font-semibold text-lg">${a.title}</h3>
+                                <p class="text-sm text-gray-500">Posted: ${new Date(a.postedDate).toLocaleDateString()}</p>
+                            </div>
+                            ${scoreDisplay}
                         </div>
-                        ${scoreDisplay}
+                        <div class="flex items-center gap-4">
+                            <div class="w-full">
+                                ${helpButtonHtml}
+                            </div>
+                        </div>
                     </div>
                 `;
             }).join('');
@@ -658,45 +659,35 @@
             switchView('role-selection');
         }
 
-        function updateHelpButtonState() {
-            const requestBtn = document.getElementById('request-help-btn');
-            const cancelBtn = document.getElementById('cancel-help-btn');
-            if (!requestBtn || !cancelBtn) return;
-            
-            const hasActiveRequest = helpRequests.some(req => req.studentId === currentStudentId);
-
-            if (hasActiveRequest) {
-                requestBtn.classList.add('hidden');
-                cancelBtn.classList.remove('hidden');
-            } else {
-                requestBtn.classList.remove('hidden');
-                cancelBtn.classList.add('hidden');
-            }
-        }
-
-        function requestHelp() {
+        function requestHelp(assignmentId) {
             const student = students.find(s => s.id === currentStudentId);
-            if (student) {
-                // Prevent duplicate requests from the same student
-                if (!helpRequests.some(req => req.studentId === student.id)) {
+            const assignment = assignments.find(a => a.id === assignmentId);
+            if (student && assignment) {
+                // Prevent duplicate requests
+                if (!helpRequests.some(req => req.studentId === student.id && req.assignmentId === assignment.id)) {
                     const studentName = `${student.firstName} ${student.lastName}`;
-                    helpRequests.push({ studentId: student.id, studentName });
+                    helpRequests.push({ 
+                        studentId: student.id, 
+                        studentName, 
+                        assignmentId: assignment.id, 
+                        assignmentTitle: assignment.title 
+                    });
                     saveData();
                     showSuccessMessage('Help request sent!');
-                    updateHelpButtonState();
+                    renderStudentView(); // Re-render to update the button
                 } else {
-                    showSuccessMessage('You already have an active help request.');
+                    showSuccessMessage('You already have an active help request for this assignment.');
                 }
             }
         }
 
-        function cancelHelpRequest() {
-            const requestIndex = helpRequests.findIndex(req => req.studentId === currentStudentId);
+        function cancelHelpRequest(assignmentId) {
+            const requestIndex = helpRequests.findIndex(req => req.studentId === currentStudentId && req.assignmentId === assignmentId);
             if (requestIndex !== -1) {
                 helpRequests.splice(requestIndex, 1);
                 saveData();
                 showSuccessMessage('Help request cancelled.');
-                updateHelpButtonState();
+                renderStudentView(); // Re-render to update the button
             }
         }
         
@@ -984,7 +975,7 @@
                         renderHelpRequests();
                         renderSeatingChart();
                     } else if (currentView === 'student') {
-                        updateHelpButtonState();
+                        renderStudentView();
                     }
                 }
             });
