@@ -304,13 +304,14 @@
 
     <!-- Student Assignment Modal -->
     <div id="student-assignment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-2xl">
             <h2 id="student-assignment-modal-title" class="text-2xl font-bold mb-6"></h2>
             <div id="student-assignment-modal-list" class="space-y-3 max-h-96 overflow-y-auto pr-2">
                 <!-- Student assignments will be populated here -->
             </div>
-            <div class="flex justify-end mt-8">
-                <button type="button" onclick="closeModal('student-assignment-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Close</button>
+            <div id="student-assignment-modal-footer" class="flex justify-end mt-8 gap-4">
+                <button type="button" onclick="closeModal('student-assignment-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
+                <button type="button" id="save-student-scores-btn" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition">Save Scores</button>
             </div>
         </div>
     </div>
@@ -977,16 +978,18 @@
                 listEl.innerHTML = assignments.map(assignment => {
                     const hasHelpRequest = helpRequests.some(req => req.studentId === student.id && req.assignmentId === assignment.id);
                     const hasCheckRequest = checkRequests.some(req => req.studentId === student.id && req.assignmentId === assignment.id);
-                    const score = assignment.scores ? assignment.scores[student.id] : undefined;
-                    let scoreDisplay = '';
-
-                    if (score === undefined) {
-                        scoreDisplay = `<span class="text-xs font-medium text-gray-500">Not Graded</span>`;
-                    } else if (score === 'excused') {
-                        scoreDisplay = `<span class="text-xs font-medium text-yellow-600">Excused</span>`;
-                    } else {
-                        scoreDisplay = `<span class="text-xs font-medium text-blue-600">Score: ${score}/4</span>`;
-                    }
+                    const currentScore = assignment.scores ? assignment.scores[student.id] : undefined;
+                    
+                    const scoreOptions = [1, 2, 3, 4, 'excused'];
+                    const radioButtons = scoreOptions.map(score => {
+                        const isChecked = currentScore !== undefined && currentScore.toString() === score.toString();
+                        return `
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="radio" name="modal-score-${student.id}-${assignment.id}" value="${score}" ${isChecked ? 'checked' : ''} class="form-radio h-4 w-4 text-blue-600">
+                                <span class="text-sm">${score.toString().charAt(0).toUpperCase() + score.toString().slice(1)}</span>
+                            </label>
+                        `;
+                    }).join('');
 
                     let indicatorsHTML = '';
                     if (hasHelpRequest) {
@@ -997,16 +1000,45 @@
                     }
 
                     return `
-                        <li class="p-3 bg-gray-50 rounded-lg">
-                            <div class="flex justify-between items-start">
-                                <span class="font-medium">${assignment.title}</span>
-                                ${scoreDisplay}
+                        <li class="p-4 bg-gray-50 rounded-lg">
+                            <div class="flex flex-col sm:flex-row justify-between sm:items-center">
+                                <span class="font-medium mb-2 sm:mb-0">${assignment.title}</span>
+                                <div class="flex items-center space-x-4">
+                                    ${radioButtons}
+                                </div>
                             </div>
-                            ${ (hasHelpRequest || hasCheckRequest) ? `<div class="flex gap-2 mt-2">${indicatorsHTML}</div>` : '' }
+                            ${ (hasHelpRequest || hasCheckRequest) ? `<div class="flex gap-2 mt-2 pt-2 border-t border-gray-200">${indicatorsHTML}</div>` : '' }
                         </li>
                     `;
                 }).join('');
             }
+
+            // --- Add event listener to the save button ---
+            const saveBtn = document.getElementById('save-student-scores-btn');
+            // Clone and replace to remove old listeners and prevent multiple triggers
+            const newSaveBtn = saveBtn.cloneNode(true);
+            saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+
+            newSaveBtn.addEventListener('click', () => {
+                assignments.forEach(assignment => {
+                    const scoreInput = document.querySelector(`input[name="modal-score-${studentId}-${assignment.id}"]:checked`);
+                    if (scoreInput) {
+                        const scoreValue = scoreInput.value;
+                        if (!assignment.scores) {
+                            assignment.scores = {};
+                        }
+                        assignment.scores[studentId] = isNaN(parseInt(scoreValue, 10)) ? scoreValue : parseInt(scoreValue, 10);
+                    }
+                });
+                saveData();
+                showSuccessMessage('Scores updated successfully!');
+                closeModal('student-assignment-modal');
+                // Re-render student view if that's the active view and the current student is the one being edited
+                if (currentView === 'student' && currentStudentId === studentId) {
+                    renderStudentView();
+                }
+            });
+
 
             openModal('student-assignment-modal');
         }
@@ -1145,5 +1177,4 @@
     </script>
 </body>
 </html>
-
 
