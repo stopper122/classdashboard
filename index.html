@@ -39,9 +39,9 @@
             editingAssignmentId: null,
         };
 
-        const dataPath = `data/${appId}`;
+        const publicRootPath = `publicData/${appId}`;
         let publicDataPath;
-        let periodsRef = collection(db, `${dataPath}/periods`);
+        let periodsRef = collection(db, `${publicRootPath}/periods`);
         let studentsRef;
         let assignmentsRef;
         let scoresRef;
