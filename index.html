@@ -964,6 +964,21 @@
 
         // --- INITIALIZATION ---
         function init() {
+            // Real-time listener for localStorage changes
+            window.addEventListener('storage', function(e) {
+                if (e.key === 'classroom_help_requests') {
+                    const storedHelpRequests = localStorage.getItem('classroom_help_requests');
+                    helpRequests = storedHelpRequests ? JSON.parse(storedHelpRequests) : [];
+
+                    if (currentView === 'teacher') {
+                        renderHelpRequests();
+                        renderSeatingChart();
+                    } else if (currentView === 'student') {
+                        updateHelpButtonState();
+                    }
+                }
+            });
+
             loadData();
 
             document.getElementById('add-blank-seat').addEventListener('dragstart', (e) => handleDragStart(e, 'new_blank_seat'));
