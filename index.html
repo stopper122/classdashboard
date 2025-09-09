@@ -129,8 +129,9 @@
                     <input type="text" id="assignment-title" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
                 </div>
                 <div class="mb-6">
-                    <label for="assignment-due-date" class="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
-                    <input type="date" id="assignment-due-date" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
+                    <label for="assignment-posted-date" class="block text-sm font-medium text-gray-700 mb-1">Posted Date</label>
+                    <input type="date" id="assignment-posted-date" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">Leave blank to use today's date.</p>
                 </div>
                 <div class="flex justify-end gap-4">
                     <button type="button" onclick="closeModal('add-assignment-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
@@ -151,8 +152,9 @@
                     <input type="text" id="assignment-title-edit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
                 </div>
                 <div class="mb-6">
-                    <label for="assignment-due-date-edit" class="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
-                    <input type="date" id="assignment-due-date-edit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
+                    <label for="assignment-posted-date-edit" class="block text-sm font-medium text-gray-700 mb-1">Posted Date</label>
+                    <input type="date" id="assignment-posted-date-edit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                     <p class="text-xs text-gray-500 mt-1">Leave blank to use today's date.</p>
                 </div>
                 <div class="flex justify-end gap-4">
                     <button type="button" onclick="closeModal('edit-assignment-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
@@ -283,9 +285,9 @@
             } else {
                 // Default data if nothing is in storage
                 assignments = [
-                    { id: 1, title: 'Algebra Worksheet', dueDate: '2025-09-15' },
-                    { id: 2, title: 'History Essay: The Renaissance', dueDate: '2025-09-22' },
-                    { id: 3, title: 'Science Fair Project Proposal', dueDate: '2025-10-01' },
+                    { id: 1, title: 'Algebra Worksheet', postedDate: '2025-09-08' },
+                    { id: 2, title: 'History Essay: The Renaissance', postedDate: '2025-09-01' },
+                    { id: 3, title: 'Science Fair Project Proposal', postedDate: '2025-08-25' },
                 ];
             }
         }
@@ -345,7 +347,7 @@
                     <div class="flex justify-between items-start">
                         <div>
                             <h3 class="font-semibold text-lg">${a.title}</h3>
-                            <p class="text-sm text-gray-500">Due: ${new Date(a.dueDate).toLocaleDateString()}</p>
+                            <p class="text-sm text-gray-500">Posted: ${new Date(a.postedDate).toLocaleDateString()}</p>
                         </div>
                         <div class="flex items-center gap-3 mt-1">
                             <button onclick="openEditAssignmentModal(${a.id})" class="text-sm text-blue-600 hover:text-blue-800 font-medium">Edit</button>
@@ -379,7 +381,7 @@
                 <div class="p-4 border border-gray-200 rounded-lg flex justify-between items-center">
                     <div>
                         <h3 class="font-semibold text-lg">${a.title}</h3>
-                        <p class="text-sm text-gray-500">Due: ${new Date(a.dueDate).toLocaleDateString()}</p>
+                        <p class="text-sm text-gray-500">Posted: ${new Date(a.postedDate).toLocaleDateString()}</p>
                     </div>
                     <div class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-1 rounded-full">In Progress</div>
                 </div>
@@ -442,13 +444,17 @@
         document.getElementById('add-assignment-form').addEventListener('submit', function(e) {
             e.preventDefault();
             const title = document.getElementById('assignment-title').value;
-            const dueDate = document.getElementById('assignment-due-date').value;
+            let postedDate = document.getElementById('assignment-posted-date').value;
             
-            if (title && dueDate) {
+            if (!postedDate) {
+                postedDate = new Date().toISOString().split('T')[0]; // Get YYYY-MM-DD
+            }
+            
+            if (title) {
                 const newAssignment = {
                     id: assignments.length > 0 ? Math.max(...assignments.map(a => a.id)) + 1 : 1,
                     title,
-                    dueDate,
+                    postedDate,
                 };
                 assignments.push(newAssignment);
                 saveData(); // Save changes to localStorage
@@ -462,13 +468,17 @@
             e.preventDefault();
             const originalId = parseInt(document.getElementById('assignment-original-id-edit').value, 10);
             const title = document.getElementById('assignment-title-edit').value;
-            const dueDate = document.getElementById('assignment-due-date-edit').value;
+            let postedDate = document.getElementById('assignment-posted-date-edit').value;
 
-            if (title && dueDate) {
+            if (!postedDate) {
+                postedDate = new Date().toISOString().split('T')[0]; // Get YYYY-MM-DD
+            }
+
+            if (title) {
                 const assignmentIndex = assignments.findIndex(a => a.id === originalId);
                 if (assignmentIndex !== -1) {
                     assignments[assignmentIndex].title = title;
-                    assignments[assignmentIndex].dueDate = dueDate;
+                    assignments[assignmentIndex].postedDate = postedDate;
                 }
                 saveData();
                 renderTeacherAssignmentList();
@@ -581,7 +591,7 @@
             if (assignment) {
                 document.getElementById('assignment-original-id-edit').value = assignment.id;
                 document.getElementById('assignment-title-edit').value = assignment.title;
-                document.getElementById('assignment-due-date-edit').value = assignment.dueDate;
+                document.getElementById('assignment-posted-date-edit').value = assignment.postedDate;
                 openModal('edit-assignment-modal');
             }
         }
