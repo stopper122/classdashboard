@@ -16,6 +16,23 @@
         .view.active {
             display: block;
         }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        /* Drag and Drop Styles */
+        .seat.dragging-over {
+            outline: 2px dashed #3b82f6;
+            background-color: #eff6ff;
+        }
+        .student-roster-item:hover, .seat.draggable-student:hover {
+             cursor: grab;
+        }
+        .seat.blank-seat {
+            background-color: #e5e7eb;
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -43,19 +60,46 @@
 
         <!-- Teacher View -->
         <div id="teacher-view" class="view">
-            <header class="flex justify-between items-center mb-8">
+            <header class="flex justify-between items-center mb-6">
                 <div>
                     <h1 class="text-4xl font-bold text-gray-900">Teacher Dashboard</h1>
-                    <p class="text-gray-500">Manage your classroom assignments, students, and help requests.</p>
+                    <p class="text-gray-500">Manage your classroom assignments, students, and seating arrangements.</p>
                 </div>
                  <button onclick="switchView('role-selection')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Switch Role</button>
             </header>
+            
+            <!-- Tabs -->
+            <div class="mb-6 border-b border-gray-200">
+                <nav class="flex space-x-4" aria-label="Tabs">
+                    <button onclick="switchTeacherTab('assignments')" id="tab-assignments" class="tab-btn whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                        Assignments
+                    </button>
+                    <button onclick="switchTeacherTab('students')" id="tab-students" class="tab-btn whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                        Students
+                    </button>
+                    <button onclick="switchTeacherTab('seating-chart')" id="tab-seating-chart" class="tab-btn whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                        Seating Chart
+                    </button>
+                </nav>
+            </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <!-- Left Column: Students & Help Requests -->
-                <div class="lg:col-span-1 space-y-8">
-                    <!-- Student Roster -->
-                    <div class="bg-white p-6 rounded-xl shadow-md">
+            <!-- Tab Content: Assignments -->
+            <div id="content-assignments" class="tab-content">
+                 <div class="bg-white p-6 rounded-xl shadow-md">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-bold">Assignments</h2>
+                        <button onclick="openModal('add-assignment-modal')" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition">Add Assignment</button>
+                    </div>
+                    <div id="teacher-assignment-list" class="space-y-4">
+                        <!-- Assignments will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Content: Students -->
+            <div id="content-students" class="tab-content">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                     <div class="bg-white p-6 rounded-xl shadow-md">
                         <div class="flex justify-between items-center mb-4">
                             <h2 class="text-2xl font-bold">Student Roster</h2>
                             <div class="flex items-center gap-2">
@@ -72,8 +116,6 @@
                             <!-- Student data will be populated here -->
                         </ul>
                     </div>
-
-                    <!-- Help Requests -->
                     <div class="bg-white p-6 rounded-xl shadow-md">
                         <h2 class="text-2xl font-bold mb-4">Help Requests</h2>
                         <ul id="help-requests-list" class="space-y-4">
@@ -82,17 +124,27 @@
                         </ul>
                     </div>
                 </div>
+            </div>
 
-                <!-- Right Column: Assignments -->
-                <div class="lg:col-span-2">
-                    <div class="bg-white p-6 rounded-xl shadow-md">
-                        <div class="flex justify-between items-center mb-4">
-                            <h2 class="text-2xl font-bold">Assignments</h2>
-                            <button onclick="openModal('add-assignment-modal')" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition">Add Assignment</button>
+             <!-- Tab Content: Seating Chart -->
+            <div id="content-seating-chart" class="tab-content">
+                <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                    <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-md">
+                        <h2 class="text-2xl font-bold mb-4">Classroom Layout</h2>
+                        <div id="seating-chart-grid" class="grid grid-cols-6 gap-4">
+                            <!-- Seating chart will be dynamically generated here -->
                         </div>
-                        <div id="teacher-assignment-list" class="space-y-4">
-                            <!-- Assignments will be populated here -->
-                        </div>
+                    </div>
+                    <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-md">
+                         <h2 class="text-2xl font-bold mb-4">Unseated Students</h2>
+                         <div class="mb-4">
+                             <div id="add-blank-seat" draggable="true" class="p-3 text-center bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 cursor-grab font-medium">
+                                 Add Blank Seat
+                             </div>
+                         </div>
+                         <ul id="unseated-student-list" class="space-y-3 max-h-96 overflow-y-auto">
+                            <!-- Unseated students will be populated here -->
+                         </ul>
                     </div>
                 </div>
             </div>
@@ -130,6 +182,7 @@
         </div>
     </div>
 
+    <!-- Modals (Add, Edit, Score, etc.) remain unchanged -->
     <!-- Add Assignment Modal -->
     <div id="add-assignment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
         <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
@@ -285,19 +338,27 @@
         let students = [];
         let assignments = [];
         let helpRequests = [];
+        let seatingChart = []; // Array of 24 elements (4 rows x 6 cols)
         let confirmAction = null;
         let currentStudentId = null;
         let currentSortKey = null; // For student sorting
+
+        const CLASSROOM_ROWS = 4;
+        const CLASSROOM_COLS = 6;
+        const TOTAL_SEATS = CLASSROOM_ROWS * CLASSROOM_COLS;
+
 
         // --- DATA PERSISTENCE ---
         function saveData() {
             localStorage.setItem('classroom_students', JSON.stringify(students));
             localStorage.setItem('classroom_assignments', JSON.stringify(assignments));
+            localStorage.setItem('classroom_seating_chart', JSON.stringify(seatingChart));
         }
 
         function loadData() {
             const storedStudents = localStorage.getItem('classroom_students');
             const storedAssignments = localStorage.getItem('classroom_assignments');
+            const storedSeatingChart = localStorage.getItem('classroom_seating_chart');
 
             if (storedStudents) {
                 students = JSON.parse(storedStudents);
@@ -321,6 +382,13 @@
                     { id: 3, title: 'Science Fair Project Proposal', postedDate: '2025-08-25', scores: {} },
                 ];
             }
+
+            if (storedSeatingChart) {
+                seatingChart = JSON.parse(storedSeatingChart);
+            } else {
+                // Initialize an empty seating chart
+                seatingChart = Array(TOTAL_SEATS).fill(null);
+            }
         }
 
         // --- VIEWS & RENDERING ---
@@ -331,20 +399,44 @@
         };
 
         let currentView = 'role-selection';
+        let currentTeacherTab = 'assignments';
 
         function switchView(viewName) {
             views[currentView].classList.remove('active');
             views[viewName].classList.add('active');
             currentView = viewName;
             
-            if (viewName === 'teacher') renderTeacherView();
+            if (viewName === 'teacher') {
+                switchTeacherTab('assignments'); // Default to assignments tab
+                renderTeacherView();
+            }
             if (viewName === 'student') renderStudentView();
+        }
+
+        function switchTeacherTab(tabName) {
+             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+             document.querySelectorAll('.tab-btn').forEach(btn => {
+                 btn.classList.remove('border-blue-600', 'text-blue-600');
+                 btn.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+             });
+             
+             document.getElementById(`content-${tabName}`).classList.add('active');
+             document.getElementById(`tab-${tabName}`).classList.add('border-blue-600', 'text-blue-600');
+             document.getElementById(`tab-${tabName}`).classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+             currentTeacherTab = tabName;
+
+             if(tabName === 'seating-chart') {
+                renderSeatingChart();
+                renderUnseatedStudentList();
+             }
         }
         
         function renderTeacherView() {
             renderTeacherStudentList();
             renderTeacherAssignmentList();
             renderHelpRequests();
+            renderSeatingChart();
+            renderUnseatedStudentList();
         }
         
         function renderStudentView() {
@@ -353,25 +445,15 @@
                 document.getElementById('student-name').textContent = `${currentStudent.firstName} ${currentStudent.lastName}`;
                 renderStudentAssignmentList(currentStudent);
             } else {
-                 // This case might happen if a student is deleted while logged in.
                  logout();
             }
         }
 
         function sortStudents(key) {
-            // If a key is passed (from a button click), update the current sort key.
-            if (key) {
-                currentSortKey = key;
-            }
-
-            // If a sort key is set, sort the array.
+            if (key) { currentSortKey = key; }
             if (currentSortKey) {
-                students.sort((a, b) => {
-                    // Use localeCompare for robust string comparison
-                    return String(a[currentSortKey]).localeCompare(String(b[currentSortKey]));
-                });
+                students.sort((a, b) => String(a[currentSortKey]).localeCompare(String(b[currentSortKey])));
             }
-            // Always re-render the list, sorted or not.
             renderTeacherStudentList();
         }
 
@@ -387,6 +469,56 @@
                 </li>
             `).join('');
         }
+        
+        function renderUnseatedStudentList() {
+            const list = document.getElementById('unseated-student-list');
+            const seatedStudentIds = new Set(seatingChart.filter(id => typeof id === 'number'));
+            const unseatedStudents = students.filter(s => !seatedStudentIds.has(s.id));
+            
+            list.innerHTML = unseatedStudents.map(s => `
+                 <li id="roster-student-${s.id}" 
+                     class="student-roster-item p-3 bg-gray-50 rounded-lg font-medium text-center"
+                     draggable="true" 
+                     ondragstart="handleDragStart(event, 'student', ${s.id})">
+                    ${s.firstName} ${s.lastName}
+                </li>
+            `).join('');
+        }
+
+        function renderSeatingChart() {
+            const grid = document.getElementById('seating-chart-grid');
+            grid.innerHTML = '';
+            for (let i = 0; i < TOTAL_SEATS; i++) {
+                const seatContent = seatingChart[i];
+                const seatEl = document.createElement('div');
+                seatEl.dataset.seatIndex = i;
+                seatEl.className = 'seat border border-gray-300 rounded-lg h-24 flex items-center justify-center text-center p-2';
+
+                seatEl.addEventListener('dragover', handleDragOver);
+                seatEl.addEventListener('dragleave', handleDragLeave);
+                seatEl.addEventListener('drop', handleDrop);
+                
+                if (seatContent === 'BLANK') {
+                    seatEl.classList.add('blank-seat');
+                    seatEl.textContent = 'Blank';
+                    seatEl.draggable = true;
+                    seatEl.addEventListener('dragstart', (e) => handleDragStart(e, 'unseat', null, i));
+                } else if (typeof seatContent === 'number') {
+                    const student = students.find(s => s.id === seatContent);
+                    if(student) {
+                        seatEl.textContent = `${student.firstName} ${student.lastName}`;
+                        seatEl.classList.add('bg-blue-100', 'font-semibold', 'draggable-student');
+                        seatEl.draggable = true;
+                        seatEl.addEventListener('dragstart', (e) => handleDragStart(e, 'student', student.id, i));
+                    }
+                } else {
+                    // Empty seat
+                    seatEl.classList.add('bg-gray-50');
+                }
+                grid.appendChild(seatEl);
+            }
+        }
+
 
         function renderTeacherAssignmentList() {
             const list = document.getElementById('teacher-assignment-list');
@@ -450,6 +582,53 @@
             }).join('');
         }
         
+        // --- DRAG & DROP HANDLERS ---
+        function handleDragStart(event, type, id, originSeatIndex = null) {
+            const payload = { type, id, originSeatIndex };
+            event.dataTransfer.setData('application/json', JSON.stringify(payload));
+            event.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleDragOver(event) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            this.classList.add('dragging-over');
+        }
+
+        function handleDragLeave() {
+            this.classList.remove('dragging-over');
+        }
+
+        function handleDrop(event) {
+            event.preventDefault();
+            this.classList.remove('dragging-over');
+            
+            const payload = JSON.parse(event.dataTransfer.getData('application/json'));
+            const targetSeatIndex = parseInt(this.dataset.seatIndex, 10);
+            
+            // Item that is currently in the target seat
+            const itemAtTarget = seatingChart[targetSeatIndex];
+            
+            // --- Logic for dropping an item ---
+            let newItem = null;
+            if (payload.type === 'student') newItem = payload.id;
+            if (payload.type === 'blank_seat') newItem = 'BLANK';
+            if (payload.type === 'unseat') newItem = null; // Dragging blank or student off the chart
+            
+            seatingChart[targetSeatIndex] = newItem;
+
+            // --- Logic for swapping/moving the original item ---
+            if (payload.originSeatIndex !== null) {
+                // If the dragged item came from another seat, swap items
+                seatingChart[payload.originSeatIndex] = itemAtTarget;
+            }
+
+            saveData();
+            renderSeatingChart();
+            renderUnseatedStudentList();
+        }
+
+
         // --- ACTIONS ---
         function logout() {
             currentStudentId = null;
@@ -462,9 +641,7 @@
             if(student) {
                 const studentName = `${student.firstName} ${student.lastName}`;
                 helpRequests.push({ studentName });
-                
                 showSuccessMessage('Help request sent!');
-                // In a real app, you would also update the teacher's view in real-time.
             }
         }
         
@@ -476,7 +653,7 @@
         function confirmDeleteStudent(studentId) {
             const student = students.find(s => s.id === studentId);
             if (student) {
-                document.getElementById('confirmation-message').textContent = `Are you sure you want to delete ${student.firstName} ${student.lastName}? This action cannot be undone.`;
+                document.getElementById('confirmation-message').textContent = `Are you sure you want to delete ${student.firstName} ${student.lastName}? This will also remove them from the seating chart.`;
                 confirmAction = () => deleteStudent(studentId);
                 openModal('confirmation-modal');
             }
@@ -484,9 +661,12 @@
 
         function deleteStudent(studentId) {
             students = students.filter(s => s.id !== studentId);
-            saveData(); // Save changes to localStorage
-            sortStudents(); // Re-sort and re-render
-            renderStudentView(); // Rerender student view in case the deleted student was the one being shown
+             // Remove student from seating chart
+            seatingChart = seatingChart.map(seat => seat === studentId ? null : seat);
+            saveData(); 
+            sortStudents();
+            renderSeatingChart();
+            renderUnseatedStudentList();
             closeModal('confirmation-modal');
             showSuccessMessage('Student deleted successfully.');
         }
@@ -526,7 +706,7 @@
                     scores: {},
                 };
                 assignments.push(newAssignment);
-                saveData(); // Save changes to localStorage
+                saveData();
                 renderTeacherAssignmentList();
                 closeModal('add-assignment-modal');
                 this.reset();
@@ -540,7 +720,7 @@
             let postedDate = document.getElementById('assignment-posted-date-edit').value;
 
             if (!postedDate) {
-                postedDate = new Date().toISOString().split('T')[0]; // Get YYYY-MM-DD
+                postedDate = new Date().toISOString().split('T')[0]; 
             }
 
             if (title) {
@@ -565,7 +745,6 @@
             
             const formData = new FormData(e.target);
             for (let [studentId, score] of formData.entries()) {
-                // The key is in the format 'score-1', 'score-2', etc.
                 const id = parseInt(studentId.split('-')[1], 10);
                 assignment.scores[id] = isNaN(parseInt(score, 10)) ? score : parseInt(score, 10);
             }
@@ -589,8 +768,9 @@
                 }
                 const newStudent = { id, firstName, lastName };
                 students.push(newStudent);
-                saveData(); // Save changes to localStorage
-                sortStudents(); // Re-sort and re-render
+                saveData();
+                sortStudents();
+                renderUnseatedStudentList();
                 closeModal('add-student-modal');
                 this.reset();
             }
@@ -603,7 +783,6 @@
             const firstName = document.getElementById('student-firstName-edit').value;
             const lastName = document.getElementById('student-lastName-edit').value;
 
-            // Check if new ID is already taken by another student
             if (students.some(s => s.id === newId && s.id !== originalId)) {
                 showSuccessMessage(`Error: Student ID ${newId} is already in use.`);
                 return;
@@ -616,8 +795,10 @@
                     students[studentIndex].firstName = firstName;
                     students[studentIndex].lastName = lastName;
                 }
-                saveData(); // Save changes to localStorage
-                sortStudents(); // Re-sort and re-render
+                saveData();
+                sortStudents();
+                renderSeatingChart();
+                renderUnseatedStudentList();
                 closeModal('edit-student-modal');
                 showSuccessMessage('Student updated successfully.');
             }
@@ -628,7 +809,6 @@
             const data = document.getElementById('bulk-student-data').value;
             const lines = data.split('\n');
             let studentsAdded = 0;
-
             const existingIds = new Set(students.map(s => s.id));
 
             lines.forEach(line => {
@@ -641,8 +821,7 @@
                         const lastName = parts[2].trim();
 
                         if (!isNaN(id) && firstName && lastName && !existingIds.has(id)) {
-                             const newStudent = { id, firstName, lastName };
-                             students.push(newStudent);
+                             students.push({ id, firstName, lastName });
                              existingIds.add(id);
                              studentsAdded++;
                         }
@@ -651,13 +830,13 @@
             });
 
             if (studentsAdded > 0) {
-                saveData(); // Save changes to localStorage
-                sortStudents(); // Re-sort and re-render
+                saveData();
+                sortStudents();
+                renderUnseatedStudentList();
                 showSuccessMessage(`${studentsAdded} student(s) added successfully!`);
             } else {
                  showSuccessMessage(`No new students added. Check format or if IDs already exist.`);
             }
-
             closeModal('bulk-upload-modal');
             this.reset();
         });
@@ -738,7 +917,9 @@
 
         // --- INITIALIZATION ---
         function init() {
-            loadData(); // Load data from localStorage on startup
+            loadData();
+
+            document.getElementById('add-blank-seat').addEventListener('dragstart', (e) => handleDragStart(e, 'blank_seat'));
 
             document.getElementById('student-login-form').addEventListener('submit', function(e) {
                 e.preventDefault();
@@ -756,14 +937,13 @@
                 if (studentExists) {
                     currentStudentId = loginId;
                     errorEl.textContent = '';
-                    loginIdInput.value = ''; // Clear input
+                    loginIdInput.value = '';
                     switchView('student');
                 } else {
                     errorEl.textContent = 'Student ID not found. Please try again.';
                 }
             });
 
-            // Confirmation modal listeners
             document.getElementById('confirm-button').addEventListener('click', () => {
                 if (typeof confirmAction === 'function') {
                     confirmAction();
