@@ -479,7 +479,7 @@
                  <li id="roster-student-${s.id}" 
                      class="student-roster-item p-3 bg-gray-50 rounded-lg font-medium text-center"
                      draggable="true" 
-                     ondragstart="handleDragStart(event, 'student', ${s.id})">
+                     ondragstart="handleDragStart(event, 'roster_student', ${s.id})">
                     ${s.firstName} ${s.lastName}
                 </li>
             `).join('');
@@ -502,14 +502,14 @@
                     seatEl.classList.add('blank-seat');
                     seatEl.textContent = 'Blank';
                     seatEl.draggable = true;
-                    seatEl.addEventListener('dragstart', (e) => handleDragStart(e, 'unseat', null, i));
+                    seatEl.addEventListener('dragstart', (e) => handleDragStart(e, 'grid_seat', null, i));
                 } else if (typeof seatContent === 'number') {
                     const student = students.find(s => s.id === seatContent);
                     if(student) {
                         seatEl.textContent = `${student.firstName} ${student.lastName}`;
                         seatEl.classList.add('bg-blue-100', 'font-semibold', 'draggable-student');
                         seatEl.draggable = true;
-                        seatEl.addEventListener('dragstart', (e) => handleDragStart(e, 'student', student.id, i));
+                        seatEl.addEventListener('dragstart', (e) => handleDragStart(e, 'grid_seat', null, i));
                     }
                 } else {
                     // Empty seat
@@ -583,7 +583,7 @@
         }
         
         // --- DRAG & DROP HANDLERS ---
-        function handleDragStart(event, type, id, originSeatIndex = null) {
+        function handleDragStart(event, type, id = null, originSeatIndex = null) {
             const payload = { type, id, originSeatIndex };
             event.dataTransfer.setData('application/json', JSON.stringify(payload));
             event.dataTransfer.effectAllowed = 'move';
@@ -606,21 +606,26 @@
             const payload = JSON.parse(event.dataTransfer.getData('application/json'));
             const targetSeatIndex = parseInt(this.dataset.seatIndex, 10);
             
-            // Item that is currently in the target seat
-            const itemAtTarget = seatingChart[targetSeatIndex];
-            
-            // --- Logic for dropping an item ---
-            let newItem = null;
-            if (payload.type === 'student') newItem = payload.id;
-            if (payload.type === 'blank_seat') newItem = 'BLANK';
-            if (payload.type === 'unseat') newItem = null; // Dragging blank or student off the chart
-            
-            seatingChart[targetSeatIndex] = newItem;
+            const itemAtTarget = seatingChart[targetSeatIndex]; // what's being replaced
 
-            // --- Logic for swapping/moving the original item ---
-            if (payload.originSeatIndex !== null) {
-                // If the dragged item came from another seat, swap items
-                seatingChart[payload.originSeatIndex] = itemAtTarget;
+            switch (payload.type) {
+                case 'roster_student':
+                    // A student from the unseated roster is dropped onto a seat.
+                    // The student who was in that seat (if any) becomes unseated.
+                    seatingChart[targetSeatIndex] = payload.id;
+                    break;
+                case 'new_blank_seat':
+                    // The "Add Blank Seat" button is dropped onto a seat.
+                    // The student who was in that seat (if any) becomes unseated.
+                    seatingChart[targetSeatIndex] = 'BLANK';
+                    break;
+                case 'grid_seat':
+                    // A seat from within the grid is dropped on another seat, causing a swap.
+                    const originSeatIndex = payload.originSeatIndex;
+                    const itemAtOrigin = seatingChart[originSeatIndex];
+                    seatingChart[originSeatIndex] = itemAtTarget;
+                    seatingChart[targetSeatIndex] = itemAtOrigin;
+                    break;
             }
 
             saveData();
@@ -919,7 +924,7 @@
         function init() {
             loadData();
 
-            document.getElementById('add-blank-seat').addEventListener('dragstart', (e) => handleDragStart(e, 'blank_seat'));
+            document.getElementById('add-blank-seat').addEventListener('dragstart', (e) => handleDragStart(e, 'new_blank_seat'));
 
             document.getElementById('student-login-form').addEventListener('submit', function(e) {
                 e.preventDefault();
@@ -963,4 +968,5 @@
     </script>
 </body>
 </html>
+
 
