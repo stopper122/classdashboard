@@ -353,12 +353,14 @@
             localStorage.setItem('classroom_students', JSON.stringify(students));
             localStorage.setItem('classroom_assignments', JSON.stringify(assignments));
             localStorage.setItem('classroom_seating_chart', JSON.stringify(seatingChart));
+            localStorage.setItem('classroom_help_requests', JSON.stringify(helpRequests));
         }
 
         function loadData() {
             const storedStudents = localStorage.getItem('classroom_students');
             const storedAssignments = localStorage.getItem('classroom_assignments');
             const storedSeatingChart = localStorage.getItem('classroom_seating_chart');
+            const storedHelpRequests = localStorage.getItem('classroom_help_requests');
 
             if (storedStudents) {
                 students = JSON.parse(storedStudents);
@@ -388,6 +390,10 @@
             } else {
                 // Initialize an empty seating chart
                 seatingChart = Array(TOTAL_SEATS).fill(null);
+            }
+
+            if(storedHelpRequests) {
+                helpRequests = JSON.parse(storedHelpRequests);
             }
         }
 
@@ -487,12 +493,14 @@
 
         function renderSeatingChart() {
             const grid = document.getElementById('seating-chart-grid');
+            const studentsNeedingHelp = new Set(helpRequests.map(req => req.studentId));
             grid.innerHTML = '';
+
             for (let i = 0; i < TOTAL_SEATS; i++) {
                 const seatContent = seatingChart[i];
                 const seatEl = document.createElement('div');
                 seatEl.dataset.seatIndex = i;
-                seatEl.className = 'seat border border-gray-300 rounded-lg h-24 flex items-center justify-center text-center p-2';
+                seatEl.className = 'seat border border-gray-300 rounded-lg h-24 flex items-center justify-center text-center p-2 transition-colors duration-300';
 
                 seatEl.addEventListener('dragover', handleDragOver);
                 seatEl.addEventListener('dragleave', handleDragLeave);
@@ -507,12 +515,17 @@
                     const student = students.find(s => s.id === seatContent);
                     if(student) {
                         seatEl.textContent = `${student.firstName} ${student.lastName}`;
-                        seatEl.classList.add('bg-blue-100', 'font-semibold', 'draggable-student');
+                        seatEl.classList.add('font-semibold', 'draggable-student');
                         seatEl.draggable = true;
                         seatEl.addEventListener('dragstart', (e) => handleDragStart(e, 'grid_seat', null, i));
+                        
+                        if (studentsNeedingHelp.has(student.id)) {
+                             seatEl.classList.add('bg-red-200', 'border-red-400', 'text-red-900');
+                        } else {
+                             seatEl.classList.add('bg-blue-100');
+                        }
                     }
                 } else {
-                    // Empty seat
                     seatEl.classList.add('bg-gray-50');
                 }
                 grid.appendChild(seatEl);
@@ -643,16 +656,24 @@
 
         function requestHelp() {
             const student = students.find(s => s.id === currentStudentId);
-            if(student) {
-                const studentName = `${student.firstName} ${student.lastName}`;
-                helpRequests.push({ studentName });
-                showSuccessMessage('Help request sent!');
+            if (student) {
+                // Prevent duplicate requests from the same student
+                if (!helpRequests.some(req => req.studentId === student.id)) {
+                    const studentName = `${student.firstName} ${student.lastName}`;
+                    helpRequests.push({ studentId: student.id, studentName });
+                    saveData();
+                    showSuccessMessage('Help request sent!');
+                } else {
+                    showSuccessMessage('You already have an active help request.');
+                }
             }
         }
         
         function resolveHelpRequest(index) {
             helpRequests.splice(index, 1);
+            saveData();
             renderHelpRequests();
+            renderSeatingChart();
         }
         
         function confirmDeleteStudent(studentId) {
@@ -968,5 +989,4 @@
     </script>
 </body>
 </html>
-
 
