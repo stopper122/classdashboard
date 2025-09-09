@@ -7,8 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, collection, query, where, addDoc, updateDoc, deleteDoc, getDoc, getDocs, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, collection, query, where, addDoc, updateDoc, deleteDoc, getDoc, getDocs, runTransaction, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // IMPORTANT: These global variables are provided by the canvas environment.
@@ -41,7 +41,7 @@
 
         const dataPath = `data/${appId}`;
         let publicDataPath;
-        let periodsRef;
+        let periodsRef = collection(db, `${dataPath}/periods`);
         let studentsRef;
         let assignmentsRef;
         let scoresRef;
@@ -53,10 +53,9 @@
         let scoresUnsubscribe = null;
         let requestsUnsubscribe = null;
 
-        const setupRefs = () => {
-            publicDataPath = `publicData/${appId}${state.currentPeriodId ? `/${state.currentPeriodId}` : ''}`;
-            periodsRef = collection(db, `${dataPath}/periods`);
+        const setupPeriodSpecificRefs = () => {
             if (state.currentPeriodId) {
+                publicDataPath = `publicData/${appId}/${state.currentPeriodId}`;
                 studentsRef = collection(db, `${publicDataPath}/students`);
                 assignmentsRef = collection(db, `${publicDataPath}/assignments`);
                 scoresRef = collection(db, `${publicDataPath}/scores`);
@@ -66,6 +65,7 @@
 
         const startDataListeners = () => {
             if (periodsUnsubscribe) periodsUnsubscribe();
+            
             periodsUnsubscribe = onSnapshot(periodsRef, (snapshot) => {
                 state.periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
@@ -80,8 +80,12 @@
                     }
                 }
                 
-                setupRefs();
+                setupPeriodSpecificRefs();
                 startPeriodSpecificListeners();
+            }, (error) => {
+                console.error("Error fetching periods:", error);
+                state.loading = false;
+                renderUI();
             });
         };
 
@@ -110,7 +114,7 @@
                 }
             }
 
-            studentsUnsubscribe = onSnapshot(query(studentsRef, where("isActive", "==", true)), (snapshot) => {
+            studentsUnsubscribe = onSnapshot(query(studentsRef), (snapshot) => {
                 state.students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 loaded.students = true;
                 checkAllLoaded();
@@ -142,7 +146,8 @@
             }
         };
 
-        const addStudent = async (periodId) => {
+        const addStudent = async () => {
+            if (!studentsRef) return;
             const studentName = prompt("Enter student's first name:");
             if (studentName) {
                 const studentLastName = prompt("Enter student's last name:");
@@ -150,7 +155,7 @@
                     const newStudentRef = await addDoc(studentsRef, {
                         firstName: studentName,
                         lastName: studentLastName,
-                        seatNumber: 0,
+                        seatOrder: 999, // Add to end of layout
                         isActive: true
                     });
                     
@@ -167,50 +172,51 @@
         };
         
         const addEmptySeat = async () => {
+            if (!studentsRef) return;
             await addDoc(studentsRef, {
                 firstName: 'Empty',
                 lastName: 'Seat',
-                seatNumber: 0,
+                seatOrder: 999,
                 isActive: false 
             });
         };
 
-        const addAssignment = async (periodId) => {
+        const addAssignment = async () => {
+            if (!assignmentsRef) return;
             const assignmentName = prompt("Enter assignment name:");
             if (assignmentName) {
                 const maxAssignmentNum = state.assignments.reduce((max, a) => Math.max(max, a.assignmentNumber || 0), 0);
                 const newAssignment = await addDoc(assignmentsRef, {
                     name: assignmentName,
                     assignmentNumber: maxAssignmentNum + 1,
-                    postedDate: new Date()
+                    postedDate: serverTimestamp()
                 });
 
-                const studentsQuery = await getDocs(studentsRef);
+                const studentsQuery = await getDocs(query(studentsRef, where("isActive", "==", true)));
                 studentsQuery.forEach(async (studentDoc) => {
-                    if(studentDoc.data().isActive) {
-                        await addDoc(scoresRef, {
-                            studentId: studentDoc.id,
-                            assignmentId: newAssignment.id,
-                            score: 'Not Graded'
-                        });
-                    }
+                    await addDoc(scoresRef, {
+                        studentId: studentDoc.id,
+                        assignmentId: newAssignment.id,
+                        score: 'Not Graded'
+                    });
                 });
             }
         };
         
         const updateAssignment = async () => {
             const assignmentId = state.editingAssignmentId;
-            if (!assignmentId) return;
+            if (!assignmentId || !assignmentsRef) return;
 
             const newName = document.getElementById(`edit-assignment-name-${assignmentId}`).value;
             const newNumber = document.getElementById(`edit-assignment-num-${assignmentId}`).value;
 
-            const assignmentRef = doc(db, `${publicDataPath}/assignments/${assignmentId}`);
+            const assignmentRef = doc(assignmentsRef, assignmentId);
             await updateDoc(assignmentRef, {
                 name: newName,
                 assignmentNumber: parseInt(newNumber, 10) || 0
             });
             state.editingAssignmentId = null;
+            renderUI();
         };
 
         const clearAllData = async () => {
@@ -219,9 +225,11 @@
                 if (confirm("Are you sure you want to delete all data for this period?")) {
                     const collectionsToDelete = [studentsRef, assignmentsRef, scoresRef, requestsRef];
                     for (const ref of collectionsToDelete) {
-                        const snapshot = await getDocs(ref);
-                        const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
-                        await Promise.all(deletePromises);
+                        if (ref) {
+                            const snapshot = await getDocs(ref);
+                            const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
+                            await Promise.all(deletePromises);
+                        }
                     }
                 }
             } else {
@@ -230,7 +238,7 @@
         };
 
         const deleteAllStudents = async () => {
-            if (confirm("Are you sure you want to delete all students in this period?")) {
+            if (confirm("Are you sure you want to delete all students in this period?") && studentsRef) {
                 const snapshot = await getDocs(studentsRef);
                 const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
                 await Promise.all(deletePromises);
@@ -238,9 +246,11 @@
         };
 
         const clearAllRequests = async () => {
-            const snapshot = await getDocs(requestsRef);
-            const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
-            await Promise.all(deletePromises);
+            if (requestsRef) {
+                const snapshot = await getDocs(requestsRef);
+                const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
+                await Promise.all(deletePromises);
+            }
         };
         
         window.App = {
@@ -262,11 +272,13 @@
                 localStorage.setItem('currentPeriodId', periodId);
                 state.loading = true;
                 renderUI(); 
-                setupRefs();
+                setupPeriodSpecificRefs();
                 startPeriodSpecificListeners();
             },
             deleteRequest: async (requestId) => {
-                await deleteDoc(doc(requestsRef, requestId));
+                if (requestsRef) {
+                    await deleteDoc(doc(requestsRef, requestId));
+                }
             },
             setEditingAssignment: (assignmentId) => {
                 state.editingAssignmentId = assignmentId;
@@ -279,9 +291,10 @@
         };
 
         const LayoutView = () => {
-            const helpQueue = state.requests.filter(r => r.type === 'help').sort((a, b) => a.timestamp.seconds - b.timestamp.seconds);
-            const checkQueue = state.requests.filter(r => r.type === 'check').sort((a, b) => a.timestamp.seconds - b.timestamp.seconds);
-            const sortedStudents = [...state.students, ...state.students.filter(s => !s.isActive)].sort((a, b) => (a.seatOrder || 0) - (b.seatOrder || 0));
+            const helpQueue = state.requests.filter(r => r.type === 'help' && r.timestamp).sort((a, b) => a.timestamp.seconds - b.timestamp.seconds);
+            const checkQueue = state.requests.filter(r => r.type === 'check' && r.timestamp).sort((a, b) => a.timestamp.seconds - b.timestamp.seconds);
+            const allStudents = [...state.students];
+            const sortedStudents = allStudents.sort((a, b) => (a.seatOrder || 0) - (b.seatOrder || 0));
 
             return `
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4">
@@ -423,8 +436,8 @@
                         </div>
                     </nav>
                     <div class="p-4 bg-gray-50 border-b border-t">
-                        <button onclick="App.addStudent('${state.currentPeriodId}')" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Add Student</button>
-                        <button onclick="App.addAssignment('${state.currentPeriodId}')" class="ml-2 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Add Assignment</button>
+                        <button onclick="App.addStudent()" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Add Student</button>
+                        <button onclick="App.addAssignment()" class="ml-2 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Add Assignment</button>
                         <button onclick="App.addEmptySeat()" class="ml-2 bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Add Empty Seat</button>
                         <button onclick="App.clearAllRequests()" class="ml-2 bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded">Clear All Requests</button>
                         <button onclick="App.deleteAllStudents()" class="ml-2 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">Delete All Students</button>
@@ -454,7 +467,7 @@
             const handleDragOver = (e) => {
                 e.preventDefault();
                 const targetCard = e.currentTarget;
-                if(targetCard.dataset.studentId !== draggedItemId && targetCard.draggable) {
+                if(targetCard.dataset.studentId !== draggedItemId && targetCard.getAttribute('draggable') === 'true') {
                     targetCard.classList.add('bg-blue-200');
                 }
             };
@@ -471,8 +484,14 @@
         
                 if (draggedItemId === targetItemId || !targetItemId) return;
 
+                if (!studentsRef) return;
+                
                 await runTransaction(db, async (transaction) => {
-                    const students = [...state.students].sort((a, b) => (a.seatOrder || 0) - (b.seatOrder || 0));
+                    // Re-fetch students within the transaction to ensure fresh data
+                    const studentsSnapshot = await getDocs(query(studentsRef));
+                    const students = studentsSnapshot.docs.map(d => ({id: d.id, ...d.data()}));
+                    students.sort((a, b) => (a.seatOrder || 0) - (b.seatOrder || 0));
+
                     const draggedIndex = students.findIndex(s => s.id === draggedItemId);
                     const targetIndex = students.findIndex(s => s.id === targetItemId);
 
@@ -482,7 +501,8 @@
                     students.splice(targetIndex, 0, draggedItem);
         
                     students.forEach((student, index) => {
-                        transaction.update(doc(db, `${studentsRef.path}/${student.id}`), { seatOrder: index });
+                        const studentRef = doc(studentsRef, student.id);
+                        transaction.update(studentRef, { seatOrder: index });
                     });
                 });
             };
@@ -501,22 +521,25 @@
             });
         };
 
-        const initializeAppAndData = async () => {
-            try {
-                await signInAnonymously(auth);
-                setupRefs();
-                startDataListeners();
-            } catch (error) {
-                console.error("Error during app initialization:", error);
-                const appDiv = document.getElementById('app');
-                if (appDiv) {
-                    appDiv.innerHTML = `<div class="p-4 text-center text-red-600">Error initializing the application. Please check the console.</div>`;
-                }
-            }
-        };
-
+        let appInitialized = false;
         document.addEventListener('DOMContentLoaded', () => {
-            initializeAppAndData();
+            renderUI(); // Initial render with loading state
+            onAuthStateChanged(auth, (user) => {
+                if (user && !appInitialized) {
+                    appInitialized = true;
+                    // User is signed in, start the app logic.
+                    startDataListeners();
+                } else if (!user) {
+                    // User is signed out, sign them in anonymously.
+                    signInAnonymously(auth).catch((error) => {
+                        console.error("Anonymous sign in failed:", error);
+                        const appDiv = document.getElementById('app');
+                        if (appDiv) {
+                            appDiv.innerHTML = `<div class="p-4 text-center text-red-600">Could not connect to the service.</div>`;
+                        }
+                    });
+                }
+            });
         });
     </script>
     <style>
