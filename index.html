@@ -60,9 +60,6 @@
         
         // --- CORE LOGIC ---
 
-        /**
-         * Sets up Firestore collection references based on the current period ID.
-         */
         const setupPeriodSpecificRefs = () => {
             if (state.currentPeriodId) {
                 const periodPath = `${publicRootPath}/${state.currentPeriodId}`;
@@ -75,16 +72,13 @@
             }
         };
 
-        /**
-         * Detaches all active Firestore listeners.
-         */
-        const detachAllListeners = () => {
-            Object.values(unsubscribe).forEach(unsub => unsub && unsub());
+        const detachPeriodSpecificListeners = () => {
+            unsubscribe.students?.();
+            unsubscribe.assignments?.();
+            unsubscribe.scores?.();
+            unsubscribe.requests?.();
         };
 
-        /**
-         * Attaches real-time listeners for the currently selected period.
-         */
         const attachPeriodListeners = () => {
             if (!state.currentPeriodId) return;
 
@@ -109,46 +103,57 @@
             }, e => console.error("Error fetching requests:", e));
         };
 
-        /**
-         * Main initialization function. Runs once after user is authenticated.
-         */
-        const initializeAppLogic = () => {
-            if (unsubscribe.periods) return; // Already initialized
+        const initializeAppLogic = async () => {
+            if (unsubscribe.periods) return; // App is already initialized
 
-            periodsRef = collection(db, `${publicRootPath}/periods`);
-
-            unsubscribe.periods = onSnapshot(periodsRef, (snapshot) => {
-                const isInitialLoad = state.loading;
-                state.periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-                let newPeriodId = state.currentPeriodId;
-                const periodStillExists = state.periods.some(p => p.id === newPeriodId);
+            try {
+                periodsRef = collection(db, `${publicRootPath}/periods`);
                 
-                if (isInitialLoad || !periodStillExists) {
-                    const storedPeriodId = localStorage.getItem('currentPeriodId');
-                    newPeriodId = state.periods.some(p => p.id === storedPeriodId)
-                        ? storedPeriodId
-                        : (state.periods.length > 0 ? state.periods[0].id : null);
-                }
+                // Step 1: Perform a one-time fetch to get the initial list of periods.
+                const periodsSnapshot = await getDocs(periodsRef);
+                state.periods = periodsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-                if (isInitialLoad || newPeriodId !== state.currentPeriodId) {
-                    App.setPeriod(newPeriodId);
-                }
+                // Step 2: Determine the correct current period based on local storage and fetched data.
+                const storedPeriodId = localStorage.getItem('currentPeriodId');
+                const periodExists = state.periods.some(p => p.id === storedPeriodId);
+                
+                state.currentPeriodId = (storedPeriodId && periodExists)
+                    ? storedPeriodId
+                    : (state.periods.length > 0 ? state.periods[0].id : null);
+                
+                // Step 3: Set up the period-specific data listeners for the determined period.
+                App.setPeriod(state.currentPeriodId, true);
 
+                // Step 4: Now that initialization is complete, remove the loading screen.
                 state.loading = false;
                 renderUI();
-            }, (error) => {
-                console.error("Critical Error initializing periods:", error);
+
+                // Step 5: Begin listening for any future changes to the list of periods.
+                unsubscribe.periods = onSnapshot(periodsRef, (snapshot) => {
+                    state.periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    // If the currently selected period gets deleted, switch to the first available one.
+                    if (!state.periods.some(p => p.id === state.currentPeriodId)) {
+                        const newPeriodId = state.periods.length > 0 ? state.periods[0].id : null;
+                        App.setPeriod(newPeriodId, true);
+                    } else {
+                        renderUI(); // Re-render to update the dropdown list.
+                    }
+                });
+
+            } catch (error) {
+                console.error("Critical Error: Could not initialize application.", error);
                 state.loading = false;
-                state.error = "Could not connect to the periods database.";
+                state.error = "Could not load application data. Please refresh the page.";
                 renderUI();
-            });
+            }
         };
 
         // --- ACTIONS (Exposed via window.App) ---
 
         const App = {
-            setPeriod: (periodId) => {
+            setPeriod: (periodId, force = false) => {
+                if (state.currentPeriodId === periodId && !force) return;
+
                 state.currentPeriodId = periodId;
                 if (periodId) {
                     localStorage.setItem('currentPeriodId', periodId);
@@ -156,9 +161,9 @@
                     localStorage.removeItem('currentPeriodId');
                 }
                 
-                detachAllListeners(); // Stop listening to old period data
+                detachPeriodSpecificListeners();
                 setupPeriodSpecificRefs();
-                attachPeriodListeners(); // Start listening to new period data
+                attachPeriodListeners();
                 renderUI();
             },
 
