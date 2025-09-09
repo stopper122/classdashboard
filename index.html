@@ -169,7 +169,7 @@
         </div>
     </div>
 
-    <!-- Modals (Add, Edit, Score, etc.) remain unchanged -->
+    <!-- Modals -->
     <!-- Add Assignment Modal -->
     <div id="add-assignment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
         <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
@@ -299,6 +299,19 @@
                     <button type="submit" class="bg-purple-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-purple-700 transition">Upload Students</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Student Assignment Modal -->
+    <div id="student-assignment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg">
+            <h2 id="student-assignment-modal-title" class="text-2xl font-bold mb-6"></h2>
+            <div id="student-assignment-modal-list" class="space-y-3 max-h-96 overflow-y-auto pr-2">
+                <!-- Student assignments will be populated here -->
+            </div>
+            <div class="flex justify-end mt-8">
+                <button type="button" onclick="closeModal('student-assignment-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Close</button>
+            </div>
         </div>
     </div>
 
@@ -502,9 +515,10 @@
                     const student = students.find(s => s.id === seatContent);
                     if(student) {
                         seatEl.textContent = `${student.firstName} ${student.lastName}`;
-                        seatEl.classList.add('font-semibold', 'draggable-student');
+                        seatEl.classList.add('font-semibold', 'draggable-student', 'cursor-pointer');
                         seatEl.draggable = true;
                         seatEl.addEventListener('dragstart', (e) => handleDragStart(e, 'grid_seat', null, i));
+                        seatEl.addEventListener('click', () => openStudentAssignmentModal(student.id));
                         
                         if (studentsNeedingHelp.has(student.id)) {
                              seatEl.classList.add('bg-red-200', 'border-red-400', 'text-red-900');
@@ -890,6 +904,44 @@
         });
         
         // --- UTILITIES ---
+        function openStudentAssignmentModal(studentId) {
+            const student = students.find(s => s.id === studentId);
+            if (!student) return;
+
+            document.getElementById('student-assignment-modal-title').textContent = `Assignments for ${student.firstName} ${student.lastName}`;
+            
+            const listEl = document.getElementById('student-assignment-modal-list');
+            if (assignments.length === 0) {
+                listEl.innerHTML = '<p class="text-gray-500">No assignments have been posted yet.</p>';
+            } else {
+                listEl.innerHTML = assignments.map(assignment => {
+                    const hasHelpRequest = helpRequests.some(req => req.studentId === student.id && req.assignmentId === assignment.id);
+                    const score = assignment.scores ? assignment.scores[student.id] : undefined;
+                    let scoreDisplay = '';
+
+                    if (score === undefined) {
+                        scoreDisplay = `<span class="text-xs font-medium text-gray-500">Not Graded</span>`;
+                    } else if (score === 'excused') {
+                        scoreDisplay = `<span class="text-xs font-medium text-yellow-600">Excused</span>`;
+                    } else {
+                        scoreDisplay = `<span class="text-xs font-medium text-blue-600">Score: ${score}/4</span>`;
+                    }
+
+                    return `
+                        <li class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                            <div>
+                                <span class="font-medium">${assignment.title}</span>
+                                ${hasHelpRequest ? '<span class="ml-2 text-xs font-bold text-red-600 bg-red-100 px-2 py-1 rounded-full">HELP REQUESTED</span>' : ''}
+                            </div>
+                            ${scoreDisplay}
+                        </li>
+                    `;
+                }).join('');
+            }
+
+            openModal('student-assignment-modal');
+        }
+        
         function openEditStudentModal(studentId) {
             const student = students.find(s => s.id === studentId);
             if (student) {
