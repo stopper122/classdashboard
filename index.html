@@ -635,27 +635,36 @@
                  const scoreA = a.scores ? a.scores[student.id] : undefined;
                  const scoreB = b.scores ? b.scores[student.id] : undefined;
 
-                 const getSortableScore = (score) => {
-                     if (score === 'excused') return -1;
-                     if (score === undefined) return -2;
-                     return score;
-                 };
+                 // Handle date sorting first as it's simpler
+                 if (currentAssignmentSortKey === 'date_desc') {
+                     return new Date(b.postedDate) - new Date(a.postedDate);
+                 }
+                 if (currentAssignmentSortKey === 'date_asc') {
+                     return new Date(a.postedDate) - new Date(b.postedDate);
+                 }
+
+                 // Handle score sorting with special logic for 'excused'
+                 const isAExcused = scoreA === 'excused';
+                 const isBExcused = scoreB === 'excused';
+
+                 if (isAExcused && !isBExcused) return 1; // a goes to the bottom
+                 if (!isAExcused && isBExcused) return -1; // b goes to the bottom
+                 if (isAExcused && isBExcused) return 0; // they are equal
+
+                 // Helper to treat 'Not Graded' as the lowest value for sorting purposes
+                 const getSortableScore = (score) => score === undefined ? -Infinity : score;
 
                  const sortableScoreA = getSortableScore(scoreA);
                  const sortableScoreB = getSortableScore(scoreB);
 
-                 switch (currentAssignmentSortKey) {
-                     case 'date_desc':
-                         return new Date(b.postedDate) - new Date(a.postedDate);
-                     case 'date_asc':
-                         return new Date(a.postedDate) - new Date(b.postedDate);
-                     case 'score_desc':
-                         return sortableScoreB - sortableScoreA;
-                     case 'score_asc':
-                         return sortableScoreA - sortableScoreB;
-                     default:
-                         return 0;
+                 if (currentAssignmentSortKey === 'score_desc') {
+                     return sortableScoreB - sortableScoreA;
                  }
+                 if (currentAssignmentSortKey === 'score_asc') {
+                     return sortableScoreA - sortableScoreB;
+                 }
+                 
+                 return 0;
              };
 
              assignmentsToSort.sort(sortFunction);
@@ -1244,5 +1253,4 @@
     </script>
 </body>
 </html>
-" selected in the most up-to-date document.
 
