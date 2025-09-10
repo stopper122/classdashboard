@@ -1104,71 +1104,82 @@
 
         document.getElementById('bulk-upload-form').addEventListener('submit', async function(e) {
             e.preventDefault();
+            const form = this;
             const data = document.getElementById('bulk-student-data').value;
             const lines = data.split('\n');
-            const newStudents = [];
-            const newStudentIds = new Set();
+            const studentsToProcess = [];
+            const processedIds = new Set();
         
-            // 1. Parse and validate new students from input, checking for duplicates within the list
+            // 1. Parse and validate format from textarea
             for (const line of lines) {
                 const trimmedLine = line.trim();
-                if (trimmedLine) {
-                    const parts = trimmedLine.split(',');
-                    if (parts.length === 3) {
-                        const id = parseInt(parts[0].trim(), 10);
-                        const firstName = parts[1].trim();
-                        const lastName = parts[2].trim();
-        
-                        if (!isNaN(id) && firstName && lastName) {
-                            if (newStudentIds.has(id)) {
-                                console.warn(`Duplicate ID ${id} in textarea, skipping.`);
-                                continue;
-                            }
-                            newStudents.push({ id, firstName, lastName });
-                            newStudentIds.add(id);
-                        }
+                if (!trimmedLine) continue;
+                
+                const parts = trimmedLine.split(',');
+                if (parts.length === 3) {
+                    const id = parseInt(parts[0].trim(), 10);
+                    const firstName = parts[1].trim();
+                    const lastName = parts[2].trim();
+
+                    if (!isNaN(id) && firstName && lastName && !processedIds.has(id)) {
+                        studentsToProcess.push({ id, firstName, lastName });
+                        processedIds.add(id);
                     }
                 }
             }
         
-            if (newStudents.length === 0) {
-                showSuccessMessage("No valid new students to upload.");
+            if (studentsToProcess.length === 0) {
+                showSuccessMessage("No valid new students found in the provided data.");
                 closeModal('bulk-upload-modal');
-                this.reset();
+                form.reset();
                 return;
             }
         
             try {
-                // 2. Fetch all existing students from Firestore just once
+                // 2. Check for existing students in Firestore
+                const studentsToUpload = [];
+                let skippedCount = 0;
+                
                 const querySnapshot = await getDocs(studentsCol);
                 const existingIds = new Set(querySnapshot.docs.map(doc => doc.data().id));
-        
-                // 3. Filter out students that already exist in the database
-                const studentsToUpload = newStudents.filter(s => !existingIds.has(s.id));
+
+                for (const student of studentsToProcess) {
+                    if (existingIds.has(student.id)) {
+                        skippedCount++;
+                    } else {
+                        studentsToUpload.push(student);
+                    }
+                }
                 
-                if (studentsToUpload.length === 0) {
-                    showSuccessMessage("All students in the list already exist.");
-                    closeModal('bulk-upload-modal');
-                    this.reset();
-                    return;
+                // 3. Perform batch write if there are new students
+                if (studentsToUpload.length > 0) {
+                    const batch = writeBatch(db);
+                    studentsToUpload.forEach(student => {
+                        const newStudentRef = doc(studentsCol);
+                        batch.set(newStudentRef, student);
+                    });
+                    await batch.commit();
                 }
         
-                // 4. Create and commit a batch write for the new students
-                const batch = writeBatch(db);
-                studentsToUpload.forEach(student => {
-                    const newStudentRef = doc(studentsCol); // Create a new doc with a unique Firebase ID
-                    batch.set(newStudentRef, student);
-                });
-        
-                await batch.commit();
-                showSuccessMessage(`${studentsToUpload.length} student(s) added successfully!`);
+                // 4. Show summary message
+                let message = "";
+                if (studentsToUpload.length > 0) {
+                    message += `${studentsToUpload.length} student(s) added successfully. `;
+                }
+                if (skippedCount > 0) {
+                    message += `${skippedCount} student(s) were skipped as their IDs already exist.`;
+                }
+                if (!message) {
+                    message = "All students in the list already exist.";
+                }
+                showSuccessMessage(message.trim());
         
             } catch (error) {
-                console.error("Error bulk uploading students:", error);
-                showSuccessMessage("Error: Could not upload students.");
+                console.error("Error during bulk upload:", error);
+                showSuccessMessage("Error: An error occurred during the upload process.");
             } finally {
                 closeModal('bulk-upload-modal');
-                this.reset();
+                form.reset();
             }
         });
         
