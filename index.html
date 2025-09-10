@@ -24,14 +24,19 @@
         }
         /* Drag and Drop Styles */
         .seat.dragging-over {
-            outline: 2px dashed #3b82f6;
-            background-color: #eff6ff;
+            outline: 3px solid #2563eb;
+            background-color: #dbeafe;
         }
         .student-roster-item:hover, .seat.draggable-student:hover {
              cursor: grab;
         }
         .seat.blank-seat {
             background-color: #e5e7eb;
+        }
+        .dragging {
+            opacity: 0.7;
+            transform: scale(1.05);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         }
     </style>
 </head>
@@ -43,10 +48,10 @@
             <h1 class="text-3xl font-bold mb-4 text-gray-900">Classroom Management</h1>
             <p class="text-gray-600 mb-8">Please select your login type.</p>
             <div class="flex flex-col md:flex-row justify-center items-center gap-4">
-                <button onclick="switchView('teacher-login')" class="w-full max-w-xs bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105">
+                <button onclick="switchView('teacher-login')" class="w-full max-w-xs bg-blue-600 text-white font-semibold py-4 px-8 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105">
                     Teacher Login
                 </button>
-                <button onclick="switchView('student-login')" class="w-full max-w-xs bg-green-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-green-700 transition-transform transform hover:scale-105">
+                <button onclick="switchView('student-login')" class="w-full max-w-xs bg-green-600 text-white font-semibold py-4 px-8 rounded-lg shadow-md hover:bg-green-700 transition-transform transform hover:scale-105">
                     Student Login
                 </button>
             </div>
@@ -56,7 +61,7 @@
         <div id="teacher-login-view" class="view text-center bg-white p-8 rounded-xl shadow-md max-w-md mx-auto">
             <h1 class="text-3xl font-bold mb-4 text-gray-900">Teacher Portal</h1>
             <p class="text-gray-600 mb-8">Click below to access the teacher dashboard.</p>
-            <button onclick="switchView('teacher')" class="w-full bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105">
+            <button onclick="switchView('teacher')" class="w-full bg-blue-600 text-white font-semibold py-4 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105">
                 Access Dashboard
             </button>
             <button onclick="switchView('login-type-selection')" class="mt-4 text-sm text-gray-600 hover:text-gray-800">Back to login selection</button>
@@ -104,7 +109,7 @@
                  <div class="bg-white p-6 rounded-xl shadow-md">
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-2xl font-bold">Assignments</h2>
-                        <button onclick="openModal('add-assignment-modal')" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition">Add Assignment</button>
+                        <button onclick="openModal('add-assignment-modal')" class="bg-blue-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-blue-700 transition">Add Assignment</button>
                     </div>
                     <div id="teacher-assignment-list" class="space-y-4">
                         <!-- Assignments will be populated here -->
@@ -118,14 +123,14 @@
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-2xl font-bold">Student Roster</h2>
                         <div class="flex items-center gap-2">
-                            <button onclick="openModal('add-student-modal')" class="bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700 transition">Add</button>
-                            <button onclick="openModal('bulk-upload-modal')" class="bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-purple-700 transition">Bulk Upload</button>
+                            <button onclick="openModal('add-student-modal')" class="bg-green-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-green-700 transition">Add</button>
+                            <button onclick="openModal('bulk-upload-modal')" class="bg-purple-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-purple-700 transition">Bulk Upload</button>
                         </div>
                     </div>
                     <div class="flex items-center gap-2 mb-4 border-b pb-4">
                         <span class="text-sm font-medium text-gray-600">Sort by:</span>
-                        <button onclick="sortStudents('firstName')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-1 px-3 rounded-full hover:bg-gray-300 transition">First Name</button>
-                        <button onclick="sortStudents('lastName')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-1 px-3 rounded-full hover:bg-gray-300 transition">Last Name</button>
+                        <button onclick="sortStudents('firstName')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full hover:bg-gray-300 transition">First Name</button>
+                        <button onclick="sortStudents('lastName')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full hover:bg-gray-300 transition">Last Name</button>
                     </div>
                     <div class="flex justify-between items-center mb-4">
                          <div class="flex items-center gap-3">
@@ -142,14 +147,14 @@
 
              <!-- Tab Content: Seating Chart -->
             <div id="content-seating-chart" class="tab-content">
-                <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                    <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-md">
+                <div class="flex flex-col xl:flex-row gap-8">
+                    <div class="flex-grow bg-white p-6 rounded-xl shadow-md">
                         <h2 class="text-2xl font-bold mb-4">Classroom Layout</h2>
                         <div id="seating-chart-grid" class="grid grid-cols-6 gap-4">
                             <!-- Seating chart will be dynamically generated here -->
                         </div>
                     </div>
-                    <div class="lg:col-span-1 space-y-8">
+                    <div class="xl:w-1/4 xl:max-w-sm flex-shrink-0 space-y-8">
                         <div class="bg-white p-6 rounded-xl shadow-md">
                             <h2 class="text-2xl font-bold mb-4">Student Requests</h2>
                             <ul id="student-requests-list" class="space-y-4 max-h-60 overflow-y-auto pr-2">
@@ -188,13 +193,13 @@
                     <h2 class="text-2xl font-bold">Your Assignments</h2>
                     <div class="flex items-center gap-2 flex-wrap">
                         <span class="text-sm font-medium text-gray-600">Sort by:</span>
-                        <button onclick="sortAssignments('date_desc')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-1 px-3 rounded-full hover:bg-gray-300 transition">Date (Newest)</button>
-                        <button onclick="sortAssignments('date_asc')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-1 px-3 rounded-full hover:bg-gray-300 transition">Date (Oldest)</button>
-                        <button onclick="sortAssignments('score_desc')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-1 px-3 rounded-full hover:bg-gray-300 transition">Score (High)</button>
-                        <button onclick="sortAssignments('score_asc')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-1 px-3 rounded-full hover:bg-gray-300 transition">Score (Low)</button>
+                        <button onclick="sortAssignments('date_desc')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full hover:bg-gray-300 transition">Date (Newest)</button>
+                        <button onclick="sortAssignments('date_asc')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full hover:bg-gray-300 transition">Date (Oldest)</button>
+                        <button onclick="sortAssignments('score_desc')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full hover:bg-gray-300 transition">Score (High)</button>
+                        <button onclick="sortAssignments('score_asc')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full hover:bg-gray-300 transition">Score (Low)</button>
                     </div>
                 </div>
-                <div id="student-assignment-list" class="space-y-4">
+                <div id="student-assignment-list" class="space-y-5">
                      <!-- Student assignments will be populated here -->
                 </div>
             </div>
@@ -204,14 +209,14 @@
     <!-- Modals -->
     <!-- Add Assignment Modal -->
     <div id="add-assignment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg">
             <h2 class="text-2xl font-bold mb-6">New Assignment</h2>
-            <form id="add-assignment-form">
-                <div class="mb-4">
+            <form id="add-assignment-form" class="space-y-6">
+                <div>
                     <label for="assignment-title" class="block text-sm font-medium text-gray-700 mb-1">Title</label>
                     <input type="text" id="assignment-title" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
                 </div>
-                <div class="mb-6">
+                <div>
                     <label for="assignment-posted-date" class="block text-sm font-medium text-gray-700 mb-1">Posted Date</label>
                     <input type="date" id="assignment-posted-date" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
                     <p class="text-xs text-gray-500 mt-1">Leave blank to use today's date.</p>
@@ -226,15 +231,15 @@
 
     <!-- Edit Assignment Modal -->
     <div id="edit-assignment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg">
             <h2 class="text-2xl font-bold mb-6">Edit Assignment</h2>
-            <form id="edit-assignment-form">
+            <form id="edit-assignment-form" class="space-y-6">
                 <input type="hidden" id="assignment-original-id-edit">
-                <div class="mb-4">
+                <div>
                     <label for="assignment-title-edit" class="block text-sm font-medium text-gray-700 mb-1">Title</label>
                     <input type="text" id="assignment-title-edit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
                 </div>
-                <div class="mb-6">
+                <div>
                     <label for="assignment-posted-date-edit" class="block text-sm font-medium text-gray-700 mb-1">Posted Date</label>
                     <input type="date" id="assignment-posted-date-edit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
                      <p class="text-xs text-gray-500 mt-1">Leave blank to use today's date.</p>
@@ -249,7 +254,7 @@
 
     <!-- Score Assignment Modal -->
     <div id="score-assignment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-2xl">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-3xl">
             <h2 class="text-2xl font-bold mb-2">Score Assignment</h2>
             <h3 class="text-lg text-gray-600 mb-6" id="score-assignment-title"></h3>
             <form id="score-assignment-form">
@@ -267,18 +272,18 @@
     
     <!-- Add Student Modal -->
     <div id="add-student-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg">
             <h2 class="text-2xl font-bold mb-6">Add New Student</h2>
-            <form id="add-student-form">
-                <div class="mb-4">
+            <form id="add-student-form" class="space-y-6">
+                <div>
                     <label for="student-id-add" class="block text-sm font-medium text-gray-700 mb-1">Student ID#</label>
                     <input type="number" id="student-id-add" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" required>
                 </div>
-                <div class="mb-4">
+                <div>
                     <label for="student-firstName-add" class="block text-sm font-medium text-gray-700 mb-1">First Name</label>
                     <input type="text" id="student-firstName-add" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" required>
                 </div>
-                <div class="mb-6">
+                <div>
                     <label for="student-lastName-add" class="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
                     <input type="text" id="student-lastName-add" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" required>
                 </div>
@@ -292,19 +297,19 @@
 
     <!-- Edit Student Modal -->
     <div id="edit-student-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg">
             <h2 class="text-2xl font-bold mb-6">Edit Student</h2>
-            <form id="edit-student-form">
+            <form id="edit-student-form" class="space-y-6">
                 <input type="hidden" id="student-original-id-edit">
-                <div class="mb-4">
+                <div>
                     <label for="student-id-edit" class="block text-sm font-medium text-gray-700 mb-1">Student ID#</label>
                     <input type="number" id="student-id-edit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
                 </div>
-                <div class="mb-4">
+                <div>
                     <label for="student-firstName-edit" class="block text-sm font-medium text-gray-700 mb-1">First Name</label>
                     <input type="text" id="student-firstName-edit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
                 </div>
-                <div class="mb-6">
+                <div>
                     <label for="student-lastName-edit" class="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
                     <input type="text" id="student-lastName-edit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
                 </div>
@@ -318,7 +323,7 @@
     
     <!-- Bulk Upload Modal -->
     <div id="bulk-upload-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-xl">
             <h2 class="text-2xl font-bold mb-6">Bulk Upload Students</h2>
             <form id="bulk-upload-form">
                 <div class="mb-4">
@@ -336,9 +341,9 @@
 
     <!-- Student Assignment Modal -->
     <div id="student-assignment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-2xl">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-3xl">
             <h2 id="student-assignment-modal-title" class="text-2xl font-bold mb-6"></h2>
-            <div id="student-assignment-modal-list" class="space-y-3 max-h-96 overflow-y-auto pr-2">
+            <div id="student-assignment-modal-list" class="space-y-4 max-h-96 overflow-y-auto pr-2">
                 <!-- Student assignments will be populated here -->
             </div>
             <div id="student-assignment-modal-footer" class="flex justify-end mt-8 gap-4">
@@ -518,14 +523,14 @@
         function renderTeacherStudentList() {
             const list = document.getElementById('teacher-student-list');
             list.innerHTML = students.map(s => `
-                <li class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                <li class="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
                     <div class="flex items-center gap-3">
-                        <input type="checkbox" class="student-checkbox h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" data-student-id="${s.id}" onchange="updateDeleteSelectedButtonState()">
+                        <input type="checkbox" class="student-checkbox h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" data-student-id="${s.id}" onchange="updateDeleteSelectedButtonState()">
                         <span class="font-medium">${s.firstName} ${s.lastName} <span class="text-xs text-gray-500">(ID: ${s.id})</span></span>
                     </div>
-                    <div class="flex items-center gap-3">
-                        <button onclick="openEditStudentModal(${s.id})" class="text-sm text-blue-600 hover:text-blue-800 font-medium">Edit</button>
-                        <button onclick="confirmDeleteStudent(${s.id})" class="text-sm text-red-600 hover:text-red-800 font-medium">Delete</button>
+                    <div class="flex items-center gap-4">
+                        <button onclick="openEditStudentModal(${s.id})" class="text-sm text-blue-600 hover:text-blue-800 font-medium py-1 px-3">Edit</button>
+                        <button onclick="confirmDeleteStudent(${s.id})" class="text-sm text-red-600 hover:text-red-800 font-medium py-1 px-3">Delete</button>
                     </div>
                 </li>
             `).join('');
@@ -538,9 +543,10 @@
             
             list.innerHTML = unseatedStudents.map(s => `
                  <li id="roster-student-${s.id}" 
-                     class="student-roster-item p-3 bg-gray-50 rounded-lg font-medium text-center"
+                     class="student-roster-item p-4 bg-gray-50 rounded-lg font-medium text-center"
                      draggable="true" 
-                     ondragstart="handleDragStart(event, 'roster_student', ${s.id})">
+                     ondragstart="handleDragStart(event, 'roster_student', ${s.id})"
+                     ondragend="handleDragEnd(event)">
                     ${s.firstName} ${s.lastName}
                 </li>
             `).join('');
@@ -567,6 +573,8 @@
                     seatEl.textContent = 'Blank';
                     seatEl.draggable = true;
                     seatEl.addEventListener('dragstart', (e) => handleDragStart(e, 'grid_seat', null, i));
+                    seatEl.addEventListener('dragend', handleDragEnd);
+
                 } else if (typeof seatContent === 'number') {
                     const student = students.find(s => s.id === seatContent);
                     if(student) {
@@ -574,6 +582,7 @@
                         seatEl.classList.add('font-semibold', 'draggable-student', 'cursor-pointer');
                         seatEl.draggable = true;
                         seatEl.addEventListener('dragstart', (e) => handleDragStart(e, 'grid_seat', null, i));
+                        seatEl.addEventListener('dragend', handleDragEnd);
                         seatEl.addEventListener('click', () => openStudentAssignmentModal(student.id));
                         
                         const needsHelp = studentsNeedingHelp.has(student.id);
@@ -600,16 +609,16 @@
         function renderTeacherAssignmentList() {
             const list = document.getElementById('teacher-assignment-list');
             list.innerHTML = assignments.map(a => `
-                <div class="p-4 border border-gray-200 rounded-lg">
+                <div class="p-5 border border-gray-200 rounded-lg">
                     <div class="flex justify-between items-start">
                         <div>
                             <h3 class="font-semibold text-lg">${a.title}</h3>
                             <p class="text-sm text-gray-500">Posted: ${new Date(a.postedDate).toLocaleDateString()}</p>
                         </div>
-                        <div class="flex items-center gap-3 mt-1">
-                            <button onclick="openScoreAssignmentModal(${a.id})" class="text-sm text-green-600 hover:text-green-800 font-medium">Score</button>
-                            <button onclick="openEditAssignmentModal(${a.id})" class="text-sm text-blue-600 hover:text-blue-800 font-medium">Edit</button>
-                            <button onclick="confirmDeleteAssignment(${a.id})" class="text-sm text-red-600 hover:text-red-800 font-medium">Delete</button>
+                        <div class="flex items-center gap-4 mt-1">
+                            <button onclick="openScoreAssignmentModal(${a.id})" class="text-sm text-green-600 hover:text-green-800 font-medium py-1 px-3">Score</button>
+                            <button onclick="openEditAssignmentModal(${a.id})" class="text-sm text-blue-600 hover:text-blue-800 font-medium py-1 px-3">Edit</button>
+                            <button onclick="confirmDeleteAssignment(${a.id})" class="text-sm text-red-600 hover:text-red-800 font-medium py-1 px-3">Delete</button>
                         </div>
                     </div>
                 </div>
@@ -633,10 +642,12 @@
                 if (req.type === 'help') {
                     return `
                         <li class="flex justify-between items-center p-3 bg-yellow-100 border border-yellow-200 rounded-lg">
-                            <div>
-                                <span class="font-semibold">${req.studentName}</span>
-                                <span class="text-sm text-yellow-800"> needs help on: </span>
-                                <span class="font-medium text-sm text-yellow-900">"${req.assignmentTitle}"</span>
+                            <div class="flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-yellow-600 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <div>
+                                    <span class="font-semibold">${req.studentName}</span>
+                                    <span class="text-sm text-yellow-800 block">Help on: "${req.assignmentTitle}"</span>
+                                </div>
                             </div>
                             <button onclick="resolveRequest('help', ${req.originalIndex})" class="text-sm bg-green-200 text-green-800 font-semibold py-1 px-3 rounded-full hover:bg-green-300">Resolve</button>
                         </li>
@@ -644,10 +655,12 @@
                 } else { // type is 'check'
                      return `
                         <li class="flex justify-between items-center p-3 bg-sky-100 border border-sky-200 rounded-lg">
-                            <div>
-                                <span class="font-semibold">${req.studentName}</span>
-                                <span class="text-sm text-sky-800"> requests a check for: </span>
-                                <span class="font-medium text-sm text-sky-900">"${req.assignmentTitle}"</span>
+                             <div class="flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-sky-600 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <div>
+                                    <span class="font-semibold">${req.studentName}</span>
+                                    <span class="text-sm text-sky-800 block">Check for: "${req.assignmentTitle}"</span>
+                                </div>
                             </div>
                             <button onclick="resolveRequest('check', ${req.originalIndex})" class="text-sm bg-green-200 text-green-800 font-semibold py-1 px-3 rounded-full hover:bg-green-300">Resolve</button>
                         </li>
@@ -727,20 +740,20 @@
                 const hasActiveHelpRequest = ownHelpRequestIndex !== -1;
 
                 let helpButtonHtml = hasActiveHelpRequest
-                    ? `<button onclick="cancelHelpRequest(${a.id})" class="w-full bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition text-sm">Cancel (Queue #${ownHelpRequestIndex + 1})</button>`
-                    : `<button onclick="requestHelp(${a.id})" class="w-full bg-yellow-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-yellow-600 transition">Request Help</button>`;
+                    ? `<button onclick="cancelHelpRequest(${a.id})" class="w-full bg-red-600 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-red-700 transition text-sm">Cancel (Queue #${ownHelpRequestIndex + 1})</button>`
+                    : `<button onclick="requestHelp(${a.id})" class="w-full bg-yellow-500 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-yellow-600 transition">Request Help</button>`;
 
                 const checkRequestIndex = checkRequests.findIndex(req => req.assignmentId === a.id);
                 const ownCheckRequestIndex = checkRequests.findIndex(req => req.studentId === student.id && req.assignmentId === a.id);
                 const hasActiveCheckRequest = ownCheckRequestIndex !== -1;
 
                 let checkButtonHtml = hasActiveCheckRequest
-                    ? `<button onclick="cancelCheckRequest(${a.id})" class="w-full bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition text-sm">Cancel (Queue #${ownCheckRequestIndex + 1})</button>`
-                    : `<button onclick="requestCheck(${a.id})" class="w-full bg-sky-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-sky-700 transition">Request Check</button>`;
+                    ? `<button onclick="cancelCheckRequest(${a.id})" class="w-full bg-red-600 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-red-700 transition text-sm">Cancel (Queue #${ownCheckRequestIndex + 1})</button>`
+                    : `<button onclick="requestCheck(${a.id})" class="w-full bg-sky-600 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-sky-700 transition">Request Check</button>`;
 
 
                 return `
-                    <div class="p-4 border border-gray-200 rounded-lg">
+                    <div class="p-5 border border-gray-200 rounded-lg">
                         <div class="flex justify-between items-start mb-4">
                             <div>
                                 <h3 class="font-semibold text-lg">${a.title}</h3>
@@ -827,9 +840,14 @@
 
         // --- DRAG & DROP HANDLERS ---
         function handleDragStart(event, type, id = null, originSeatIndex = null) {
+            event.target.classList.add('dragging');
             const payload = { type, id, originSeatIndex };
             event.dataTransfer.setData('application/json', JSON.stringify(payload));
             event.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleDragEnd(event) {
+            event.target.classList.remove('dragging');
         }
 
         function handleDragOver(event) {
@@ -1315,6 +1333,8 @@
             loadData();
 
             document.getElementById('add-blank-seat').addEventListener('dragstart', (e) => handleDragStart(e, 'new_blank_seat'));
+            document.getElementById('add-blank-seat').addEventListener('dragend', handleDragEnd);
+
 
             document.getElementById('student-login-form').addEventListener('submit', function(e) {
                 e.preventDefault();
