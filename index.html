@@ -421,6 +421,10 @@
                 }
                 
                 // Define collection paths
+                console.log("initFirebase running...");
+console.log("appId:", appId);
+console.log("db:", db);
+
                 const basePath = `artifacts/${appId}/public/data`;
                studentsCol = collection(db, basePath, "students");
 assignmentsCol = collection(db, basePath, "assignments");
