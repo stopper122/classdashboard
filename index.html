@@ -127,6 +127,13 @@
                         <button onclick="sortStudents('firstName')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-1 px-3 rounded-full hover:bg-gray-300 transition">First Name</button>
                         <button onclick="sortStudents('lastName')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-1 px-3 rounded-full hover:bg-gray-300 transition">Last Name</button>
                     </div>
+                    <div class="flex justify-between items-center mb-4">
+                         <div class="flex items-center gap-3">
+                            <input type="checkbox" id="select-all-students" onchange="toggleSelectAll(this)" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            <label for="select-all-students" class="text-sm font-medium text-gray-700">Select All</label>
+                        </div>
+                        <button id="delete-selected-btn" onclick="confirmDeleteSelectedStudents()" class="hidden bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition">Delete Selected</button>
+                    </div>
                     <ul id="teacher-student-list" class="space-y-3">
                         <!-- Student data will be populated here -->
                     </ul>
@@ -500,6 +507,7 @@
                 students.sort((a, b) => String(a[currentSortKey]).localeCompare(String(b[currentSortKey])));
             }
             renderTeacherStudentList();
+            updateDeleteSelectedButtonState();
         }
         
         function sortAssignments(key) {
@@ -511,7 +519,10 @@
             const list = document.getElementById('teacher-student-list');
             list.innerHTML = students.map(s => `
                 <li class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                    <span class="font-medium">${s.firstName} ${s.lastName} <span class="text-xs text-gray-500">(ID: ${s.id})</span></span>
+                    <div class="flex items-center gap-3">
+                        <input type="checkbox" class="student-checkbox h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" data-student-id="${s.id}" onchange="updateDeleteSelectedButtonState()">
+                        <span class="font-medium">${s.firstName} ${s.lastName} <span class="text-xs text-gray-500">(ID: ${s.id})</span></span>
+                    </div>
                     <div class="flex items-center gap-3">
                         <button onclick="openEditStudentModal(${s.id})" class="text-sm text-blue-600 hover:text-blue-800 font-medium">Edit</button>
                         <button onclick="confirmDeleteStudent(${s.id})" class="text-sm text-red-600 hover:text-red-800 font-medium">Delete</button>
@@ -746,6 +757,74 @@
             }).join('');
         }
         
+        // --- BULK ACTIONS ---
+        function toggleSelectAll(selectAllCheckbox) {
+            const studentCheckboxes = document.querySelectorAll('.student-checkbox');
+            studentCheckboxes.forEach(checkbox => {
+                checkbox.checked = selectAllCheckbox.checked;
+            });
+            updateDeleteSelectedButtonState();
+        }
+
+        function updateDeleteSelectedButtonState() {
+            const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
+            const deleteBtn = document.getElementById('delete-selected-btn');
+            const selectAllCheckbox = document.getElementById('select-all-students');
+
+            if (selectedCheckboxes.length > 0) {
+                deleteBtn.classList.remove('hidden');
+            } else {
+                deleteBtn.classList.add('hidden');
+            }
+
+            const allCheckboxes = document.querySelectorAll('.student-checkbox');
+            if (allCheckboxes.length === 0) {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = false;
+                return;
+            }
+
+            if (selectedCheckboxes.length === 0) {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = false;
+            } else if (selectedCheckboxes.length === allCheckboxes.length) {
+                selectAllCheckbox.checked = true;
+                selectAllCheckbox.indeterminate = false;
+            } else {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = true;
+            }
+        }
+
+
+        function confirmDeleteSelectedStudents() {
+            const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
+            const studentIdsToDelete = Array.from(selectedCheckboxes).map(cb => parseInt(cb.dataset.studentId, 10));
+
+            if (studentIdsToDelete.length === 0) {
+                showSuccessMessage("No students selected.");
+                return;
+            }
+
+            document.getElementById('confirmation-message').textContent = `Are you sure you want to delete these ${studentIdsToDelete.length} student(s)? This action cannot be undone.`;
+            confirmAction = () => deleteSelectedStudents(studentIdsToDelete);
+            openModal('confirmation-modal');
+        }
+
+        function deleteSelectedStudents(studentIdsToDelete) {
+            const idsToDeleteSet = new Set(studentIdsToDelete);
+            students = students.filter(s => !idsToDeleteSet.has(s.id));
+            seatingChart = seatingChart.map(seat => idsToDeleteSet.has(seat) ? null : seat);
+            
+            saveData();
+            sortStudents();
+            renderSeatingChart();
+            renderUnseatedStudentList();
+            
+            closeModal('confirmation-modal');
+            showSuccessMessage(`${studentIdsToDelete.length} student(s) deleted successfully.`);
+        }
+
         // --- DRAG & DROP HANDLERS ---
         function handleDragStart(event, type, id = null, originSeatIndex = null) {
             const payload = { type, id, originSeatIndex };
@@ -802,6 +881,14 @@
         function logout() {
             currentStudentId = null;
             document.getElementById('login-error').textContent = '';
+
+            const selectAllCheckbox = document.getElementById('select-all-students');
+            if (selectAllCheckbox) {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = false;
+                updateDeleteSelectedButtonState();
+            }
+            
             switchView('login-type-selection');
         }
 
