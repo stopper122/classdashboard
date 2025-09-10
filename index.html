@@ -98,31 +98,22 @@
 
             <!-- Tab Content: Students -->
             <div id="content-students" class="tab-content">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                     <div class="bg-white p-6 rounded-xl shadow-md">
-                        <div class="flex justify-between items-center mb-4">
-                            <h2 class="text-2xl font-bold">Student Roster</h2>
-                            <div class="flex items-center gap-2">
-                                <button onclick="openModal('add-student-modal')" class="bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700 transition">Add</button>
-                                <button onclick="openModal('bulk-upload-modal')" class="bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-purple-700 transition">Bulk Upload</button>
-                            </div>
+                 <div class="bg-white p-6 rounded-xl shadow-md">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-bold">Student Roster</h2>
+                        <div class="flex items-center gap-2">
+                            <button onclick="openModal('add-student-modal')" class="bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700 transition">Add</button>
+                            <button onclick="openModal('bulk-upload-modal')" class="bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-purple-700 transition">Bulk Upload</button>
                         </div>
-                        <div class="flex items-center gap-2 mb-4 border-b pb-4">
-                            <span class="text-sm font-medium text-gray-600">Sort by:</span>
-                            <button onclick="sortStudents('firstName')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-1 px-3 rounded-full hover:bg-gray-300 transition">First Name</button>
-                            <button onclick="sortStudents('lastName')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-1 px-3 rounded-full hover:bg-gray-300 transition">Last Name</button>
-                        </div>
-                        <ul id="teacher-student-list" class="space-y-3">
-                            <!-- Student data will be populated here -->
-                        </ul>
                     </div>
-                    <div class="bg-white p-6 rounded-xl shadow-md">
-                        <h2 class="text-2xl font-bold mb-4">Student Requests</h2>
-                        <ul id="student-requests-list" class="space-y-4">
-                            <!-- Help and check requests will be populated here -->
-                             <li class="text-gray-500 italic">No student requests at the moment.</li>
-                        </ul>
+                    <div class="flex items-center gap-2 mb-4 border-b pb-4">
+                        <span class="text-sm font-medium text-gray-600">Sort by:</span>
+                        <button onclick="sortStudents('firstName')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-1 px-3 rounded-full hover:bg-gray-300 transition">First Name</button>
+                        <button onclick="sortStudents('lastName')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-1 px-3 rounded-full hover:bg-gray-300 transition">Last Name</button>
                     </div>
+                    <ul id="teacher-student-list" class="space-y-3">
+                        <!-- Student data will be populated here -->
+                    </ul>
                 </div>
             </div>
 
@@ -135,16 +126,25 @@
                             <!-- Seating chart will be dynamically generated here -->
                         </div>
                     </div>
-                    <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-md">
-                         <h2 class="text-2xl font-bold mb-4">Unseated Students</h2>
-                         <div class="mb-4">
-                             <div id="add-blank-seat" draggable="true" class="p-3 text-center bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 cursor-grab font-medium">
-                                 Add Blank Seat
+                    <div class="lg:col-span-1 space-y-8">
+                        <div class="bg-white p-6 rounded-xl shadow-md">
+                            <h2 class="text-2xl font-bold mb-4">Student Requests</h2>
+                            <ul id="student-requests-list" class="space-y-4 max-h-60 overflow-y-auto pr-2">
+                                <!-- Help and check requests will be populated here -->
+                                 <li class="text-gray-500 italic">No student requests at the moment.</li>
+                            </ul>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-md">
+                             <h2 class="text-2xl font-bold mb-4">Unseated Students</h2>
+                             <div class="mb-4">
+                                 <div id="add-blank-seat" draggable="true" class="p-3 text-center bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 cursor-grab font-medium">
+                                     Add Blank Seat
+                                 </div>
                              </div>
-                         </div>
-                         <ul id="unseated-student-list" class="space-y-3 max-h-96 overflow-y-auto">
-                            <!-- Unseated students will be populated here -->
-                         </ul>
+                             <ul id="unseated-student-list" class="space-y-3 max-h-60 overflow-y-auto pr-2">
+                                <!-- Unseated students will be populated here -->
+                             </ul>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -623,16 +623,20 @@
                     scoreDisplay = `<div class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-1 rounded-full">Score: ${score}/4</div>`;
                 }
                 
-                const helpRequestIndex = helpRequests.findIndex(req => req.studentId === student.id && req.assignmentId === a.id);
-                const hasActiveHelpRequest = helpRequestIndex !== -1;
+                const helpRequestIndex = helpRequests.findIndex(req => req.assignmentId === a.id);
+                const ownHelpRequestIndex = helpRequests.findIndex(req => req.studentId === student.id && req.assignmentId === a.id);
+                const hasActiveHelpRequest = ownHelpRequestIndex !== -1;
+
                 let helpButtonHtml = hasActiveHelpRequest
-                    ? `<button onclick="cancelHelpRequest(${a.id})" class="w-full bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition text-sm">Cancel (Queue #${helpRequestIndex + 1})</button>`
+                    ? `<button onclick="cancelHelpRequest(${a.id})" class="w-full bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition text-sm">Cancel (Queue #${ownHelpRequestIndex + 1})</button>`
                     : `<button onclick="requestHelp(${a.id})" class="w-full bg-yellow-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-yellow-600 transition">Request Help</button>`;
 
-                const checkRequestIndex = checkRequests.findIndex(req => req.studentId === student.id && req.assignmentId === a.id);
-                const hasActiveCheckRequest = checkRequestIndex !== -1;
+                const checkRequestIndex = checkRequests.findIndex(req => req.assignmentId === a.id);
+                const ownCheckRequestIndex = checkRequests.findIndex(req => req.studentId === student.id && req.assignmentId === a.id);
+                const hasActiveCheckRequest = ownCheckRequestIndex !== -1;
+
                 let checkButtonHtml = hasActiveCheckRequest
-                    ? `<button onclick="cancelCheckRequest(${a.id})" class="w-full bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition text-sm">Cancel (Queue #${checkRequestIndex + 1})</button>`
+                    ? `<button onclick="cancelCheckRequest(${a.id})" class="w-full bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition text-sm">Cancel (Queue #${ownCheckRequestIndex + 1})</button>`
                     : `<button onclick="requestCheck(${a.id})" class="w-full bg-sky-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-sky-700 transition">Request Check</button>`;
 
 
