@@ -1158,10 +1158,11 @@
                 }
                 showSuccessMessage(message.trim());
         
-            } catch (error) {
-                console.error("Error during bulk upload:", error);
-                showSuccessMessage("Error: An error occurred during the upload process.");
-            } finally {
+           } catch (error) {
+    console.error("Error during bulk upload:", error);
+    const details = error.code ? `${error.code} - ${error.message}` : error.message || error;
+    showSuccessMessage(`Bulk upload failed: ${details}`);
+} finally {
                 closeModal('bulk-upload-modal');
                 form.reset();
             }
