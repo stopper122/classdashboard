@@ -1104,39 +1104,48 @@
 
         document.getElementById('bulk-upload-form').addEventListener('submit', async function(e) {
             e.preventDefault();
-            const data = document.getElementById('bulk-student-data').value;
-            const lines = data.split('\n');
-            let studentsAdded = 0;
-            const existingIds = new Set(students.map(s => s.id));
-            const batch = writeBatch(db);
+            try {
+                const data = document.getElementById('bulk-student-data').value;
+                const lines = data.split('\n');
+                let studentsAdded = 0;
 
-            lines.forEach(line => {
-                const trimmedLine = line.trim();
-                if (trimmedLine) {
-                    const parts = trimmedLine.split(',');
-                    if (parts.length === 3) {
-                        const id = parseInt(parts[0].trim(), 10);
-                        const firstName = parts[1].trim();
-                        const lastName = parts[2].trim();
+                const querySnapshot = await getDocs(studentsCol);
+                const existingIds = new Set(querySnapshot.docs.map(doc => doc.data().id));
+                
+                const batch = writeBatch(db);
 
-                        if (!isNaN(id) && firstName && lastName && !existingIds.has(id)) {
-                             const newStudentRef = doc(studentsCol);
-                             batch.set(newStudentRef, { id, firstName, lastName });
-                             existingIds.add(id);
-                             studentsAdded++;
+                lines.forEach(line => {
+                    const trimmedLine = line.trim();
+                    if (trimmedLine) {
+                        const parts = trimmedLine.split(',');
+                        if (parts.length === 3) {
+                            const id = parseInt(parts[0].trim(), 10);
+                            const firstName = parts[1].trim();
+                            const lastName = parts[2].trim();
+
+                            if (!isNaN(id) && firstName && lastName && !existingIds.has(id)) {
+                                 const newStudentRef = doc(studentsCol);
+                                 batch.set(newStudentRef, { id, firstName, lastName });
+                                 existingIds.add(id);
+                                 studentsAdded++;
+                            }
                         }
                     }
-                }
-            });
+                });
 
-            if (studentsAdded > 0) {
-                await batch.commit();
-                showSuccessMessage(`${studentsAdded} student(s) added successfully!`);
-            } else {
-                 showSuccessMessage(`No new students added. Check format or if IDs already exist.`);
+                if (studentsAdded > 0) {
+                    await batch.commit();
+                    showSuccessMessage(`${studentsAdded} student(s) added successfully!`);
+                } else {
+                     showSuccessMessage(`No new students added. Check format or if IDs already exist.`);
+                }
+            } catch (error) {
+                console.error("Error bulk uploading students:", error);
+                showSuccessMessage("Error: Could not upload students.");
+            } finally {
+                closeModal('bulk-upload-modal');
+                this.reset();
             }
-            closeModal('bulk-upload-modal');
-            this.reset();
         });
         
         // --- UTILITIES ---
