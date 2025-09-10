@@ -623,14 +623,16 @@
                     scoreDisplay = `<div class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-1 rounded-full">Score: ${score}/4</div>`;
                 }
                 
-                const hasActiveHelpRequest = helpRequests.some(req => req.studentId === student.id && req.assignmentId === a.id);
+                const helpRequestIndex = helpRequests.findIndex(req => req.studentId === student.id && req.assignmentId === a.id);
+                const hasActiveHelpRequest = helpRequestIndex !== -1;
                 let helpButtonHtml = hasActiveHelpRequest
-                    ? `<button onclick="cancelHelpRequest(${a.id})" class="w-full bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition">Cancel Help</button>`
+                    ? `<button onclick="cancelHelpRequest(${a.id})" class="w-full bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition text-sm">Cancel (Queue #${helpRequestIndex + 1})</button>`
                     : `<button onclick="requestHelp(${a.id})" class="w-full bg-yellow-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-yellow-600 transition">Request Help</button>`;
 
-                const hasActiveCheckRequest = checkRequests.some(req => req.studentId === student.id && req.assignmentId === a.id);
+                const checkRequestIndex = checkRequests.findIndex(req => req.studentId === student.id && req.assignmentId === a.id);
+                const hasActiveCheckRequest = checkRequestIndex !== -1;
                 let checkButtonHtml = hasActiveCheckRequest
-                    ? `<button onclick="cancelCheckRequest(${a.id})" class="w-full bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition">Cancel Check</button>`
+                    ? `<button onclick="cancelCheckRequest(${a.id})" class="w-full bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition text-sm">Cancel (Queue #${checkRequestIndex + 1})</button>`
                     : `<button onclick="requestCheck(${a.id})" class="w-full bg-sky-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-sky-700 transition">Request Check</button>`;
 
 
