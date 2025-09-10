@@ -1056,10 +1056,8 @@
 
             if (firstName && lastName && !isNaN(id)) {
                 try {
-                    const q = query(studentsCol, where("id", "==", id));
-                    const querySnapshot = await getDocs(q);
-                    
-                    if (!querySnapshot.empty) {
+                    // Use the live students array which is always up-to-date
+                    if (students.some(student => student.id === id)) {
                         showSuccessMessage(`Student with ID ${id} already exists.`);
                         return;
                     }
@@ -1110,7 +1108,7 @@
             const studentsToProcess = [];
             const processedIds = new Set();
         
-            // 1. Parse and validate format from textarea
+            // 1. Parse and validate format from textarea, prevent duplicates within the list
             for (const line of lines) {
                 const trimmedLine = line.trim();
                 if (!trimmedLine) continue;
@@ -1136,20 +1134,10 @@
             }
         
             try {
-                // 2. Check for existing students in Firestore
-                const studentsToUpload = [];
-                let skippedCount = 0;
-                
-                const querySnapshot = await getDocs(studentsCol);
-                const existingIds = new Set(querySnapshot.docs.map(doc => doc.data().id));
-
-                for (const student of studentsToProcess) {
-                    if (existingIds.has(student.id)) {
-                        skippedCount++;
-                    } else {
-                        studentsToUpload.push(student);
-                    }
-                }
+                // 2. Use the live `students` array to check for existing IDs
+                const existingIds = new Set(students.map(s => s.id));
+                const studentsToUpload = studentsToProcess.filter(s => !existingIds.has(s.id));
+                const skippedCount = studentsToProcess.length - studentsToUpload.length;
                 
                 // 3. Perform batch write if there are new students
                 if (studentsToUpload.length > 0) {
