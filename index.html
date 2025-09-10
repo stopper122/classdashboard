@@ -374,7 +374,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- FIREBASE & DATA ---
         let db, auth;
@@ -430,25 +430,25 @@
 
         // --- DATA SYNC ---
         function loadData() {
-            onSnapshot(studentsCol, (snapshot) => {
+            onSnapshot(query(studentsCol), (snapshot) => {
                 students = snapshot.docs.map(doc => ({ fbId: doc.id, ...doc.data() }));
                 sortStudents();
                 if (currentView === 'teacher') renderTeacherView();
             });
 
-            onSnapshot(assignmentsCol, (snapshot) => {
+            onSnapshot(query(assignmentsCol), (snapshot) => {
                 assignments = snapshot.docs.map(doc => ({ fbId: doc.id, ...doc.data() }));
                 if (currentView === 'teacher') renderTeacherAssignmentList();
                 if (currentView === 'student') renderStudentView();
             });
             
-            onSnapshot(helpRequestsCol, (snapshot) => {
+            onSnapshot(query(helpRequestsCol), (snapshot) => {
                 helpRequests = snapshot.docs.map(doc => ({ fbId: doc.id, ...doc.data() }));
                 if (currentView === 'teacher') renderStudentRequests();
                 if (currentView === 'student') renderStudentView();
             });
 
-            onSnapshot(checkRequestsCol, (snapshot) => {
+            onSnapshot(query(checkRequestsCol), (snapshot) => {
                 checkRequests = snapshot.docs.map(doc => ({ fbId: doc.id, ...doc.data() }));
                 if (currentView === 'teacher') renderStudentRequests();
                 if (currentView === 'student') renderStudentView();
@@ -471,7 +471,7 @@
         }
 
 
-        // --- VIEWS & RENDERING (NO CHANGES HERE) ---
+        // --- VIEWS & RENDERING ---
         const views = {
             'login-type-selection': document.getElementById('login-type-selection'),
             'teacher-login': document.getElementById('teacher-login-view'),
@@ -1055,13 +1055,23 @@
             const lastName = document.getElementById('student-lastName-add').value;
 
             if (firstName && lastName && !isNaN(id)) {
-                if (students.some(s => s.id === id)) {
-                    showSuccessMessage(`Student with ID ${id} already exists.`);
-                    return;
+                try {
+                    const q = query(studentsCol, where("id", "==", id));
+                    const querySnapshot = await getDocs(q);
+                    
+                    if (!querySnapshot.empty) {
+                        showSuccessMessage(`Student with ID ${id} already exists.`);
+                        return;
+                    }
+
+                    await addDoc(studentsCol, { id, firstName, lastName });
+                    showSuccessMessage('Student added successfully!');
+                    closeModal('add-student-modal');
+                    this.reset();
+                } catch (error) {
+                    console.error("Error adding student:", error);
+                    showSuccessMessage("Error: Could not add student.");
                 }
-                await addDoc(studentsCol, { id, firstName, lastName });
-                closeModal('add-student-modal');
-                this.reset();
             }
         });
 
