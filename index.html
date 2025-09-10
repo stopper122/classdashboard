@@ -401,7 +401,15 @@
 
         async function initFirebase() {
             try {
-                const firebaseConfig = JSON.parse(__firebase_config);
+                const firebaseConfig = {
+  apiKey: "AIzaSyCG3rtswPSuTocyRDqRPhzHEF9pB3Hkgos",
+  authDomain: "classdashboard-d8c4d.firebaseapp.com",
+  projectId: "classdashboard-d8c4d",
+  storageBucket: "classdashboard-d8c4d.firebasestorage.app",
+  messagingSenderId: "409652457373",
+  appId: "1:409652457373:web:241cc1a53b39fc71fa8974",
+  measurementId: "G-KXJVNZKTRQ"
+};
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
@@ -413,12 +421,11 @@
                 }
                 
                 // Define collection paths
-                const basePath = `artifacts/${appId}/public/data`;
-                studentsCol = collection(db, `${basePath}/students`);
-                assignmentsCol = collection(db, `${basePath}/assignments`);
-                helpRequestsCol = collection(db, `${basePath}/helpRequests`);
-                checkRequestsCol = collection(db, `${basePath}/checkRequests`);
-                seatingChartDoc = doc(db, `${basePath}/seatingChart/main`);
+                studentsCol = collection(db, "students");
+assignmentsCol = collection(db, "assignments");
+helpRequestsCol = collection(db, "helpRequests");
+checkRequestsCol = collection(db, "checkRequests");
+seatingChartDoc = doc(db, "seatingChart/main");
 
                 loadData();
 
@@ -1158,10 +1165,10 @@
                 }
                 showSuccessMessage(message.trim());
         
-            } catch (error) {
-                console.error("Error during bulk upload:", error);
-                showSuccessMessage("Error: An error occurred during the upload process.");
-            } finally {
+           } catch (error) {
+  console.error("Error during bulk upload:", error.code, error.message);
+  showSuccessMessage("Error: " + error.message);
+} finally {
                 closeModal('bulk-upload-modal');
                 form.reset();
             }
