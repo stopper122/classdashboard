@@ -371,79 +371,107 @@
     </div>
 
 
-    <script>
-        // --- DATA ---
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- FIREBASE & DATA ---
+        let db, auth;
         let students = [];
         let assignments = [];
         let helpRequests = [];
         let checkRequests = [];
-        let seatingChart = []; // Array of 24 elements (4 rows x 6 cols)
+        let seatingChart = [];
+        
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-classroom-app';
+        
         let confirmAction = null;
         let currentStudentId = null;
-        let currentSortKey = null; // For student sorting
+        let currentSortKey = 'lastName'; // For student sorting
         let currentAssignmentSortKey = 'date_desc'; // For assignment sorting
 
         const CLASSROOM_ROWS = 4;
         const CLASSROOM_COLS = 6;
         const TOTAL_SEATS = CLASSROOM_ROWS * CLASSROOM_COLS;
+        
+        // --- COLLECTIONS ---
+        let studentsCol, assignmentsCol, helpRequestsCol, checkRequestsCol;
+        let seatingChartDoc;
 
+        async function initFirebase() {
+            try {
+                const firebaseConfig = JSON.parse(__firebase_config);
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
 
-        // --- DATA PERSISTENCE ---
-        function saveData() {
-            localStorage.setItem('classroom_students', JSON.stringify(students));
-            localStorage.setItem('classroom_assignments', JSON.stringify(assignments));
-            localStorage.setItem('classroom_seating_chart', JSON.stringify(seatingChart));
-            localStorage.setItem('classroom_help_requests', JSON.stringify(helpRequests));
-            localStorage.setItem('classroom_check_requests', JSON.stringify(checkRequests));
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                
+                // Define collection paths
+                const basePath = `artifacts/${appId}/public/data`;
+                studentsCol = collection(db, `${basePath}/students`);
+                assignmentsCol = collection(db, `${basePath}/assignments`);
+                helpRequestsCol = collection(db, `${basePath}/helpRequests`);
+                checkRequestsCol = collection(db, `${basePath}/checkRequests`);
+                seatingChartDoc = doc(db, `${basePath}/seatingChart/main`);
+
+                loadData();
+
+            } catch (error) {
+                console.error("Firebase initialization failed:", error);
+            }
         }
 
+
+        // --- DATA SYNC ---
         function loadData() {
-            const storedStudents = localStorage.getItem('classroom_students');
-            const storedAssignments = localStorage.getItem('classroom_assignments');
-            const storedSeatingChart = localStorage.getItem('classroom_seating_chart');
-            const storedHelpRequests = localStorage.getItem('classroom_help_requests');
-            const storedCheckRequests = localStorage.getItem('classroom_check_requests');
+            onSnapshot(studentsCol, (snapshot) => {
+                students = snapshot.docs.map(doc => ({ fbId: doc.id, ...doc.data() }));
+                sortStudents();
+                if (currentView === 'teacher') renderTeacherView();
+            });
 
-            if (storedStudents) {
-                students = JSON.parse(storedStudents);
-            } else {
-                // Default data if nothing is in storage
-                students = [
-                    { id: 1, firstName: 'Alice', lastName: 'Smith' },
-                    { id: 2, firstName: 'Bob', lastName: 'Johnson' },
-                    { id: 3, firstName: 'Charlie', lastName: 'Brown' },
-                    { id: 4, firstName: 'Diana', lastName: 'Prince' },
-                ];
-            }
-
-            if (storedAssignments) {
-                assignments = JSON.parse(storedAssignments);
-            } else {
-                // Default data if nothing is in storage
-                assignments = [
-                    { id: 1, title: 'Algebra Worksheet', postedDate: '2025-09-08', scores: {} },
-                    { id: 2, title: 'History Essay: The Renaissance', postedDate: '2025-09-01', scores: {} },
-                    { id: 3, title: 'Science Fair Project Proposal', postedDate: '2025-08-25', scores: {} },
-                ];
-            }
-
-            if (storedSeatingChart) {
-                seatingChart = JSON.parse(storedSeatingChart);
-            } else {
-                // Initialize an empty seating chart
-                seatingChart = Array(TOTAL_SEATS).fill(null);
-            }
-
-            if(storedHelpRequests) {
-                helpRequests = JSON.parse(storedHelpRequests);
-            }
+            onSnapshot(assignmentsCol, (snapshot) => {
+                assignments = snapshot.docs.map(doc => ({ fbId: doc.id, ...doc.data() }));
+                if (currentView === 'teacher') renderTeacherAssignmentList();
+                if (currentView === 'student') renderStudentView();
+            });
             
-            if(storedCheckRequests) {
-                checkRequests = JSON.parse(storedCheckRequests);
-            }
+            onSnapshot(helpRequestsCol, (snapshot) => {
+                helpRequests = snapshot.docs.map(doc => ({ fbId: doc.id, ...doc.data() }));
+                if (currentView === 'teacher') renderStudentRequests();
+                if (currentView === 'student') renderStudentView();
+            });
+
+            onSnapshot(checkRequestsCol, (snapshot) => {
+                checkRequests = snapshot.docs.map(doc => ({ fbId: doc.id, ...doc.data() }));
+                if (currentView === 'teacher') renderStudentRequests();
+                if (currentView === 'student') renderStudentView();
+            });
+
+             onSnapshot(seatingChartDoc, async (docSnap) => {
+                if (docSnap.exists()) {
+                    seatingChart = docSnap.data().chart || Array(TOTAL_SEATS).fill(null);
+                } else {
+                    seatingChart = Array(TOTAL_SEATS).fill(null);
+                    // Create the document if it doesn't exist
+                    await setDoc(seatingChartDoc, { chart: seatingChart });
+                }
+                if (currentView === 'teacher') renderSeatingChart();
+            });
+        }
+        
+        async function saveSeatingChart() {
+            await setDoc(seatingChartDoc, { chart: seatingChart });
         }
 
-        // --- VIEWS & RENDERING ---
+
+        // --- VIEWS & RENDERING (NO CHANGES HERE) ---
         const views = {
             'login-type-selection': document.getElementById('login-type-selection'),
             'teacher-login': document.getElementById('teacher-login-view'),
@@ -529,8 +557,8 @@
                         <span class="font-medium">${s.firstName} ${s.lastName} <span class="text-xs text-gray-500">(ID: ${s.id})</span></span>
                     </div>
                     <div class="flex items-center gap-4">
-                        <button onclick="openEditStudentModal(${s.id})" class="text-sm text-blue-600 hover:text-blue-800 font-medium py-1 px-3">Edit</button>
-                        <button onclick="confirmDeleteStudent(${s.id})" class="text-sm text-red-600 hover:text-red-800 font-medium py-1 px-3">Delete</button>
+                        <button onclick="openEditStudentModal('${s.fbId}')" class="text-sm text-blue-600 hover:text-blue-800 font-medium py-1 px-3">Edit</button>
+                        <button onclick="confirmDeleteStudent('${s.fbId}')" class="text-sm text-red-600 hover:text-red-800 font-medium py-1 px-3">Delete</button>
                     </div>
                 </li>
             `).join('');
@@ -616,9 +644,9 @@
                             <p class="text-sm text-gray-500">Posted: ${new Date(a.postedDate).toLocaleDateString()}</p>
                         </div>
                         <div class="flex items-center gap-4 mt-1">
-                            <button onclick="openScoreAssignmentModal(${a.id})" class="text-sm text-green-600 hover:text-green-800 font-medium py-1 px-3">Score</button>
-                            <button onclick="openEditAssignmentModal(${a.id})" class="text-sm text-blue-600 hover:text-blue-800 font-medium py-1 px-3">Edit</button>
-                            <button onclick="confirmDeleteAssignment(${a.id})" class="text-sm text-red-600 hover:text-red-800 font-medium py-1 px-3">Delete</button>
+                            <button onclick="openScoreAssignmentModal('${a.fbId}')" class="text-sm text-green-600 hover:text-green-800 font-medium py-1 px-3">Score</button>
+                            <button onclick="openEditAssignmentModal('${a.fbId}')" class="text-sm text-blue-600 hover:text-blue-800 font-medium py-1 px-3">Edit</button>
+                            <button onclick="confirmDeleteAssignment('${a.fbId}')" class="text-sm text-red-600 hover:text-red-800 font-medium py-1 px-3">Delete</button>
                         </div>
                     </div>
                 </div>
@@ -649,7 +677,7 @@
                                     <span class="text-sm text-yellow-800 block">Help on: "${req.assignmentTitle}"</span>
                                 </div>
                             </div>
-                            <button onclick="resolveRequest('help', ${req.originalIndex})" class="text-sm bg-green-200 text-green-800 font-semibold py-1 px-3 rounded-full hover:bg-green-300">Resolve</button>
+                            <button onclick="resolveRequest('help', '${req.fbId}')" class="text-sm bg-green-200 text-green-800 font-semibold py-1 px-3 rounded-full hover:bg-green-300">Resolve</button>
                         </li>
                     `;
                 } else { // type is 'check'
@@ -662,7 +690,7 @@
                                     <span class="text-sm text-sky-800 block">Check for: "${req.assignmentTitle}"</span>
                                 </div>
                             </div>
-                            <button onclick="resolveRequest('check', ${req.originalIndex})" class="text-sm bg-green-200 text-green-800 font-semibold py-1 px-3 rounded-full hover:bg-green-300">Resolve</button>
+                            <button onclick="resolveRequest('check', '${req.fbId}')" class="text-sm bg-green-200 text-green-800 font-semibold py-1 px-3 rounded-full hover:bg-green-300">Resolve</button>
                         </li>
                     `;
                 }
@@ -677,34 +705,22 @@
                  const scoreA = a.scores ? a.scores[student.id] : undefined;
                  const scoreB = b.scores ? b.scores[student.id] : undefined;
 
-                 // Handle date sorting first as it's simpler
-                 if (currentAssignmentSortKey === 'date_desc') {
-                     return new Date(b.postedDate) - new Date(a.postedDate);
-                 }
-                 if (currentAssignmentSortKey === 'date_asc') {
-                     return new Date(a.postedDate) - new Date(b.postedDate);
-                 }
+                 if (currentAssignmentSortKey === 'date_desc') return new Date(b.postedDate) - new Date(a.postedDate);
+                 if (currentAssignmentSortKey === 'date_asc') return new Date(a.postedDate) - new Date(b.postedDate);
 
-                 // Handle score sorting with special logic for 'excused'
                  const isAExcused = scoreA === 'excused';
                  const isBExcused = scoreB === 'excused';
 
-                 if (isAExcused && !isBExcused) return 1; // a goes to the bottom
-                 if (!isAExcused && isBExcused) return -1; // b goes to the bottom
-                 if (isAExcused && isBExcused) return 0; // they are equal
+                 if (isAExcused && !isBExcused) return 1;
+                 if (!isAExcused && isBExcused) return -1;
+                 if (isAExcused && isBExcused) return 0;
 
-                 // Helper to treat 'Not Graded' as the lowest value for sorting purposes
                  const getSortableScore = (score) => score === undefined ? -Infinity : score;
-
                  const sortableScoreA = getSortableScore(scoreA);
                  const sortableScoreB = getSortableScore(scoreB);
 
-                 if (currentAssignmentSortKey === 'score_desc') {
-                     return sortableScoreB - sortableScoreA;
-                 }
-                 if (currentAssignmentSortKey === 'score_asc') {
-                     return sortableScoreA - sortableScoreB;
-                 }
+                 if (currentAssignmentSortKey === 'score_desc') return sortableScoreB - sortableScoreA;
+                 if (currentAssignmentSortKey === 'score_asc') return sortableScoreA - sortableScoreB;
                  
                  return 0;
              };
@@ -716,39 +732,26 @@
                 let scoreDisplay = '';
 
                 switch (score) {
-                    case 4:
-                        scoreDisplay = `<div class="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-1 rounded-full">Score: 4/4</div>`;
-                        break;
-                    case 3:
-                        scoreDisplay = `<div class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-1 rounded-full">Score: 3/4</div>`;
-                        break;
-                    case 2:
-                        scoreDisplay = `<div class="bg-orange-100 text-orange-800 text-xs font-semibold px-2.5 py-1 rounded-full">Score: 2/4</div>`;
-                        break;
-                    case 1:
-                        scoreDisplay = `<div class="bg-red-100 text-red-800 text-xs font-semibold px-2.5 py-1 rounded-full">Score: 1/4</div>`;
-                        break;
-                    case 'excused':
-                        scoreDisplay = `<div class="bg-yellow-200 text-yellow-800 text-xs font-semibold px-2.5 py-1 rounded-full">Excused</div>`;
-                        break;
-                    default: // Handles 'undefined'
-                        scoreDisplay = `<div class="bg-gray-200 text-gray-800 text-xs font-semibold px-2.5 py-1 rounded-full">Not Graded</div>`;
+                    case 4: scoreDisplay = `<div class="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-1 rounded-full">Score: 4/4</div>`; break;
+                    case 3: scoreDisplay = `<div class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-1 rounded-full">Score: 3/4</div>`; break;
+                    case 2: scoreDisplay = `<div class="bg-orange-100 text-orange-800 text-xs font-semibold px-2.5 py-1 rounded-full">Score: 2/4</div>`; break;
+                    case 1: scoreDisplay = `<div class="bg-red-100 text-red-800 text-xs font-semibold px-2.5 py-1 rounded-full">Score: 1/4</div>`; break;
+                    case 'excused': scoreDisplay = `<div class="bg-yellow-200 text-yellow-800 text-xs font-semibold px-2.5 py-1 rounded-full">Excused</div>`; break;
+                    default: scoreDisplay = `<div class="bg-gray-200 text-gray-800 text-xs font-semibold px-2.5 py-1 rounded-full">Not Graded</div>`;
                 }
                 
-                const helpRequestIndex = helpRequests.findIndex(req => req.assignmentId === a.id);
-                const ownHelpRequestIndex = helpRequests.findIndex(req => req.studentId === student.id && req.assignmentId === a.id);
-                const hasActiveHelpRequest = ownHelpRequestIndex !== -1;
+                const ownHelpRequest = helpRequests.find(req => req.studentId === student.id && req.assignmentId === a.id);
+                const ownCheckRequest = checkRequests.find(req => req.studentId === student.id && req.assignmentId === a.id);
+                
+                const helpQueueIndex = helpRequests.findIndex(req => req.assignmentId === a.id && req.studentId === student.id);
+                const checkQueueIndex = checkRequests.findIndex(req => req.assignmentId === a.id && req.studentId === student.id);
 
-                let helpButtonHtml = hasActiveHelpRequest
-                    ? `<button onclick="cancelHelpRequest(${a.id})" class="w-full bg-red-600 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-red-700 transition text-sm">Cancel (Queue #${ownHelpRequestIndex + 1})</button>`
+                let helpButtonHtml = ownHelpRequest
+                    ? `<button onclick="cancelHelpRequest('${ownHelpRequest.fbId}')" class="w-full bg-red-600 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-red-700 transition text-sm">Cancel (Queue #${helpQueueIndex + 1})</button>`
                     : `<button onclick="requestHelp(${a.id})" class="w-full bg-yellow-500 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-yellow-600 transition">Request Help</button>`;
 
-                const checkRequestIndex = checkRequests.findIndex(req => req.assignmentId === a.id);
-                const ownCheckRequestIndex = checkRequests.findIndex(req => req.studentId === student.id && req.assignmentId === a.id);
-                const hasActiveCheckRequest = ownCheckRequestIndex !== -1;
-
-                let checkButtonHtml = hasActiveCheckRequest
-                    ? `<button onclick="cancelCheckRequest(${a.id})" class="w-full bg-red-600 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-red-700 transition text-sm">Cancel (Queue #${ownCheckRequestIndex + 1})</button>`
+                let checkButtonHtml = ownCheckRequest
+                    ? `<button onclick="cancelCheckRequest('${ownCheckRequest.fbId}')" class="w-full bg-red-600 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-red-700 transition text-sm">Cancel (Queue #${checkQueueIndex + 1})</button>`
                     : `<button onclick="requestCheck(${a.id})" class="w-full bg-sky-600 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-sky-700 transition">Request Check</button>`;
 
 
@@ -810,7 +813,7 @@
         }
 
 
-        function confirmDeleteSelectedStudents() {
+        async function confirmDeleteSelectedStudents() {
             const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
             const studentIdsToDelete = Array.from(selectedCheckboxes).map(cb => parseInt(cb.dataset.studentId, 10));
 
@@ -824,15 +827,18 @@
             openModal('confirmation-modal');
         }
 
-        function deleteSelectedStudents(studentIdsToDelete) {
-            const idsToDeleteSet = new Set(studentIdsToDelete);
-            students = students.filter(s => !idsToDeleteSet.has(s.id));
-            seatingChart = seatingChart.map(seat => idsToDeleteSet.has(seat) ? null : seat);
+        async function deleteSelectedStudents(studentIdsToDelete) {
+            const batch = writeBatch(db);
+            const studentsToDelete = students.filter(s => studentIdsToDelete.includes(s.id));
+            studentsToDelete.forEach(student => {
+                const studentDocRef = doc(db, studentsCol.path, student.fbId);
+                batch.delete(studentDocRef);
+            });
+            await batch.commit();
             
-            saveData();
-            sortStudents();
-            renderSeatingChart();
-            renderUnseatedStudentList();
+            const idsToDeleteSet = new Set(studentIdsToDelete);
+            let newSeatingChart = seatingChart.map(seat => idsToDeleteSet.has(seat) ? null : seat);
+            await setDoc(seatingChartDoc, { chart: newSeatingChart });
             
             closeModal('confirmation-modal');
             showSuccessMessage(`${studentIdsToDelete.length} student(s) deleted successfully.`);
@@ -867,21 +873,16 @@
             const payload = JSON.parse(event.dataTransfer.getData('application/json'));
             const targetSeatIndex = parseInt(this.dataset.seatIndex, 10);
             
-            const itemAtTarget = seatingChart[targetSeatIndex]; // what's being replaced
+            const itemAtTarget = seatingChart[targetSeatIndex];
 
             switch (payload.type) {
                 case 'roster_student':
-                    // A student from the unseated roster is dropped onto a seat.
-                    // The student who was in that seat (if any) becomes unseated.
                     seatingChart[targetSeatIndex] = payload.id;
                     break;
                 case 'new_blank_seat':
-                    // The "Add Blank Seat" button is dropped onto a seat.
-                    // The student who was in that seat (if any) becomes unseated.
                     seatingChart[targetSeatIndex] = 'BLANK';
                     break;
                 case 'grid_seat':
-                    // A seat from within the grid is dropped on another seat, causing a swap.
                     const originSeatIndex = payload.originSeatIndex;
                     const itemAtOrigin = seatingChart[originSeatIndex];
                     seatingChart[originSeatIndex] = itemAtTarget;
@@ -889,9 +890,7 @@
                     break;
             }
 
-            saveData();
-            renderSeatingChart();
-            renderUnseatedStudentList();
+            saveSeatingChart();
         }
 
 
@@ -910,108 +909,87 @@
             switchView('login-type-selection');
         }
 
-        function requestHelp(assignmentId) {
+        async function requestHelp(assignmentId) {
             const student = students.find(s => s.id === currentStudentId);
             const assignment = assignments.find(a => a.id === assignmentId);
             if (student && assignment) {
-                if (!helpRequests.some(req => req.studentId === student.id && req.assignmentId === assignment.id)) {
+                const q = query(helpRequestsCol, where("studentId", "==", student.id), where("assignmentId", "==", assignment.id));
+                const existingRequests = await getDocs(q);
+                if (existingRequests.empty) {
                     const studentName = `${student.firstName} ${student.lastName}`;
-                    helpRequests.push({ studentId: student.id, studentName, assignmentId: assignment.id, assignmentTitle: assignment.title });
-                    saveData();
+                    await addDoc(helpRequestsCol, { studentId: student.id, studentName, assignmentId: assignment.id, assignmentTitle: assignment.title });
                     showSuccessMessage('Help request sent!');
-                    renderStudentView();
                 } else {
                     showSuccessMessage('You already have a help request for this assignment.');
                 }
             }
         }
 
-        function cancelHelpRequest(assignmentId) {
-            const requestIndex = helpRequests.findIndex(req => req.studentId === currentStudentId && req.assignmentId === assignmentId);
-            if (requestIndex !== -1) {
-                helpRequests.splice(requestIndex, 1);
-                saveData();
-                showSuccessMessage('Help request cancelled.');
-                renderStudentView();
-            }
+        async function cancelHelpRequest(fbId) {
+            await deleteDoc(doc(db, helpRequestsCol.path, fbId));
+            showSuccessMessage('Help request cancelled.');
         }
 
-        function requestCheck(assignmentId) {
+        async function requestCheck(assignmentId) {
             const student = students.find(s => s.id === currentStudentId);
             const assignment = assignments.find(a => a.id === assignmentId);
             if (student && assignment) {
-                if (!checkRequests.some(req => req.studentId === student.id && req.assignmentId === assignment.id)) {
-                    const studentName = `${student.firstName} ${student.lastName}`;
-                    checkRequests.push({ studentId: student.id, studentName, assignmentId: assignment.id, assignmentTitle: assignment.title });
-                    saveData();
+                const q = query(checkRequestsCol, where("studentId", "==", student.id), where("assignmentId", "==", assignment.id));
+                const existingRequests = await getDocs(q);
+
+                if (existingRequests.empty) {
+                     const studentName = `${student.firstName} ${student.lastName}`;
+                    await addDoc(checkRequestsCol, { studentId: student.id, studentName, assignmentId: assignment.id, assignmentTitle: assignment.title });
                     showSuccessMessage('Check request sent!');
-                    renderStudentView();
                 } else {
                     showSuccessMessage('You already have a check request for this assignment.');
                 }
             }
         }
 
-        function cancelCheckRequest(assignmentId) {
-            const requestIndex = checkRequests.findIndex(req => req.studentId === currentStudentId && req.assignmentId === assignmentId);
-            if (requestIndex !== -1) {
-                checkRequests.splice(requestIndex, 1);
-                saveData();
-                showSuccessMessage('Check request cancelled.');
-                renderStudentView();
-            }
+        async function cancelCheckRequest(fbId) {
+            await deleteDoc(doc(db, checkRequestsCol.path, fbId));
+            showSuccessMessage('Check request cancelled.');
         }
         
-        function resolveRequest(type, index) {
-            if (type === 'help') {
-                helpRequests.splice(index, 1);
-            } else if (type === 'check') {
-                checkRequests.splice(index, 1);
-            }
-            saveData();
-            renderStudentRequests();
-            renderSeatingChart();
+        async function resolveRequest(type, fbId) {
+            const col = type === 'help' ? helpRequestsCol : checkRequestsCol;
+            await deleteDoc(doc(db, col.path, fbId));
         }
         
-        function confirmDeleteStudent(studentId) {
-            const student = students.find(s => s.id === studentId);
+        function confirmDeleteStudent(fbId) {
+            const student = students.find(s => s.fbId === fbId);
             if (student) {
                 document.getElementById('confirmation-message').textContent = `Are you sure you want to delete ${student.firstName} ${student.lastName}? This will also remove them from the seating chart.`;
-                confirmAction = () => deleteStudent(studentId);
+                confirmAction = () => deleteStudent(fbId, student.id);
                 openModal('confirmation-modal');
             }
         }
 
-        function deleteStudent(studentId) {
-            students = students.filter(s => s.id !== studentId);
-            seatingChart = seatingChart.map(seat => seat === studentId ? null : seat);
-            saveData(); 
-            sortStudents();
-            renderSeatingChart();
-            renderUnseatedStudentList();
+        async function deleteStudent(fbId, studentId) {
+            await deleteDoc(doc(db, studentsCol.path, fbId));
+            let newSeatingChart = seatingChart.map(seat => seat === studentId ? null : seat);
+            await setDoc(seatingChartDoc, { chart: newSeatingChart });
             closeModal('confirmation-modal');
             showSuccessMessage('Student deleted successfully.');
         }
 
-        function confirmDeleteAssignment(assignmentId) {
-            const assignment = assignments.find(a => a.id === assignmentId);
+        function confirmDeleteAssignment(fbId) {
+            const assignment = assignments.find(a => a.fbId === fbId);
             if (assignment) {
                 document.getElementById('confirmation-message').textContent = `Are you sure you want to delete the assignment "${assignment.title}"? This action cannot be undone.`;
-                confirmAction = () => deleteAssignment(assignmentId);
+                confirmAction = () => deleteAssignment(fbId);
                 openModal('confirmation-modal');
             }
         }
 
-        function deleteAssignment(assignmentId) {
-            assignments = assignments.filter(a => a.id !== assignmentId);
-            saveData();
-            renderTeacherAssignmentList();
-            renderStudentView(); 
+        async function deleteAssignment(fbId) {
+            await deleteDoc(doc(db, assignmentsCol.path, fbId));
             closeModal('confirmation-modal');
             showSuccessMessage('Assignment deleted successfully.');
         }
 
-        document.getElementById('add-assignment-form').addEventListener('submit', function(e) {
+        document.getElementById('add-assignment-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             const title = document.getElementById('assignment-title').value;
             let postedDate = document.getElementById('assignment-posted-date').value;
@@ -1021,23 +999,20 @@
             }
             
             if (title) {
-                const newAssignment = {
-                    id: assignments.length > 0 ? Math.max(...assignments.map(a => a.id)) + 1 : 1,
+                await addDoc(assignmentsCol, {
                     title,
                     postedDate,
                     scores: {},
-                };
-                assignments.push(newAssignment);
-                saveData();
-                renderTeacherAssignmentList();
+                    id: Date.now() // Simple unique ID
+                });
                 closeModal('add-assignment-modal');
                 this.reset();
             }
         });
 
-        document.getElementById('edit-assignment-form').addEventListener('submit', function(e) {
+        document.getElementById('edit-assignment-form').addEventListener('submit', async function(e) {
             e.preventDefault();
-            const originalId = parseInt(document.getElementById('assignment-original-id-edit').value, 10);
+            const fbId = document.getElementById('assignment-original-id-edit').value;
             const title = document.getElementById('assignment-title-edit').value;
             let postedDate = document.getElementById('assignment-posted-date-edit').value;
 
@@ -1046,38 +1021,34 @@
             }
 
             if (title) {
-                const assignmentIndex = assignments.findIndex(a => a.id === originalId);
-                if (assignmentIndex !== -1) {
-                    assignments[assignmentIndex].title = title;
-                    assignments[assignmentIndex].postedDate = postedDate;
-                }
-                saveData();
-                renderTeacherAssignmentList();
-                renderStudentView();
+                const assignmentDoc = doc(db, assignmentsCol.path, fbId);
+                await updateDoc(assignmentDoc, { title, postedDate });
                 closeModal('edit-assignment-modal');
                 showSuccessMessage('Assignment updated successfully.');
             }
         });
 
-        document.getElementById('score-assignment-form').addEventListener('submit', function(e) {
+        document.getElementById('score-assignment-form').addEventListener('submit', async function(e) {
             e.preventDefault();
-            const assignmentId = parseInt(document.getElementById('score-assignment-id').value, 10);
-            const assignment = assignments.find(a => a.id === assignmentId);
+            const assignmentFbId = document.getElementById('score-assignment-id').value;
+            const assignment = assignments.find(a => a.fbId === assignmentFbId);
             if (!assignment) return;
             
+            const newScores = { ...assignment.scores };
             const formData = new FormData(e.target);
-            for (let [studentId, score] of formData.entries()) {
-                const id = parseInt(studentId.split('-')[1], 10);
-                assignment.scores[id] = isNaN(parseInt(score, 10)) ? score : parseInt(score, 10);
+            for (let [studentIdStr, score] of formData.entries()) {
+                const studentId = parseInt(studentIdStr.split('-')[1], 10);
+                newScores[studentId] = isNaN(parseInt(score, 10)) ? score : parseInt(score, 10);
             }
             
-            saveData();
-            renderStudentView();
+            const assignmentDoc = doc(db, assignmentsCol.path, assignmentFbId);
+            await updateDoc(assignmentDoc, { scores: newScores });
+            
             closeModal('score-assignment-modal');
             showSuccessMessage('Scores saved successfully.');
         });
 
-        document.getElementById('add-student-form').addEventListener('submit', function(e) {
+        document.getElementById('add-student-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             const id = parseInt(document.getElementById('student-id-add').value, 10);
             const firstName = document.getElementById('student-firstName-add').value;
@@ -1088,50 +1059,46 @@
                     showSuccessMessage(`Student with ID ${id} already exists.`);
                     return;
                 }
-                const newStudent = { id, firstName, lastName };
-                students.push(newStudent);
-                saveData();
-                sortStudents();
-                renderUnseatedStudentList();
+                await addDoc(studentsCol, { id, firstName, lastName });
                 closeModal('add-student-modal');
                 this.reset();
             }
         });
 
-        document.getElementById('edit-student-form').addEventListener('submit', function(e) {
+        document.getElementById('edit-student-form').addEventListener('submit', async function(e) {
             e.preventDefault();
-            const originalId = parseInt(document.getElementById('student-original-id-edit').value, 10);
+            const fbId = document.getElementById('student-original-id-edit').value;
+            const originalStudent = students.find(s => s.fbId === fbId);
             const newId = parseInt(document.getElementById('student-id-edit').value, 10);
             const firstName = document.getElementById('student-firstName-edit').value;
             const lastName = document.getElementById('student-lastName-edit').value;
 
-            if (students.some(s => s.id === newId && s.id !== originalId)) {
+            if (students.some(s => s.id === newId && s.id !== originalStudent.id)) {
                 showSuccessMessage(`Error: Student ID ${newId} is already in use.`);
                 return;
             }
 
             if (firstName && lastName && !isNaN(newId)) {
-                const studentIndex = students.findIndex(s => s.id === originalId);
-                if (studentIndex !== -1) {
-                    students[studentIndex].id = newId;
-                    students[studentIndex].firstName = firstName;
-                    students[studentIndex].lastName = lastName;
+                const studentDoc = doc(db, studentsCol.path, fbId);
+                await updateDoc(studentDoc, { id: newId, firstName, lastName });
+
+                if (originalStudent.id !== newId) {
+                    let newSeatingChart = seatingChart.map(seat => seat === originalStudent.id ? newId : seat);
+                    await setDoc(seatingChartDoc, { chart: newSeatingChart });
                 }
-                saveData();
-                sortStudents();
-                renderSeatingChart();
-                renderUnseatedStudentList();
+
                 closeModal('edit-student-modal');
                 showSuccessMessage('Student updated successfully.');
             }
         });
 
-        document.getElementById('bulk-upload-form').addEventListener('submit', function(e) {
+        document.getElementById('bulk-upload-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             const data = document.getElementById('bulk-student-data').value;
             const lines = data.split('\n');
             let studentsAdded = 0;
             const existingIds = new Set(students.map(s => s.id));
+            const batch = writeBatch(db);
 
             lines.forEach(line => {
                 const trimmedLine = line.trim();
@@ -1143,7 +1110,8 @@
                         const lastName = parts[2].trim();
 
                         if (!isNaN(id) && firstName && lastName && !existingIds.has(id)) {
-                             students.push({ id, firstName, lastName });
+                             const newStudentRef = doc(studentsCol);
+                             batch.set(newStudentRef, { id, firstName, lastName });
                              existingIds.add(id);
                              studentsAdded++;
                         }
@@ -1152,9 +1120,7 @@
             });
 
             if (studentsAdded > 0) {
-                saveData();
-                sortStudents();
-                renderUnseatedStudentList();
+                await batch.commit();
                 showSuccessMessage(`${studentsAdded} student(s) added successfully!`);
             } else {
                  showSuccessMessage(`No new students added. Check format or if IDs already exist.`);
@@ -1191,12 +1157,8 @@
                     }).join('');
 
                     let indicatorsHTML = '';
-                    if (hasHelpRequest) {
-                        indicatorsHTML += '<span class="text-xs font-bold text-red-600 bg-red-100 px-2 py-1 rounded-full">HELP REQUESTED</span>';
-                    }
-                    if (hasCheckRequest) {
-                        indicatorsHTML += '<span class="text-xs font-bold text-sky-600 bg-sky-100 px-2 py-1 rounded-full">CHECK REQUESTED</span>';
-                    }
+                    if (hasHelpRequest) indicatorsHTML += '<span class="text-xs font-bold text-red-600 bg-red-100 px-2 py-1 rounded-full">HELP REQUESTED</span>';
+                    if (hasCheckRequest) indicatorsHTML += '<span class="text-xs font-bold text-sky-600 bg-sky-100 px-2 py-1 rounded-full">CHECK REQUESTED</span>';
 
                     return `
                         <li class="p-4 bg-gray-50 rounded-lg">
@@ -1212,40 +1174,36 @@
                 }).join('');
             }
 
-            // --- Add event listener to the save button ---
             const saveBtn = document.getElementById('save-student-scores-btn');
-            // Clone and replace to remove old listeners and prevent multiple triggers
             const newSaveBtn = saveBtn.cloneNode(true);
             saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
 
-            newSaveBtn.addEventListener('click', () => {
+            newSaveBtn.addEventListener('click', async () => {
+                const batch = writeBatch(db);
                 assignments.forEach(assignment => {
                     const scoreInput = document.querySelector(`input[name="modal-score-${studentId}-${assignment.id}"]:checked`);
                     if (scoreInput) {
                         const scoreValue = scoreInput.value;
-                        if (!assignment.scores) {
-                            assignment.scores = {};
-                        }
-                        assignment.scores[studentId] = isNaN(parseInt(scoreValue, 10)) ? scoreValue : parseInt(scoreValue, 10);
+                        const newScores = { ...assignment.scores };
+                        newScores[studentId] = isNaN(parseInt(scoreValue, 10)) ? scoreValue : parseInt(scoreValue, 10);
+                        
+                        const assignmentDoc = doc(db, assignmentsCol.path, assignment.fbId);
+                        batch.update(assignmentDoc, { scores: newScores });
                     }
                 });
-                saveData();
+                await batch.commit();
                 showSuccessMessage('Scores updated successfully!');
                 closeModal('student-assignment-modal');
-                // Re-render student view if that's the active view and the current student is the one being edited
-                if (currentView === 'student' && currentStudentId === studentId) {
-                    renderStudentView();
-                }
             });
 
 
             openModal('student-assignment-modal');
         }
         
-        function openEditStudentModal(studentId) {
-            const student = students.find(s => s.id === studentId);
+        function openEditStudentModal(fbId) {
+            const student = students.find(s => s.fbId === fbId);
             if (student) {
-                document.getElementById('student-original-id-edit').value = student.id;
+                document.getElementById('student-original-id-edit').value = student.fbId;
                 document.getElementById('student-id-edit').value = student.id;
                 document.getElementById('student-firstName-edit').value = student.firstName;
                 document.getElementById('student-lastName-edit').value = student.lastName;
@@ -1253,22 +1211,22 @@
             }
         }
 
-        function openEditAssignmentModal(assignmentId) {
-            const assignment = assignments.find(a => a.id === assignmentId);
+        function openEditAssignmentModal(fbId) {
+            const assignment = assignments.find(a => a.fbId === fbId);
             if (assignment) {
-                document.getElementById('assignment-original-id-edit').value = assignment.id;
+                document.getElementById('assignment-original-id-edit').value = assignment.fbId;
                 document.getElementById('assignment-title-edit').value = assignment.title;
                 document.getElementById('assignment-posted-date-edit').value = assignment.postedDate;
                 openModal('edit-assignment-modal');
             }
         }
 
-        function openScoreAssignmentModal(assignmentId) {
-            const assignment = assignments.find(a => a.id === assignmentId);
+        function openScoreAssignmentModal(assignmentFbId) {
+            const assignment = assignments.find(a => a.fbId === assignmentFbId);
             if (!assignment) return;
 
             document.getElementById('score-assignment-title').textContent = assignment.title;
-            document.getElementById('score-assignment-id').value = assignmentId;
+            document.getElementById('score-assignment-id').value = assignmentFbId;
 
             const listEl = document.getElementById('student-scores-list');
             listEl.innerHTML = students.map(student => {
@@ -1298,13 +1256,8 @@
             openModal('score-assignment-modal');
         }
         
-        function openModal(modalId) {
-            document.getElementById(modalId).classList.remove('hidden');
-        }
-
-        function closeModal(modalId) {
-            document.getElementById(modalId).classList.add('hidden');
-        }
+        function openModal(modalId) { document.getElementById(modalId).classList.remove('hidden'); }
+        function closeModal(modalId) { document.getElementById(modalId).classList.add('hidden'); }
         
         function showSuccessMessage(message) {
             const messageEl = document.getElementById('success-message');
@@ -1317,24 +1270,10 @@
 
         // --- INITIALIZATION ---
         function init() {
-            // Real-time listener for localStorage changes
-            window.addEventListener('storage', function(e) {
-                if (e.key === 'classroom_help_requests' || e.key === 'classroom_check_requests' || e.key === 'classroom_assignments') {
-                    loadData(); // Reload all data to be safe
-                    if (currentView === 'teacher') {
-                        renderStudentRequests();
-                        renderSeatingChart();
-                    } else if (currentView === 'student') {
-                        renderStudentView();
-                    }
-                }
-            });
-
-            loadData();
+            initFirebase();
 
             document.getElementById('add-blank-seat').addEventListener('dragstart', (e) => handleDragStart(e, 'new_blank_seat'));
             document.getElementById('add-blank-seat').addEventListener('dragend', handleDragEnd);
-
 
             document.getElementById('student-login-form').addEventListener('submit', function(e) {
                 e.preventDefault();
@@ -1360,15 +1299,21 @@
             });
 
             document.getElementById('confirm-button').addEventListener('click', () => {
-                if (typeof confirmAction === 'function') {
-                    confirmAction();
-                }
+                if (typeof confirmAction === 'function') confirmAction();
                 confirmAction = null;
             });
 
             document.getElementById('cancel-button').addEventListener('click', () => {
                 confirmAction = null;
                 closeModal('confirmation-modal');
+            });
+
+            // Make functions globally accessible for onclick handlers
+            Object.assign(window, {
+                switchView, switchTeacherTab, openModal, closeModal,
+                sortStudents, sortAssignments, toggleSelectAll, confirmDeleteSelectedStudents,
+                openEditStudentModal, confirmDeleteStudent, openScoreAssignmentModal, openEditAssignmentModal, confirmDeleteAssignment,
+                requestHelp, requestCheck, cancelHelpRequest, cancelCheckRequest, resolveRequest, logout
             });
 
             switchView('login-type-selection');
