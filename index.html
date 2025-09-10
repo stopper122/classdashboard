@@ -38,24 +38,40 @@
 <body class="bg-gray-100 text-gray-800">
 
     <div id="app" class="max-w-7xl mx-auto p-4 md:p-8">
-        <!-- Role Selection -->
-        <div id="role-selection" class="text-center bg-white p-8 rounded-xl shadow-md">
-            <h1 class="text-3xl font-bold mb-4 text-gray-900">Welcome to Your Classroom</h1>
-            <p class="text-gray-600 mb-8">Please select your role to continue.</p>
-            <div class="flex flex-col items-center gap-4">
-                <button onclick="switchView('teacher')" class="w-full max-w-sm bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                    I am a Teacher
+        <!-- Login Type Selection -->
+        <div id="login-type-selection" class="view text-center bg-white p-8 rounded-xl shadow-md">
+            <h1 class="text-3xl font-bold mb-4 text-gray-900">Classroom Management</h1>
+            <p class="text-gray-600 mb-8">Please select your login type.</p>
+            <div class="flex flex-col md:flex-row justify-center items-center gap-4">
+                <button onclick="switchView('teacher-login')" class="w-full max-w-xs bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105">
+                    Teacher Login
                 </button>
-                
-                <div class="mt-8 border-t pt-8 w-full max-w-sm">
-                    <h2 class="text-2xl font-bold mb-4 text-gray-800">Student Login</h2>
-                    <form id="student-login-form" class="flex flex-col items-center gap-4 mx-auto">
-                        <input type="number" id="student-id-login" placeholder="Enter Your Student ID#" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" required>
-                        <button type="submit" class="w-full bg-green-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-green-700 transition">Login</button>
-                        <p id="login-error" class="text-red-500 text-sm h-4"></p> <!-- For error messages -->
-                    </form>
-                </div>
+                <button onclick="switchView('student-login')" class="w-full max-w-xs bg-green-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-green-700 transition-transform transform hover:scale-105">
+                    Student Login
+                </button>
             </div>
+        </div>
+
+        <!-- Teacher Login View -->
+        <div id="teacher-login-view" class="view text-center bg-white p-8 rounded-xl shadow-md max-w-md mx-auto">
+            <h1 class="text-3xl font-bold mb-4 text-gray-900">Teacher Portal</h1>
+            <p class="text-gray-600 mb-8">Click below to access the teacher dashboard.</p>
+            <button onclick="switchView('teacher')" class="w-full bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105">
+                Access Dashboard
+            </button>
+            <button onclick="switchView('login-type-selection')" class="mt-4 text-sm text-gray-600 hover:text-gray-800">Back to login selection</button>
+        </div>
+
+        <!-- Student Login View -->
+        <div id="student-login-view" class="view bg-white p-8 rounded-xl shadow-md max-w-md mx-auto">
+            <h1 class="text-3xl font-bold mb-4 text-gray-900 text-center">Student Login</h1>
+            <form id="student-login-form" class="flex flex-col items-center gap-4 mx-auto">
+                <label for="student-id-login" class="sr-only">Student ID</label>
+                <input type="number" id="student-id-login" placeholder="Enter Your Student ID#" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" required>
+                <button type="submit" class="w-full bg-green-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-green-700 transition">Login</button>
+                <p id="login-error" class="text-red-500 text-sm h-4"></p> <!-- For error messages -->
+            </form>
+            <button onclick="switchView('login-type-selection')" class="mt-4 block w-full text-center text-sm text-gray-600 hover:text-gray-800">Back to login selection</button>
         </div>
 
         <!-- Teacher View -->
@@ -65,7 +81,7 @@
                     <h1 class="text-4xl font-bold text-gray-900">Teacher Dashboard</h1>
                     <p class="text-gray-500">Manage your classroom assignments, students, and seating arrangements.</p>
                 </div>
-                 <button onclick="switchView('role-selection')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Switch Role</button>
+                 <button onclick="switchView('login-type-selection')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Logout</button>
             </header>
             
             <!-- Tabs -->
@@ -417,12 +433,14 @@
 
         // --- VIEWS & RENDERING ---
         const views = {
-            'role-selection': document.getElementById('role-selection'),
+            'login-type-selection': document.getElementById('login-type-selection'),
+            'teacher-login': document.getElementById('teacher-login-view'),
+            'student-login': document.getElementById('student-login-view'),
             'teacher': document.getElementById('teacher-view'),
             'student': document.getElementById('student-view'),
         };
 
-        let currentView = 'role-selection';
+        let currentView = 'login-type-selection';
         let currentTeacherTab = 'assignments';
 
         function switchView(viewName) {
@@ -784,7 +802,7 @@
         function logout() {
             currentStudentId = null;
             document.getElementById('login-error').textContent = '';
-            switchView('role-selection');
+            switchView('login-type-selection');
         }
 
         function requestHelp(assignmentId) {
@@ -1246,11 +1264,12 @@
                 closeModal('confirmation-modal');
             });
 
-            switchView('role-selection');
+            switchView('login-type-selection');
         }
 
         init();
     </script>
 </body>
 </html>
+" selected in the most up-to-date document.
 
