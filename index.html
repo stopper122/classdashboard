@@ -1101,72 +1101,78 @@
         });
 
         document.getElementById('bulk-upload-form').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const form = this;
-            const data = document.getElementById('bulk-student-data').value;
-            const lines = data.split('\n');
-            const studentsToProcess = [];
-            const processedIds = new Set();
-        
-            for (const line of lines) {
-                const trimmedLine = line.trim();
-                if (!trimmedLine) continue;
-                
-                const parts = trimmedLine.split(',');
-                if (parts.length === 3) {
-                    const id = parseInt(parts[0].trim(), 10);
-                    const firstName = parts[1].trim();
-                    const lastName = parts[2].trim();
+    e.preventDefault();
+    const form = this;
+    const data = document.getElementById('bulk-student-data').value;
+    const lines = data.split('\n');
+    const studentsToProcess = [];
+    const processedIds = new Set();
 
-                    if (!isNaN(id) && firstName && lastName && !processedIds.has(id)) {
-                        studentsToProcess.push({ id, firstName, lastName });
-                        processedIds.add(id);
-                    }
-                }
+    for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (!trimmedLine) continue;
+        
+        const parts = trimmedLine.split(',');
+        if (parts.length === 3) {
+            const id = parseInt(parts[0].trim(), 10);
+            const firstName = parts[1].trim();
+            const lastName = parts[2].trim();
+
+            if (!isNaN(id) && firstName && lastName && !processedIds.has(id)) {
+                studentsToProcess.push({ id, firstName, lastName });
+                processedIds.add(id);
             }
-        
-            if (studentsToProcess.length === 0) {
-                showSuccessMessage("No valid new students found in the provided data.");
-                closeModal('bulk-upload-modal');
-                form.reset();
-                return;
-            }
-        
-            try {
-                const existingIds = new Set(students.map(s => s.id));
-                const studentsToUpload = studentsToProcess.filter(s => !existingIds.has(s.id));
-                const skippedCount = studentsToProcess.length - studentsToUpload.length;
-                
-                if (studentsToUpload.length > 0) {
-                    const batch = writeBatch(db);
-                    studentsToUpload.forEach(student => {
-                        const newStudentRef = doc(studentsCol);
-                        batch.set(newStudentRef, student);
-                    });
-                    await batch.commit();
-                }
-        
-                let message = "";
-                if (studentsToUpload.length > 0) {
-                    message += `${studentsToUpload.length} student(s) added successfully. `;
-                }
-                if (skippedCount > 0) {
-                    message += `${skippedCount} student(s) were skipped as their IDs already exist.`;
-                }
-                if (!message) {
-                    message = "All students in the list already exist.";
-                }
-                showSuccessMessage(message.trim());
-        
-           } catch (error) {
-    console.error("Error during bulk upload:", error);
-    const details = error.code ? `${error.code} - ${error.message}` : error.message || error;
-    showSuccessMessage(`Bulk upload failed: ${details}`);
-} finally {
-                closeModal('bulk-upload-modal');
-                form.reset();
-            }
-        });
+        }
+    }
+
+    if (studentsToProcess.length === 0) {
+        showSuccessMessage("No valid new students found in the provided data.");
+        closeModal('bulk-upload-modal');
+        form.reset();
+        return;
+    }
+
+    try {
+        if (!studentsCol) {
+            throw new Error("Firestore not initialized: studentsCol is undefined");
+        }
+
+        const existingIds = new Set(students.map(s => s.id));
+        const studentsToUpload = studentsToProcess.filter(s => !existingIds.has(s.id));
+        const skippedCount = studentsToProcess.length - studentsToUpload.length;
+
+        if (studentsToUpload.length > 0) {
+            // Use batch + setDoc safely
+            const batch = writeBatch(db);
+            studentsToUpload.forEach(student => {
+                const newStudentRef = doc(studentsCol); // auto-id
+                batch.set(newStudentRef, student);
+            });
+            await batch.commit();
+        }
+
+        let message = "";
+        if (studentsToUpload.length > 0) {
+            message += `${studentsToUpload.length} student(s) added successfully. `;
+        }
+        if (skippedCount > 0) {
+            message += `${skippedCount} student(s) were skipped as their IDs already exist.`;
+        }
+        if (!message) {
+            message = "All students in the list already exist.";
+        }
+        showSuccessMessage(message.trim());
+
+    } catch (error) {
+        console.error("Error during bulk upload:", error);
+        const details = error.code ? `${error.code} - ${error.message}` : error.message || error;
+        showSuccessMessage(`Bulk upload failed: ${details}`);
+    } finally {
+        closeModal('bulk-upload-modal');
+        form.reset();
+    }
+});
+
         
         // --- UTILITIES ---
         function openStudentAssignmentModal(studentId) {
