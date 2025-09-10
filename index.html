@@ -1056,8 +1056,10 @@
 
             if (firstName && lastName && !isNaN(id)) {
                 try {
-                    // Use the live students array which is always up-to-date
-                    if (students.some(student => student.id === id)) {
+                    const q = query(studentsCol, where("id", "==", id));
+                    const querySnapshot = await getDocs(q);
+                    
+                    if (!querySnapshot.empty) {
                         showSuccessMessage(`Student with ID ${id} already exists.`);
                         return;
                     }
