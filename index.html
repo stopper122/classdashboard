@@ -422,12 +422,11 @@
                 
                 // Define collection paths
                 const basePath = `artifacts/${appId}/public/data`;
-                studentsCol = collection(db, `${basePath}/students`);
-                assignmentsCol = collection(db, `${basePath}/assignments`);
-                helpRequestsCol = collection(db, `${basePath}/helpRequests`);
-                checkRequestsCol = collection(db, `${basePath}/checkRequests`);
-                seatingChartDoc = doc(db, `${basePath}/seatingChart/main`);
-
+               studentsCol = collection(db, basePath, "students");
+assignmentsCol = collection(db, basePath, "assignments");
+helpRequestsCol = collection(db, basePath, "helpRequests");
+checkRequestsCol = collection(db, basePath, "checkRequests");
+seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                 loadData();
 
             } catch (error) {
