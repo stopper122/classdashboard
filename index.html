@@ -441,7 +441,7 @@
         };
 
         let currentView = 'login-type-selection';
-        let currentTeacherTab = 'assignments';
+        let currentTeacherTab = 'seating-chart';
 
         function switchView(viewName) {
             views[currentView].classList.remove('active');
@@ -449,7 +449,7 @@
             currentView = viewName;
             
             if (viewName === 'teacher') {
-                switchTeacherTab('assignments'); // Default to assignments tab
+                switchTeacherTab('seating-chart'); // Default to seating chart tab
                 renderTeacherView();
             }
             if (viewName === 'student') renderStudentView();
@@ -1271,5 +1271,4 @@
     </script>
 </body>
 </html>
-" selected in the most up-to-date document.
 
