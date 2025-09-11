@@ -96,7 +96,7 @@
   <button id="logout-btn-teacher" class="mt-4 bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Logout</button>
                     <p class="text-gray-500">Manage your classroom assignments, students, and seating arrangements.</p>
                 </div>
-                 <button id="logout-btn" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Logout</button>
+                 <button id="logout-btn-teacher" class="mt-4 bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Logout</button>
 <button id="backup-btn" class="bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-purple-700 transition">
   Download Backup (CSV)
 </button>
@@ -207,7 +207,7 @@
   <button id="logout-btn-student" class="mt-4 bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Logout</button>
                     <p class="text-gray-500">Welcome, <span id="student-name" class="font-semibold"></span>!</p>
                 </div>
-                 <button id="logout-btn" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Logout</button>
+                 <button id="logout-btn-student" class="mt-4 bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Logout</button>
             </header>
 
             <div class="bg-white p-6 rounded-xl shadow-md">
@@ -651,6 +651,12 @@ async function restoreBackup() {
 
 // --- Attach event listeners after DOM is ready ---
 document.addEventListener("DOMContentLoaded", () => {
+  const logoutBtnTeacher = document.getElementById("logout-btn-teacher");
+  if (logoutBtnTeacher) logoutBtnTeacher.addEventListener("click", () => switchView("login-type-selection"));
+
+  const logoutBtnStudent = document.getElementById("logout-btn-student");
+  if (logoutBtnStudent) logoutBtnStudent.addEventListener("click", () => switchView("login-type-selection"));
+
   // Logout buttons
   const logoutBtnTeacher = document.getElementById("logout-btn-teacher");
   if (logoutBtnTeacher) logoutBtnTeacher.addEventListener("click", () => switchView("login-type-selection"));
@@ -686,9 +692,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const bulkAssignBtn = document.getElementById("bulk-assignment-btn");
   if (bulkAssignBtn) bulkAssignBtn.addEventListener("click", () => openModal("bulk-assignment-modal"));
 
-  const logoutBtn = document.getElementById("logout-btn");
-  if (logoutBtn) logoutBtn.addEventListener("click", logout);
-
+  
   const backupBtn = document.getElementById("backup-btn");
   if (backupBtn) backupBtn.addEventListener("click", downloadBackupCSV);
 
