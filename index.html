@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Classroom Management App</title>
     <script src="https://cdn.tailwindcss.com">
+
+  }
+
+  closeModal("bulk-assignment-modal");
+  document.getElementById("bulk-assignment-data").value = "";
+});
+
+
 document.getElementById("bulk-assignment-form").addEventListener("submit", async (e) => {
   e.preventDefault();
 
