@@ -4,17 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Classroom Management App</title>
-    <script src="https://cdn.tailwindcss.com">
-
-async function teacherLogin() {
-  const input = prompt("Enter teacher password:");
-  if (input === TEACHER_PASSWORD) {
-    if (typeof switchView === 'function') switchView('teacher');
-  } else {
-    alert("Incorrect password");
-  }
-}
-</script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
@@ -382,8 +372,6 @@ async function teacherLogin() {
 
 
     <script type="module">
-    const TEACHER_PASSWORD = "Rocket_22!!";
-
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -391,13 +379,13 @@ async function teacherLogin() {
         // --- FIREBASE & DATA ---
         let db, auth;
         let students = [];
-        
-    let studentsLoaded = false;
-    let seatingLoaded = false;
-let assignments = [];
+        let assignments = [];
         let helpRequests = [];
         let checkRequests = [];
         let seatingChart = [];
+        let studentsLoaded = false;
+        let seatingLoaded = false;
+        
         
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-classroom-app';
         
@@ -457,12 +445,12 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
         // --- DATA SYNC ---
         function loadData() {
             onSnapshot(query(studentsCol), (snapshot) => {
-  students = snapshot.docs.map(doc => ({ fbId: doc.id, ...doc.data() }));
-  if (typeof sortStudents === 'function') sortStudents();
-  studentsLoaded = true;
-  if (typeof currentView !== 'undefined' && currentView === 'teacher' && typeof renderTeacherView === 'function') { renderTeacherView(); }
-  if (typeof maybeRenderSeatingChart === 'function') maybeRenderSeatingChart();
-});
+                students = snapshot.docs.map(doc => ({ fbId: doc.id, ...doc.data() }));
+                sortStudents();
+                studentsLoaded = true;
+                if (currentView === 'teacher') renderTeacherView();
+                maybeRenderSeatingChart();
+            });
 
             onSnapshot(query(assignmentsCol), (snapshot) => {
                 assignments = snapshot.docs.map(doc => ({ fbId: doc.id, ...doc.data() }));
@@ -483,15 +471,16 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
             });
 
              onSnapshot(seatingChartDoc, async (docSnap) => {
-  if (docSnap.exists()) {
-    seatingChart = docSnap.data().chart || Array(TOTAL_SEATS).fill(null);
-  } else {
-    seatingChart = Array(TOTAL_SEATS).fill(null);
-    if (typeof setDoc === 'function') await setDoc(seatingChartDoc, { chart: seatingChart });
-  }
-seatingLoaded = true;
-if (typeof maybeRenderSeatingChart === 'function') maybeRenderSeatingChart();
-});
+                if (docSnap.exists()) {
+                    seatingChart = docSnap.data().chart || Array(TOTAL_SEATS).fill(null);
+                } else {
+                    seatingChart = Array(TOTAL_SEATS).fill(null);
+                    // Create the document if it doesn't exist
+                    await setDoc(seatingChartDoc, { chart: seatingChart });
+                }
+                seatingLoaded = true;
+                maybeRenderSeatingChart();
+            });
         }
         
         async function saveSeatingChart() {
@@ -596,9 +585,9 @@ if (typeof maybeRenderSeatingChart === 'function') maybeRenderSeatingChart();
             const list = document.getElementById('unseated-student-list');
             const seatedStudentIds = new Set(seatingChart.filter(id => typeof id === 'number'));
             const unseatedStudents = students.filter(s => !seatedStudentIds.has(s.id));
-            
+
             list.innerHTML = unseatedStudents.map(s => `
-                 <li id="roster-student-${s.id}" 
+                 <li id="roster-student-${s.id}" data-id="${s.id}"
                      class="student-roster-item p-4 bg-gray-50 rounded-lg font-medium text-center"
                      draggable="true" 
                      ondragstart="handleDragStart(event, 'roster_student', ${s.id})"
@@ -608,53 +597,7 @@ if (typeof maybeRenderSeatingChart === 'function') maybeRenderSeatingChart();
             `).join('');
         }
 
-        // --- Seating Chart Rendering ---
-function renderSeatingChart() {
-  const grid = document.getElementById('seating-chart-grid');
-  const studentsNeedingHelp = new Set(helpRequests.map(req => req.studentId));
-  const studentsNeedingCheck = new Set(checkRequests.map(req => req.studentId));
-  grid.innerHTML = '';
-
-  for (let i = 0; i < TOTAL_SEATS; i++) {
-    const seatContent = seatingChart[i];
-    const seatEl = document.createElement('div');
-    seatEl.dataset.seatIndex = i;
-    seatEl.className = 'seat border border-gray-300 rounded-lg h-24 flex items-center justify-center text-center p-2 transition-colors duration-300';
-
-    seatEl.addEventListener('dragover', handleDragOver);
-    seatEl.addEventListener('dragleave', handleDragLeave);
-    seatEl.addEventListener('drop', handleDrop);
-
-    if (seatContent === 'BLANK') {
-      seatEl.classList.add('blank-seat');
-      seatEl.textContent = 'Blank';
-      seatEl.draggable = true;
-      // ... keep your existing BLANK-seat logic here ...
-    } else if (typeof seatContent === 'number') {
-      const student = students.find(s => s.id === seatContent);
-      if (student) {
-        seatEl.textContent = `${student.firstName} ${student.lastName}`;
-        seatEl.draggable = true;
-        // ... keep any badge/need-help/check code you already have ...
-      }
-    }
-
-    grid.appendChild(seatEl);
-  }
-}
-
-// --- Sync Rendering helper (MUST be outside renderSeatingChart) ---
-function maybeRenderSeatingChart() {
-  if (!studentsLoaded || !seatingLoaded) return;
-  if (typeof currentView === 'undefined' || currentView === 'teacher') {
-    if (typeof renderSeatingChart === 'function') renderSeatingChart();
-    if (typeof renderUnseatedStudentList === 'function') renderUnseatedStudentList();
-    if (typeof renderStudentRequests === 'function') renderStudentRequests();
-  }
-}
-
-
-) {
+        function renderSeatingChart() {
             const grid = document.getElementById('seating-chart-grid');
             const studentsNeedingHelp = new Set(helpRequests.map(req => req.studentId));
             const studentsNeedingCheck = new Set(checkRequests.map(req => req.studentId));
@@ -706,6 +649,17 @@ function maybeRenderSeatingChart() {
                 grid.appendChild(seatEl);
             }
         }
+
+
+        function maybeRenderSeatingChart() {
+            if (!studentsLoaded || !seatingLoaded) return;
+            if (currentView === 'teacher') {
+                renderSeatingChart();
+                renderUnseatedStudentList();
+                if (typeof renderStudentRequests === 'function') renderStudentRequests();
+            }
+        }
+
 
 
         function renderTeacherAssignmentList() {
@@ -919,30 +873,28 @@ function maybeRenderSeatingChart() {
         }
 
         // --- DRAG & DROP HANDLERS ---
-        function handleDragStart(event, type, id) {
-  // For roster students, ensure the ID is present
-  let payloadId = id;
-  if (!payloadId && event.currentTarget && event.currentTarget.dataset && event.currentTarget.dataset.id) {
-    payloadId = event.currentTarget.dataset.id;
-  }
-  const payload = {
-    type,
-    id: payloadId,
-    originSeatIndex: event.currentTarget && event.currentTarget.dataset ? event.currentTarget.dataset.seatIndex : undefined
-  };
-  try {
-    event.dataTransfer.setData("application/json", JSON.stringify(payload));
-    event.dataTransfer.effectAllowed = "move";
-  } catch (e) {
-    // Fallback for older browsers
-    event.dataTransfer.setData("text", JSON.stringify(payload));
-  }
-};
-            event.dataTransfer.setData('application/json', JSON.stringify(payload));
+        function handleDragStart(event, type, id = null, originSeatIndex = null) {
+            const el = event.currentTarget || event.target;
+            try { if (el && el.classList) el.classList.add('dragging'); } catch(e) {}
+            let payloadId = id;
+            if ((payloadId === null || payloadId === undefined) && el && el.dataset && el.dataset.id) {
+                const parsed = parseInt(el.dataset.id, 10);
+                payloadId = isNaN(parsed) ? el.dataset.id : parsed;
+            }
+            let originIdx = originSeatIndex;
+            if ((originIdx === null || originIdx === undefined) && el && el.dataset && typeof el.dataset.seatIndex !== 'undefined') {
+                const parsed = parseInt(el.dataset.seatIndex, 10);
+                originIdx = isNaN(parsed) ? null : parsed;
+            }
+            const payload = { type, id: payloadId, originSeatIndex: originIdx };
+            try {
+                event.dataTransfer.setData('application/json', JSON.stringify(payload));
+            } catch (err) {
+                console.error('handleDragStart: failed to set dataTransfer', err, payload);
+            }
             event.dataTransfer.effectAllowed = 'move';
         }
-
-        function handleDragEnd(event) {
+function handleDragEnd(event) {
             event.target.classList.remove('dragging');
         }
 
@@ -957,62 +909,50 @@ function maybeRenderSeatingChart() {
         }
 
         function handleDrop(event) {
-  event.preventDefault();
-  if (event.currentTarget && event.currentTarget.classList) {
-    event.currentTarget.classList.remove('dragging-over');
-  }
+            event.preventDefault();
+            const target = event.currentTarget || event.target;
+            try { if (target && target.classList) target.classList.remove('dragging-over'); } catch(e) {}
 
-  const raw = event.dataTransfer.getData('application/json') || event.dataTransfer.getData('text') || '';
-  if (!raw) {
-    console.warn('handleDrop: no drag data found');
-    return;
-  }
+            const raw = event.dataTransfer.getData('application/json') || event.dataTransfer.getData('text') || '';
+            if (!raw) {
+                console.warn('handleDrop: no drag data found');
+                return;
+            }
 
-  let payload;
-  try {
-    payload = JSON.parse(raw);
-  } catch (err) {
-    console.error('handleDrop: failed to parse drag payload:', err, 'raw:', raw);
-    return;
-  }
+            let payload;
+            try {
+                payload = JSON.parse(raw);
+            } catch (err) {
+                console.error('handleDrop: failed to parse drag payload:', err, 'raw:', raw);
+                return;
+            }
 
-  const targetSeatIndex = parseInt(event.currentTarget && event.currentTarget.dataset ? event.currentTarget.dataset.seatIndex : -1, 10);
-  if (isNaN(targetSeatIndex) || targetSeatIndex < 0) {
-    console.warn('handleDrop: invalid target seat index');
-    return;
-  }
-  const itemAtTarget = seatingChart[targetSeatIndex];
+            const targetSeatIndex = parseInt((target.dataset && target.dataset.seatIndex) || target.getAttribute('data-seat-index'), 10);
+            if (isNaN(targetSeatIndex)) {
+                console.warn('handleDrop: target seat index invalid:', target && target.dataset && target.dataset.seatIndex);
+                return;
+            }
 
-  switch (payload.type) {
-    case 'roster_student':
-      seatingChart[targetSeatIndex] = payload.id;
-      break;
-    case 'new_blank_seat':
-      seatingChart[targetSeatIndex] = 'BLANK';
-      break;
-    case 'grid_seat': {
-      const originSeatIndex = parseInt(payload.originSeatIndex, 10);
-      if (!isNaN(originSeatIndex) && originSeatIndex >= 0) {
-        const itemAtOrigin = seatingChart[originSeatIndex];
-        seatingChart[originSeatIndex] = itemAtTarget;
-        seatingChart[targetSeatIndex] = itemAtOrigin;
-      }
-      break;
-    }
-    default:
-      console.warn('handleDrop: unknown payload type', payload && payload.type);
-  }
+            const itemAtTarget = seatingChart[targetSeatIndex];
 
-  if (typeof saveSeatingChart === 'function') {
-    saveSeatingChart();
-  }
-}
+            switch (payload.type) {
+                case 'roster_student':
+                    seatingChart[targetSeatIndex] = payload.id;
+                    break;
+                case 'new_blank_seat':
+                    seatingChart[targetSeatIndex] = 'BLANK';
+                    break;
+                case 'grid_seat':
+                    const originSeatIndex = payload.originSeatIndex;
+                    const itemAtOrigin = seatingChart[originSeatIndex];
+                    seatingChart[originSeatIndex] = itemAtTarget;
+                    seatingChart[targetSeatIndex] = itemAtOrigin;
+                    break;
+            }
 
             saveSeatingChart();
         }
-
-
-        // --- ACTIONS ---
+ // --- ACTIONS ---
         function logout() {
             currentStudentId = null;
             document.getElementById('login-error').textContent = '';
@@ -1433,12 +1373,11 @@ function maybeRenderSeatingChart() {
 
         // --- INITIALIZATION ---
         async function init() {
-await initFirebase();
+            await initFirebase();
+            studentsLoaded = false;
+            seatingLoaded = false;
 
-            
-      studentsLoaded = false;
-      seatingLoaded = false;
-document.getElementById('add-blank-seat').addEventListener('dragstart', (e) => handleDragStart(e, 'new_blank_seat'));
+            document.getElementById('add-blank-seat').addEventListener('dragstart', (e) => handleDragStart(e, 'new_blank_seat'));
             document.getElementById('add-blank-seat').addEventListener('dragend', handleDragEnd);
 
             document.getElementById('student-login-form').addEventListener('submit', function(e) {
@@ -1476,11 +1415,12 @@ document.getElementById('add-blank-seat').addEventListener('dragstart', (e) => h
 
             // Make functions globally accessible for onclick handlers
             Object.assign(window, {
-switchView, switchTeacherTab, openModal, closeModal,
+                switchView, switchTeacherTab, openModal, closeModal,
                 sortStudents, sortAssignments, toggleSelectAll, confirmDeleteSelectedStudents,
                 openEditStudentModal, confirmDeleteStudent, openScoreAssignmentModal, openEditAssignmentModal, confirmDeleteAssignment,
-                requestHelp, requestCheck, cancelHelpRequest, cancelCheckRequest, resolveRequest, logout, handleDragStart, handleDragEnd, handleDragOver, handleDragLeave, handleDrop, teacherLogin
-});
+                requestHelp, requestCheck, cancelHelpRequest, cancelCheckRequest, resolveRequest, logout,
+                handleDragStart, handleDragEnd, handleDragOver, handleDragLeave, handleDrop
+            });
 
             switchView('login-type-selection');
         }
