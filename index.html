@@ -60,16 +60,18 @@
 
         <!-- Teacher Login View -->
         <div id="teacher-login-view" class="view text-center bg-white p-8 rounded-xl shadow-md max-w-md mx-auto">
-<h1 class="text-3xl font-bold mb-4 text-gray-900">Teacher Portal</h1>
-<p class="text-gray-600 mb-8">Enter the teacher password to access the dashboard.</p>
-<input type="password" id="teacher-password" placeholder="Enter Password"
-       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-4" required>
-<button onclick="checkTeacherPassword()" 
-        class="w-full bg-blue-600 text-white font-semibold py-4 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105">
-  Access Dashboard
-</button>
-<p id="teacher-login-error" class="text-red-500 text-sm h-4 mt-2"></p>
-<button onclick="switchView('login-type-selection')" class="mt-4 text-sm text-gray-600 hover:text-gray-800">Back to login selection</button>
+
+  <h1 class="text-3xl font-bold mb-4 text-gray-900">Teacher Portal</h1>
+  <p class="text-gray-600 mb-8">Enter the teacher password to access the dashboard.</p>
+  <input type="password" id="teacher-password" placeholder="Enter Password"
+         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-4" required>
+  <button onclick="checkTeacherPassword()" 
+          class="w-full bg-blue-600 text-white font-semibold py-4 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105">
+    Access Dashboard
+  </button>
+  <p id="teacher-login-error" class="text-red-500 text-sm h-4 mt-2"></p>
+  <button onclick="switchView('login-type-selection')" class="mt-4 text-sm text-gray-600 hover:text-gray-800">Back to login selection</button>
+
 </div>
 
         <!-- Student Login View -->
@@ -436,7 +438,8 @@ async function restoreBackup() {
       const zip = await JSZip.loadAsync(file);
 
       function parseCSV(text) {
-        const [headerLine, ...lines] = text.trim().split(/?
+        const [headerLine, ...lines] = text.trim().split(/
+?
 /);
         if (!headerLine) return [];
         const headers = headerLine.split(",").map(h => h.replace(/^"|"$/g, ""));
