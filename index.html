@@ -44,7 +44,7 @@
 
     <div id="app" class="max-w-7xl mx-auto p-4 md:p-8">
         <!-- Login Type Selection -->
-        <div id="login-type-selection" class="view text-center bg-white p-8 rounded-xl shadow-md">
+        <div id="login-type-selection" class="view active text-center bg-white p-8 rounded-xl shadow-md">
             <h1 class="text-3xl font-bold mb-4 text-gray-900">Classroom Management</h1>
             <p class="text-gray-600 mb-8">Please select your login type.</p>
             <div class="flex flex-col md:flex-row justify-center items-center gap-4">
@@ -57,25 +57,20 @@
             </div>
         </div>
 
-       <!-- Teacher Login View -->
-<div id="teacher-login-view" class="view text-center bg-white p-8 rounded-xl shadow-md max-w-md mx-auto">
-    <h1 class="text-3xl font-bold mb-4 text-gray-900">Teacher Portal</h1>
-    <p class="text-gray-600 mb-8">Enter the teacher password to access the dashboard.</p>
-    
-    <input type="password" id="teacher-password" placeholder="Enter Password"
-           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-4" required>
-    
-    <button onclick="checkTeacherPassword()" 
-            class="w-full bg-blue-600 text-white font-semibold py-4 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105">
-        Access Dashboard
-    </button>
-    
-    <p id="teacher-login-error" class="text-red-500 text-sm h-4 mt-2"></p>
-    
-    <button onclick="switchView('login-type-selection')" class="mt-4 text-sm text-gray-600 hover:text-gray-800">
-        Back to login selection
-    </button>
+        <!-- Teacher Login View -->
+        <div id="teacher-login-view" class="view text-center bg-white p-8 rounded-xl shadow-md max-w-md mx-auto">
+<h1 class="text-3xl font-bold mb-4 text-gray-900">Teacher Portal</h1>
+<p class="text-gray-600 mb-8">Enter the teacher password to access the dashboard.</p>
+<input type="password" id="teacher-password" placeholder="Enter Password"
+       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-4" required>
+<button onclick="checkTeacherPassword()"
+        class="w-full bg-blue-600 text-white font-semibold py-4 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105">
+  Access Dashboard
+</button>
+<p id="teacher-login-error" class="text-red-500 text-sm h-4 mt-2"></p>
+<button onclick="switchView('login-type-selection')" class="mt-4 text-sm text-gray-600 hover:text-gray-800">Back to login selection</button>
 </div>
+
         <!-- Student Login View -->
         <div id="student-login-view" class="view bg-white p-8 rounded-xl shadow-md max-w-md mx-auto">
             <h1 class="text-3xl font-bold mb-4 text-gray-900 text-center">Student Login</h1>
@@ -386,6 +381,24 @@
         import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- FIREBASE & DATA ---
+
+
+// --- Teacher Password (front-end gate) ---
+const TEACHER_PASSWORD = "Rocket_22!!"; // TODO: change this to your real password
+
+function checkTeacherPassword() {
+    const input = document.getElementById('teacher-password')?.value || "";
+    const errorEl = document.getElementById('teacher-login-error');
+    if (input === TEACHER_PASSWORD) {
+        if (errorEl) errorEl.textContent = '';
+        switchView('teacher'); // grant access
+    } else {
+        if (errorEl) errorEl.textContent = 'Incorrect password. Please try again.';
+    }
+}
+// IMPORTANT for <script type="module"> + inline onclick handler:
+window.checkTeacherPassword = checkTeacherPassword;
+
         let db, auth;
         let students = [];
         let assignments = [];
@@ -962,20 +975,6 @@ function handleDragEnd(event) {
             saveSeatingChart();
         }
  // --- ACTIONS ---
-
-        // --- Teacher Password ---
-const TEACHER_PASSWORD = "Rocket_22!!"; // change this to your password
-
-function checkTeacherPassword() {
-    const input = document.getElementById('teacher-password').value;
-    const errorEl = document.getElementById('teacher-login-error');
-    if (input === TEACHER_PASSWORD) {
-        errorEl.textContent = '';
-        switchView('teacher'); // grant access
-    } else {
-        errorEl.textContent = 'Incorrect password. Please try again.';
-    }
-}
         function logout() {
             currentStudentId = null;
             document.getElementById('login-error').textContent = '';
