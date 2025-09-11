@@ -2114,6 +2114,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+// --- Re-expose login functions for inline onclick compatibility ---
+if (typeof studentLogin === "function") window.studentLogin = studentLogin;
+if (typeof checkTeacherPassword === "function") window.checkTeacherPassword = checkTeacherPassword;
+if (typeof openModal === "function") window.openModal = openModal;
+if (typeof closeModal === "function") window.closeModal = closeModal;
+if (typeof logout === "function") window.logout = logout;
+if (typeof downloadBackupCSV === "function") window.downloadBackupCSV = downloadBackupCSV;
+if (typeof restoreBackup === "function") window.restoreBackup = restoreBackup;
+if (typeof switchView === "function") window.switchView = switchView;
+
 
 
     </script>
