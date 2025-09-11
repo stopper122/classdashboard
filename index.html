@@ -64,6 +64,7 @@ if (bulkTextarea && bulkPreview) {
 
 document.addEventListener("DOMContentLoaded", () => {
   const bulkForm = document.getElementById("bulk-assignment-form");
+  console.log("🔍 bulkForm found?", bulkForm);
   if (bulkForm) {
     bulkForm.addEventListener("submit", async (e) => {
       e.preventDefault();
