@@ -632,6 +632,14 @@ async function restoreBackup() {
 
 // --- Attach event listeners after DOM is ready ---
 document.addEventListener("DOMContentLoaded", () => {
+
+    console.log("Attaching event listeners...");
+
+const studentAuthBtn = document.getElementById("student-login-btn");
+console.log("student-login-btn found?", studentAuthBtn);
+
+const teacherAuthBtn = document.getElementById("teacher-login-btn");
+console.log("teacher-login-btn found?", teacherAuthBtn);
   const menuStudentBtn = document.getElementById("menu-student-login-btn");
   if (menuStudentBtn) menuStudentBtn.addEventListener("click", () => switchView("student"));
 
