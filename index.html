@@ -424,9 +424,60 @@ Drafting Quiz | 2025-09-03</pre>
 
 
     <script type="module">
-// --- Backup and Restore functions ---
+// --- Teacher Password (hardcoded) ---
+const TEACHER_PASSWORD = "Rocket_22!!"; // change this
 
-// Helper to convert array of objects to CSV string
+function switchView(viewId) {
+  document.querySelectorAll("[id$='-view']").forEach(view => {
+    view.classList.add("hidden");
+  });
+  const target = document.getElementById(`${viewId}-view`);
+  if (target) target.classList.remove("hidden");
+}
+
+function logout() {
+  switchView("login-type-selection");
+}
+
+function checkTeacherPassword() {
+  console.log("checkTeacherPassword() called");
+  const input = document.getElementById('teacher-password')?.value || "";
+  const errorEl = document.getElementById('teacher-login-error');
+
+  if (!input) {
+    if (errorEl) errorEl.textContent = 'Please enter the password.';
+    return;
+  }
+
+  if (input === TEACHER_PASSWORD) {
+    if (errorEl) errorEl.textContent = '';
+    switchView('teacher');
+  } else {
+    if (errorEl) errorEl.textContent = 'Incorrect password. Please try again.';
+  }
+}
+
+function studentLogin() {
+  console.log("studentLogin() called");
+  const id = document.getElementById('student-id-login')?.value?.trim();
+  const errorEl = document.getElementById('student-login-error');
+
+  if (!id) {
+    if (errorEl) errorEl.textContent = 'Please enter your Student ID.';
+    return;
+  }
+
+  const student = (typeof students !== 'undefined') ? students.find(s => s.id === id) : null;
+  if (!student) {
+    if (errorEl) errorEl.textContent = 'Invalid Student ID. Please try again.';
+    return;
+  }
+
+  if (errorEl) errorEl.textContent = '';
+  switchView('student');
+}
+
+// --- Backup and Restore functions ---
 function toCSV(rows) {
   if (!rows || rows.length === 0) return "";
   const headers = Object.keys(rows[0]);
@@ -496,7 +547,6 @@ async function restoreBackup() {
         });
       }
 
-      // Preview counts
       async function countCSV(filename) {
         if (zip.files[filename]) {
           const content = await zip.files[filename].async("string");
@@ -579,89 +629,6 @@ async function restoreBackup() {
     }
   };
 }
-
-function switchView(viewId) {
-  document.querySelectorAll("[id$='-view']").forEach(view => {
-    view.classList.add("hidden");
-  });
-  const target = document.getElementById(`${viewId}-view`);
-  if (target) target.classList.remove("hidden");
-}
-
-function logout() {
-  switchView("login-type-selection");
-}
-
-// --- Teacher Password (hardcoded) ---
-const TEACHER_PASSWORD = "Rocket_22!!"; // change this
-
-function checkTeacherPassword() {
-  console.log("checkTeacherPassword() called");
-  const input = document.getElementById('teacher-password')?.value || "";
-  const errorEl = document.getElementById('teacher-login-error');
-
-  if (!input) {
-    if (errorEl) errorEl.textContent = 'Please enter the password.';
-    return;
-  }
-
-  if (input === TEACHER_PASSWORD) {
-    if (errorEl) errorEl.textContent = '';
-    switchView('teacher');
-  } else {
-    if (errorEl) errorEl.textContent = 'Incorrect password. Please try again.';
-  }
-}
-
-function studentLogin() {
-  console.log("studentLogin() called");
-  const id = document.getElementById('student-id-login')?.value?.trim();
-  const errorEl = document.getElementById('student-login-error');
-
-  if (!id) {
-    if (errorEl) errorEl.textContent = 'Please enter your Student ID.';
-    return;
-  }
-
-  const student = (typeof students !== 'undefined') ? students.find(s => s.id === id) : null;
-  if (!student) {
-    if (errorEl) errorEl.textContent = 'Invalid Student ID. Please try again.';
-    return;
-  }
-
-  if (errorEl) errorEl.textContent = '';
-  switchView('student');
-}
-
-});
-
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-      const openModals = document.querySelectorAll(".fixed.inset-0:not(.hidden)");
-      openModals.forEach(modal => modal.classList.add("hidden"));
-    }
-  });
-
-  const studentInput = document.getElementById("student-id-login");
-  if (studentInput) {
-    studentInput.addEventListener("keypress", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        studentLogin();
-      }
-    });
-  }
-
-  const teacherPassInput = document.getElementById("teacher-password");
-  if (teacherPassInput) {
-    teacherPassInput.addEventListener("keypress", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        checkTeacherPassword();
-      }
-    });
-  }
-});
 
 // --- Attach event listeners after DOM is ready ---
 document.addEventListener("DOMContentLoaded", () => {
