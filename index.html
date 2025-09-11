@@ -1519,7 +1519,9 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     const textarea = document.getElementById('bulk-assignment-data');
     const useTodayIfMissing = document.getElementById('bulk-assignment-default-today').checked;
-    const lines = (textarea.value || '').split('\\n');
+    const lines = (textarea.value || '')
+  .replace(/\r\n|\r|\u2028|\u2029/g, '\n')  // normalize all line breaks
+  .split('\n');  // then split into an array
     const items = [];
     const today = new Date().toISOString().split('T')[0];
     for (const line of lines) {
