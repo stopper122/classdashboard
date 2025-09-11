@@ -49,10 +49,10 @@
             <h1 class="text-3xl font-bold mb-4 text-gray-900">Classroom Management</h1>
             <p class="text-gray-600 mb-8">Please select your login type.</p>
             <div class="flex flex-col md:flex-row justify-center items-center gap-4">
-                <button onclick="switchView('teacher-login')" class="w-full max-w-xs bg-blue-600 text-white font-semibold py-4 px-8 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105">
+                <button id="teacher-login-btn" class="w-full max-w-xs bg-blue-600 text-white font-semibold py-4 px-8 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105">
                     Teacher Login
                 </button>
-                <button onclick="switchView('student-login')" class="w-full max-w-xs bg-green-600 text-white font-semibold py-4 px-8 rounded-lg shadow-md hover:bg-green-700 transition-transform transform hover:scale-105">
+                <button id="student-login-btn" class="w-full max-w-xs bg-green-600 text-white font-semibold py-4 px-8 rounded-lg shadow-md hover:bg-green-700 transition-transform transform hover:scale-105">
                     Student Login
                 </button>
             </div>
@@ -107,13 +107,13 @@
             <!-- Tabs -->
             <div class="mb-6 border-b border-gray-200">
                 <nav class="flex space-x-4" aria-label="Tabs">
-                    <button onclick="switchTeacherTab('assignments')" id="tab-assignments" class="tab-btn whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                    <button  id="tab-assignments" class="tab-btn whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
                         Assignments
                     </button>
-                    <button onclick="switchTeacherTab('students')" id="tab-students" class="tab-btn whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                    <button  id="tab-students" class="tab-btn whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
                         Students
                     </button>
-                    <button onclick="switchTeacherTab('seating-chart')" id="tab-seating-chart" class="tab-btn whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                    <button  id="tab-seating-chart" class="tab-btn whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
                         Seating Chart
                     </button>
                 </nav>
@@ -141,21 +141,21 @@
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-2xl font-bold">Student Roster</h2>
                         <div class="flex items-center gap-2">
-                            <button onclick="openModal('add-student-modal')" class="bg-green-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-green-700 transition">Add</button>
-                            <button onclick="openModal('bulk-upload-modal')" class="bg-purple-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-purple-700 transition">Bulk Upload</button>
+                            <button  class="bg-green-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-green-700 transition">Add</button>
+                            <button  class="bg-purple-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-purple-700 transition">Bulk Upload</button>
                         </div>
                     </div>
                     <div class="flex items-center gap-2 mb-4 border-b pb-4">
                         <span class="text-sm font-medium text-gray-600">Sort by:</span>
-                        <button onclick="sortStudents('firstName')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full hover:bg-gray-300 transition">First Name</button>
-                        <button onclick="sortStudents('lastName')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full hover:bg-gray-300 transition">Last Name</button>
+                        <button  class="text-sm bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full hover:bg-gray-300 transition">First Name</button>
+                        <button  class="text-sm bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full hover:bg-gray-300 transition">Last Name</button>
                     </div>
                     <div class="flex justify-between items-center mb-4">
                          <div class="flex items-center gap-3">
                             <input type="checkbox" id="select-all-students" onchange="toggleSelectAll(this)" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
                             <label for="select-all-students" class="text-sm font-medium text-gray-700">Select All</label>
                         </div>
-                        <button id="delete-selected-btn" onclick="confirmDeleteSelectedStudents()" class="hidden bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition">Delete Selected</button>
+                        <button id="delete-selected-btn"  class="hidden bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition">Delete Selected</button>
                     </div>
                     <ul id="teacher-student-list" class="space-y-3">
                         <!-- Student data will be populated here -->
@@ -211,10 +211,10 @@
                     <h2 class="text-2xl font-bold">Your Assignments</h2>
                     <div class="flex items-center gap-2 flex-wrap">
                         <span class="text-sm font-medium text-gray-600">Sort by:</span>
-                        <button onclick="sortAssignments('date_desc')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full hover:bg-gray-300 transition">Date (Newest)</button>
-                        <button onclick="sortAssignments('date_asc')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full hover:bg-gray-300 transition">Date (Oldest)</button>
-                        <button onclick="sortAssignments('score_desc')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full hover:bg-gray-300 transition">Score (High)</button>
-                        <button onclick="sortAssignments('score_asc')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full hover:bg-gray-300 transition">Score (Low)</button>
+                        <button  class="text-sm bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full hover:bg-gray-300 transition">Date (Newest)</button>
+                        <button  class="text-sm bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full hover:bg-gray-300 transition">Date (Oldest)</button>
+                        <button  class="text-sm bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full hover:bg-gray-300 transition">Score (High)</button>
+                        <button  class="text-sm bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full hover:bg-gray-300 transition">Score (Low)</button>
                     </div>
                 </div>
                 <div id="student-assignment-list" class="space-y-5">
@@ -240,7 +240,7 @@
                     <p class="text-xs text-gray-500 mt-1">Leave blank to use today's date.</p>
                 </div>
                 <div class="flex justify-end gap-4">
-                    <button type="button"  class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
+                    <button type="button" class="close-modal-btn" data-target="add-assignment-modal" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
                     <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition">Add</button>
                 </div>
             </form>
@@ -263,7 +263,7 @@
                      <p class="text-xs text-gray-500 mt-1">Leave blank to use today's date.</p>
                 </div>
                 <div class="flex justify-end gap-4">
-                    <button type="button"  class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
+                    <button type="button" class="close-modal-btn" data-target="edit-assignment-modal" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
                     <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition">Save Changes</button>
                 </div>
             </form>
@@ -281,7 +281,7 @@
                     <!-- Student scoring inputs will be populated here -->
                 </div>
                 <div class="flex justify-end gap-4 mt-8">
-                    <button type="button"  class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
+                    <button type="button" class="close-modal-btn" data-target="score-assignment-modal" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
                     <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition">Save Scores</button>
                 </div>
             </form>
@@ -306,7 +306,7 @@
                     <input type="text" id="student-lastName-add" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" required>
                 </div>
                 <div class="flex justify-end gap-4">
-                    <button type="button"  class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
+                    <button type="button" class="close-modal-btn" data-target="add-student-modal" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
                     <button type="submit" class="bg-green-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-green-700 transition">Add Student</button>
                 </div>
             </form>
@@ -332,7 +332,7 @@
                     <input type="text" id="student-lastName-edit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
                 </div>
                 <div class="flex justify-end gap-4">
-                    <button type="button"  class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
+                    <button type="button" class="close-modal-btn" data-target="edit-student-modal" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
                     <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition">Save Changes</button>
                 </div>
             </form>
@@ -350,7 +350,7 @@
                     <p class="text-xs text-gray-500 mt-1">Note: Students with existing IDs will be skipped to avoid duplicates.</p>
                 </div>
                 <div class="flex justify-end gap-4">
-                    <button type="button"  class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
+                    <button type="button" class="close-modal-btn" data-target="bulk-upload-modal" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
                     <button type="submit" class="bg-purple-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-purple-700 transition">Upload Students</button>
                 </div>
             </form>
@@ -365,7 +365,7 @@
                 <!-- Student assignments will be populated here -->
             </div>
             <div id="student-assignment-modal-footer" class="flex justify-end mt-8 gap-4">
-                <button type="button"  class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
+                <button type="button" class="close-modal-btn" data-target="student-assignment-modal" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
                 <button type="button" id="save-student-scores-btn" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition">Save Scores</button>
             </div>
         </div>
@@ -407,7 +407,7 @@ Drafting Quiz | 2025-09-03</pre>
           Use today’s date when missing
         </label>
         <div class="flex gap-3">
-          <button type="button" 
+          <button type="button" class="close-modal-btn" data-target="bulk-assignment-modal"
             class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
           <button type="submit"
             class="bg-purple-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-purple-700 transition">Add All</button>
@@ -425,19 +425,28 @@ Drafting Quiz | 2025-09-03</pre>
 
     <script type="module">
 
-// --- Attach event listeners after DOM is ready ---
+// --- Attach event listeners after DOM is ready (onclicks removed) ---
 document.addEventListener("DOMContentLoaded", () => {
   const studentBtn = document.getElementById("student-login-btn");
-  if (studentBtn) studentBtn.addEventListener("click", studentLogin);
+  if (studentBtn) studentBtn.addEventListener("click", () => switchView("student-login"));
 
   const teacherBtn = document.getElementById("teacher-login-btn");
-  if (teacherBtn) teacherBtn.addEventListener("click", checkTeacherPassword);
+  if (teacherBtn) teacherBtn.addEventListener("click", () => switchView("teacher-login"));
+
+  const backToLoginBtn = document.getElementById("back-to-login-btn");
+  if (backToLoginBtn) backToLoginBtn.addEventListener("click", () => switchView("login-type-selection"));
+
+  const teacherAuthBtn = document.getElementById("teacher-auth-btn");
+  if (teacherAuthBtn) teacherAuthBtn.addEventListener("click", checkTeacherPassword);
+
+  const studentAuthBtn = document.getElementById("student-auth-btn");
+  if (studentAuthBtn) studentAuthBtn.addEventListener("click", studentLogin);
 
   const addAssignBtn = document.getElementById("add-assignment-btn");
-  if (addAssignBtn) addAssignBtn.addEventListener("click", () => openModal('add-assignment-modal'));
+  if (addAssignBtn) addAssignBtn.addEventListener("click", () => openModal("add-assignment-modal"));
 
   const bulkAssignBtn = document.getElementById("bulk-assignment-btn");
-  if (bulkAssignBtn) bulkAssignBtn.addEventListener("click", () => openModal('bulk-assignment-modal'));
+  if (bulkAssignBtn) bulkAssignBtn.addEventListener("click", () => openModal("bulk-assignment-modal"));
 
   const logoutBtn = document.getElementById("logout-btn");
   if (logoutBtn) logoutBtn.addEventListener("click", logout);
@@ -448,8 +457,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const restoreBtn = document.getElementById("restore-btn");
   if (restoreBtn) restoreBtn.addEventListener("click", restoreBackup);
 
-  const backToLoginBtn = document.getElementById("back-to-login-btn");
-  if (backToLoginBtn) backToLoginBtn.addEventListener("click", () => switchView('login-type-selection'));
+  // Close modals via buttons with class
+  document.querySelectorAll(".close-modal-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const target = btn.getAttribute("data-target");
+      if (target) closeModal(target);
+    });
+  });
 
   // Close modals with Escape key
   document.addEventListener("keydown", (e) => {
@@ -1246,8 +1260,8 @@ views[currentView].classList.remove('active');
                         <span class="font-medium">${s.firstName} ${s.lastName} <span class="text-xs text-gray-500">(ID: ${s.id})</span></span>
                     </div>
                     <div class="flex items-center gap-4">
-                        <button onclick="openEditStudentModal('${s.fbId}')" class="text-sm text-blue-600 hover:text-blue-800 font-medium py-1 px-3">Edit</button>
-                        <button onclick="confirmDeleteStudent('${s.fbId}')" class="text-sm text-red-600 hover:text-red-800 font-medium py-1 px-3">Delete</button>
+                        <button  class="text-sm text-blue-600 hover:text-blue-800 font-medium py-1 px-3">Edit</button>
+                        <button  class="text-sm text-red-600 hover:text-red-800 font-medium py-1 px-3">Delete</button>
                     </div>
                 </li>
             `).join('');
@@ -1344,9 +1358,9 @@ views[currentView].classList.remove('active');
                             <p class="text-sm text-gray-500">Posted: ${new Date(a.postedDate).toLocaleDateString()}</p>
                         </div>
                         <div class="flex items-center gap-4 mt-1">
-                            <button onclick="openScoreAssignmentModal('${a.fbId}')" class="text-sm text-green-600 hover:text-green-800 font-medium py-1 px-3">Score</button>
-                            <button onclick="openEditAssignmentModal('${a.fbId}')" class="text-sm text-blue-600 hover:text-blue-800 font-medium py-1 px-3">Edit</button>
-                            <button onclick="confirmDeleteAssignment('${a.fbId}')" class="text-sm text-red-600 hover:text-red-800 font-medium py-1 px-3">Delete</button>
+                            <button  class="text-sm text-green-600 hover:text-green-800 font-medium py-1 px-3">Score</button>
+                            <button  class="text-sm text-blue-600 hover:text-blue-800 font-medium py-1 px-3">Edit</button>
+                            <button  class="text-sm text-red-600 hover:text-red-800 font-medium py-1 px-3">Delete</button>
                         </div>
                     </div>
                 </div>
@@ -1377,7 +1391,7 @@ views[currentView].classList.remove('active');
                                     <span class="text-sm text-yellow-800 block">Help on: "${req.assignmentTitle}"</span>
                                 </div>
                             </div>
-                            <button onclick="resolveRequest('help', '${req.fbId}')" class="text-sm bg-green-200 text-green-800 font-semibold py-1 px-3 rounded-full hover:bg-green-300">Resolve</button>
+                            <button  class="text-sm bg-green-200 text-green-800 font-semibold py-1 px-3 rounded-full hover:bg-green-300">Resolve</button>
                         </li>
                     `;
                 } else { // type is 'check'
@@ -1390,7 +1404,7 @@ views[currentView].classList.remove('active');
                                     <span class="text-sm text-sky-800 block">Check for: "${req.assignmentTitle}"</span>
                                 </div>
                             </div>
-                            <button onclick="resolveRequest('check', '${req.fbId}')" class="text-sm bg-green-200 text-green-800 font-semibold py-1 px-3 rounded-full hover:bg-green-300">Resolve</button>
+                            <button  class="text-sm bg-green-200 text-green-800 font-semibold py-1 px-3 rounded-full hover:bg-green-300">Resolve</button>
                         </li>
                     `;
                 }
@@ -1447,12 +1461,12 @@ views[currentView].classList.remove('active');
                 const checkQueueIndex = checkRequests.findIndex(req => req.assignmentId === a.id && req.studentId === student.id);
 
                 let helpButtonHtml = ownHelpRequest
-                    ? `<button onclick="cancelHelpRequest('${ownHelpRequest.fbId}')" class="w-full bg-red-600 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-red-700 transition text-sm">Cancel (Queue #${helpQueueIndex + 1})</button>`
-                    : `<button onclick="requestHelp(${a.id})" class="w-full bg-yellow-500 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-yellow-600 transition">Request Help</button>`;
+                    ? `<button  class="w-full bg-red-600 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-red-700 transition text-sm">Cancel (Queue #${helpQueueIndex + 1})</button>`
+                    : `<button  class="w-full bg-yellow-500 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-yellow-600 transition">Request Help</button>`;
 
                 let checkButtonHtml = ownCheckRequest
-                    ? `<button onclick="cancelCheckRequest('${ownCheckRequest.fbId}')" class="w-full bg-red-600 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-red-700 transition text-sm">Cancel (Queue #${checkQueueIndex + 1})</button>`
-                    : `<button onclick="requestCheck(${a.id})" class="w-full bg-sky-600 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-sky-700 transition">Request Check</button>`;
+                    ? `<button  class="w-full bg-red-600 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-red-700 transition text-sm">Cancel (Queue #${checkQueueIndex + 1})</button>`
+                    : `<button  class="w-full bg-sky-600 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-sky-700 transition">Request Check</button>`;
 
 
                 return `
@@ -2172,7 +2186,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
-</script>
+// --- Re-expose login functions for inline onclick compatibility ---
+if (typeof studentLogin === "function") window.studentLogin = studentLogin;
+if (typeof checkTeacherPassword === "function") window.checkTeacherPassword = checkTeacherPassword;
+if (typeof openModal === "function") window.openModal = openModal;
+if (typeof closeModal === "function") window.closeModal = closeModal;
+if (typeof logout === "function") window.logout = logout;
+if (typeof downloadBackupCSV === "function") window.downloadBackupCSV = downloadBackupCSV;
+if (typeof restoreBackup === "function") window.restoreBackup = restoreBackup;
+if (typeof switchView === "function") window.switchView = switchView;
+
+
+
+    </script>
 </body>
 </html>
 
