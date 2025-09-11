@@ -427,46 +427,7 @@ Drafting Quiz | 2025-09-03</pre>
 
 
 // --- Attach event listeners after DOM is ready (login separation fix) ---
-document.addEventListener("DOMContentLoaded", () => {
-  // Menu buttons to switch views
-  const menuStudentBtn = document.getElementById("menu-student-login-btn");
-  if (menuStudentBtn) menuStudentBtn.addEventListener("click", () => switchView("student-login"));
-
-  const menuTeacherBtn = document.getElementById("menu-teacher-login-btn");
-  if (menuTeacherBtn) menuTeacherBtn.addEventListener("click", () => switchView("teacher-login"));
-
-  const backToLoginBtn = document.getElementById("back-to-login-btn");
-  if (backToLoginBtn) backToLoginBtn.addEventListener("click", () => switchView("login-type-selection"));
-
-  // Actual login action buttons
-  const teacherAuthBtn = document.getElementById("teacher-login-btn");
-  if (teacherAuthBtn) teacherAuthBtn.addEventListener("click", checkTeacherPassword);
-
-  const studentAuthBtn = document.getElementById("student-login-btn");
-  if (studentAuthBtn) studentAuthBtn.addEventListener("click", studentLogin);
-
-  const addAssignBtn = document.getElementById("add-assignment-btn");
-  if (addAssignBtn) addAssignBtn.addEventListener("click", () => openModal("add-assignment-modal"));
-
-  const bulkAssignBtn = document.getElementById("bulk-assignment-btn");
-  if (bulkAssignBtn) bulkAssignBtn.addEventListener("click", () => openModal("bulk-assignment-modal"));
-
-  const logoutBtn = document.getElementById("logout-btn");
-  if (logoutBtn) logoutBtn.addEventListener("click", logout);
-
-  const backupBtn = document.getElementById("backup-btn");
-  if (backupBtn) backupBtn.addEventListener("click", downloadBackupCSV);
-
-  const restoreBtn = document.getElementById("restore-btn");
-  if (restoreBtn) restoreBtn.addEventListener("click", restoreBackup);
-
-  // Close modals via buttons with class
-  document.querySelectorAll(".close-modal-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const target = btn.getAttribute("data-target");
-      if (target) closeModal(target);
-    });
-  });
+});
 
   // Close modals with Escape key
   document.addEventListener("keydown", (e) => {
@@ -533,46 +494,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 // --- Attach event listeners after DOM is ready (login separation fix) ---
-document.addEventListener("DOMContentLoaded", () => {
-  // Menu buttons to switch views
-  const menuStudentBtn = document.getElementById("menu-student-login-btn");
-  if (menuStudentBtn) menuStudentBtn.addEventListener("click", () => switchView("student-login"));
-
-  const menuTeacherBtn = document.getElementById("menu-teacher-login-btn");
-  if (menuTeacherBtn) menuTeacherBtn.addEventListener("click", () => switchView("teacher-login"));
-
-  const backToLoginBtn = document.getElementById("back-to-login-btn");
-  if (backToLoginBtn) backToLoginBtn.addEventListener("click", () => switchView("login-type-selection"));
-
-  // Actual login action buttons
-  const teacherAuthBtn = document.getElementById("teacher-login-btn");
-  if (teacherAuthBtn) teacherAuthBtn.addEventListener("click", checkTeacherPassword);
-
-  const studentAuthBtn = document.getElementById("student-login-btn");
-  if (studentAuthBtn) studentAuthBtn.addEventListener("click", studentLogin);
-
-  const addAssignBtn = document.getElementById("add-assignment-btn");
-  if (addAssignBtn) addAssignBtn.addEventListener("click", () => openModal("add-assignment-modal"));
-
-  const bulkAssignBtn = document.getElementById("bulk-assignment-btn");
-  if (bulkAssignBtn) bulkAssignBtn.addEventListener("click", () => openModal("bulk-assignment-modal"));
-
-  const logoutBtn = document.getElementById("logout-btn");
-  if (logoutBtn) logoutBtn.addEventListener("click", logout);
-
-  const backupBtn = document.getElementById("backup-btn");
-  if (backupBtn) backupBtn.addEventListener("click", downloadBackupCSV);
-
-  const restoreBtn = document.getElementById("restore-btn");
-  if (restoreBtn) restoreBtn.addEventListener("click", restoreBackup);
-
-  // Close modals via buttons with class
-  document.querySelectorAll(".close-modal-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const target = btn.getAttribute("data-target");
-      if (target) closeModal(target);
-    });
-  });
+});
 
   // Close modals with Escape key
   document.addEventListener("keydown", (e) => {
@@ -604,17 +526,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 // --- Keyboard support for login forms ---
-document.addEventListener("DOMContentLoaded", () => {
-  const studentInput = document.getElementById("student-id");
-  if (studentInput) {
-    studentInput.addEventListener("keypress", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        studentLogin();
-      }
-    });
-  
-
 // --- Keyboard support: Escape to close modals ---
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
@@ -1145,6 +1056,7 @@ function checkTeacherPassword() {
   } else {
     if (errorEl) errorEl.textContent = 'Incorrect password. Please try again.';
   }
+}
 }
 else {
         if (errorEl) errorEl.textContent = 'Incorrect password. Please try again.';
@@ -2285,6 +2197,76 @@ if (typeof logout === "function") window.logout = logout;
 if (typeof downloadBackupCSV === "function") window.downloadBackupCSV = downloadBackupCSV;
 if (typeof restoreBackup === "function") window.restoreBackup = restoreBackup;
 if (typeof switchView === "function") window.switchView = switchView;
+// --- Attach event listeners after DOM is ready ---
+document.addEventListener("DOMContentLoaded", () => {
+  const menuStudentBtn = document.getElementById("menu-student-login-btn");
+  if (menuStudentBtn) menuStudentBtn.addEventListener("click", () => switchView("student-login"));
+
+  const menuTeacherBtn = document.getElementById("menu-teacher-login-btn");
+  if (menuTeacherBtn) menuTeacherBtn.addEventListener("click", () => switchView("teacher-login"));
+
+  const backToLoginBtn = document.getElementById("back-to-login-btn");
+  if (backToLoginBtn) backToLoginBtn.addEventListener("click", () => switchView("login-type-selection"));
+
+  const teacherAuthBtn = document.getElementById("teacher-login-btn");
+  if (teacherAuthBtn) teacherAuthBtn.addEventListener("click", checkTeacherPassword);
+
+  const studentAuthBtn = document.getElementById("student-login-btn");
+  if (studentAuthBtn) studentAuthBtn.addEventListener("click", studentLogin);
+
+  const addAssignBtn = document.getElementById("add-assignment-btn");
+  if (addAssignBtn) addAssignBtn.addEventListener("click", () => openModal("add-assignment-modal"));
+
+  const bulkAssignBtn = document.getElementById("bulk-assignment-btn");
+  if (bulkAssignBtn) bulkAssignBtn.addEventListener("click", () => openModal("bulk-assignment-modal"));
+
+  const logoutBtn = document.getElementById("logout-btn");
+  if (logoutBtn) logoutBtn.addEventListener("click", logout);
+
+  const backupBtn = document.getElementById("backup-btn");
+  if (backupBtn) backupBtn.addEventListener("click", downloadBackupCSV);
+
+  const restoreBtn = document.getElementById("restore-btn");
+  if (restoreBtn) restoreBtn.addEventListener("click", restoreBackup);
+
+  // Close modals via buttons with class
+  document.querySelectorAll(".close-modal-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const target = btn.getAttribute("data-target");
+      if (target) closeModal(target);
+    });
+  });
+
+  // Close modals with Escape key
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      const openModals = document.querySelectorAll(".fixed.inset-0:not(.hidden)");
+      openModals.forEach(modal => modal.classList.add("hidden"));
+    }
+  });
+
+  // Keyboard Enter support for login forms
+  const studentInput = document.getElementById("student-id-login");
+  if (studentInput) {
+    studentInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        studentLogin();
+      }
+    });
+  }
+
+  const teacherPassInput = document.getElementById("teacher-password");
+  if (teacherPassInput) {
+    teacherPassInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        checkTeacherPassword();
+      }
+    });
+  }
+});
+
 
 
 
