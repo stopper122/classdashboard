@@ -60,15 +60,24 @@
         <!-- Teacher Login View -->
         <div id="teacher-login-view" class="view text-center bg-white p-8 rounded-xl shadow-md max-w-md mx-auto">
 <h1 class="text-3xl font-bold mb-4 text-gray-900">Teacher Portal</h1>
-<p class="text-gray-600 mb-8">Enter the teacher password to access the dashboard.</p>
-<input type="password" id="teacher-password" placeholder="Enter Password"
+<p class="text-gray-600 mb-6">Sign in with your teacher account.</p>
+
+<input type="email" id="teacher-email" placeholder="Email"
+       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-3" required>
+
+<input type="password" id="teacher-password" placeholder="Password"
        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-4" required>
-<button onclick="checkTeacherPassword()"
-        class="w-full bg-blue-600 text-white font-semibold py-4 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105">
-  Access Dashboard
+
+<button onclick="teacherSignIn()"
+        class="w-full bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-blue-700 transition">
+  Sign In
 </button>
-<p id="teacher-login-error" class="text-red-500 text-sm h-4 mt-2"></p>
-<button onclick="switchView('login-type-selection')" class="mt-4 text-sm text-gray-600 hover:text-gray-800">Back to login selection</button>
+
+<p id="teacher-login-error" class="text-red-500 text-sm h-5 mt-3"></p>
+
+<button onclick="switchView('login-type-selection')" class="mt-4 text-sm text-gray-600 hover:text-gray-800">
+  Back to login selection
+</button>
 </div>
 
         <!-- Student Login View -->
@@ -113,8 +122,11 @@
                  <div class="bg-white p-6 rounded-xl shadow-md">
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-2xl font-bold">Assignments</h2>
-                        <button onclick="openModal('add-assignment-modal')" class="bg-blue-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-blue-700 transition">Add Assignment</button>
-                    </div>
+                        <div class="flex gap-2">
+  <button onclick="openModal('bulk-assignment-modal')" class="bg-purple-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-purple-700 transition">Bulk Add</button>
+  <button onclick="openModal('add-assignment-modal')" class="bg-blue-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-blue-700 transition">Add Assignment</button>
+</div>
+</div>
                     <div id="teacher-assignment-list" class="space-y-4">
                         <!-- Assignments will be populated here -->
                     </div>
@@ -367,7 +379,41 @@
                 <button id="confirm-button" class="bg-red-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-red-700 transition">Confirm</button>
             </div>
         </div>
+    
+<!-- Bulk Assignment Modal -->
+<div id="bulk-assignment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+  <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-2xl">
+    <h2 class="text-2xl font-bold mb-6">Bulk Add Assignments</h2>
+
+    <div class="mb-4 text-sm text-gray-600">
+      Paste one assignment per line. Optional date in <code>YYYY-MM-DD</code> after a comma or pipe.
+      <pre class="bg-gray-50 p-3 rounded mt-2 overflow-auto">Intro to Robotics
+CAD Basics, 2025-09-01
+Drafting Quiz | 2025-09-03</pre>
     </div>
+
+    <form id="bulk-assignment-form" class="space-y-4">
+      <textarea id="bulk-assignment-data" rows="10"
+        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 font-mono text-sm"
+        placeholder="One per line: Title[, YYYY-MM-DD] or Title | YYYY-MM-DD"></textarea>
+
+      <div class="flex items-center justify-between">
+        <label class="flex items-center gap-2 text-sm">
+          <input id="bulk-assignment-default-today" type="checkbox" class="h-4 w-4 text-purple-600" checked>
+          Use today’s date when missing
+        </label>
+        <div class="flex gap-3">
+          <button type="button" onclick="closeModal('bulk-assignment-modal')"
+            class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
+          <button type="submit"
+            class="bg-purple-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-purple-700 transition">Add All</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+</div>
 
     <!-- Success Message -->
     <div id="success-message" class="fixed bottom-8 right-8 bg-green-500 text-white py-3 px-6 rounded-lg shadow-xl transform translate-y-20 opacity-0 transition-all duration-300 ease-out">
@@ -378,27 +424,10 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- FIREBASE & DATA ---
-
-
-// --- Teacher Password (front-end gate) ---
-const TEACHER_PASSWORD = "Rocket_22!!"; // TODO: change this to your real password
-
-function checkTeacherPassword() {
-    const input = document.getElementById('teacher-password')?.value || "";
-    const errorEl = document.getElementById('teacher-login-error');
-    if (input === TEACHER_PASSWORD) {
-        if (errorEl) errorEl.textContent = '';
-        switchView('teacher'); // grant access
-    } else {
-        if (errorEl) errorEl.textContent = 'Incorrect password. Please try again.';
-    }
-}
-// IMPORTANT for <script type="module"> + inline onclick handler:
-window.checkTeacherPassword = checkTeacherPassword;
-
         let db, auth;
         let students = [];
         let assignments = [];
@@ -463,6 +492,57 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
             }
         }
 
+// === Teacher Auth (Email/Password) ===
+let teacherSignedIn = false;
+
+// Keep UI in sync with auth state
+onAuthStateChanged(auth, (user) => {
+  teacherSignedIn = !!(user && !user.isAnonymous);
+  if (!teacherSignedIn && currentView === 'teacher') {
+    const err = document.getElementById('teacher-login-error');
+    if (err) err.textContent = "Please sign in to access the teacher dashboard.";
+    switchView('teacher-login');
+  }
+});
+
+async function teacherSignIn() {
+  const emailEl = document.getElementById('teacher-email');
+  const passEl = document.getElementById('teacher-password');
+  const errorEl = document.getElementById('teacher-login-error');
+  const email = (emailEl && emailEl.value || '').trim();
+  const password = passEl && passEl.value || '';
+
+  try {
+    if (!email || !password) {
+      if (errorEl) errorEl.textContent = "Please enter email and password.";
+      return;
+    }
+    await signInWithEmailAndPassword(auth, email, password);
+    if (errorEl) errorEl.textContent = "";
+    showSuccessMessage("Welcome!");
+    switchView('teacher');
+  } catch (err) {
+    console.error("Teacher sign-in failed:", err);
+    if (errorEl) errorEl.textContent = (err && err.message || "Sign-in failed. Check your credentials.").replace(/^Firebase:\s*/,'')
+  }
+}
+
+// Sign out teacher if currently signed in (non-anonymous)
+async function teacherSignOutIfNeeded() {
+  try {
+    if (auth?.currentUser && !auth.currentUser.isAnonymous) {
+      await signOut(auth);
+    }
+  } catch (e) {
+    console.warn("Sign-out warning:", e);
+  }
+}
+
+// Expose to inline HTML handler (module script)
+window.teacherSignIn = teacherSignIn;
+
+
+
 
         // --- DATA SYNC ---
         function loadData() {
@@ -523,7 +603,14 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
         let currentTeacherTab = 'seating-chart';
 
         function switchView(viewName) {
-            views[currentView].classList.remove('active');
+            
+  // Guard teacher view if not signed in (non-anonymous)
+  if (viewName === 'teacher' && !teacherSignedIn) {
+    const err = document.getElementById('teacher-login-error');
+    if (err) err.textContent = "Please sign in to access the teacher dashboard.";
+    viewName = 'teacher-login';
+  }
+views[currentView].classList.remove('active');
             views[viewName].classList.add('active');
             currentView = viewName;
             
@@ -975,8 +1062,9 @@ function handleDragEnd(event) {
             saveSeatingChart();
         }
  // --- ACTIONS ---
-        function logout() {
-            currentStudentId = null;
+        async function logout() {
+              try { await teacherSignOutIfNeeded(); } catch(e) {}
+currentStudentId = null;
             document.getElementById('login-error').textContent = '';
 
             const selectAllCheckbox = document.getElementById('select-all-students');
@@ -1448,6 +1536,84 @@ function handleDragEnd(event) {
         }
 
         init();
+// -------- Bulk Add Assignments --------
+function isValidYYYYMMDD(s) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(s);
+}
+function parseBulkAssignmentLine(line) {
+  const raw = line.trim();
+  if (!raw) return null;
+  let title = raw;
+  let date = null;
+  const idxComma = raw.indexOf(',');
+  const idxPipe = raw.indexOf('|');
+  let sepIdx = -1;
+  if (idxComma !== -1 && idxPipe !== -1) sepIdx = Math.min(idxComma, idxPipe);
+  else if (idxComma !== -1) sepIdx = idxComma;
+  else if (idxPipe !== -1) sepIdx = idxPipe;
+  if (sepIdx !== -1) {
+    title = raw.slice(0, sepIdx).trim();
+    date  = raw.slice(sepIdx + 1).trim();
+    if (date.includes(',') || date.includes('|')) {
+      date = date.split(/[|,]/)[0].trim();
+    }
+    if (!date) date = null;
+  }
+  if (!title) return null;
+  return { title, date };
+}
+
+const bulkAssignmentForm = document.getElementById('bulk-assignment-form');
+if (bulkAssignmentForm) {
+  bulkAssignmentForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const textarea = document.getElementById('bulk-assignment-data');
+    const useTodayIfMissing = document.getElementById('bulk-assignment-default-today').checked;
+    const lines = (textarea.value || '').split('\\n');
+    const items = [];
+    const today = new Date().toISOString().split('T')[0];
+
+    for (const line of lines) {
+      const parsed = parseBulkAssignmentLine(line);
+      if (!parsed) continue;
+      let postedDate = parsed.date && isValidYYYYMMDD(parsed.date) ? parsed.date : null;
+      if (!postedDate && useTodayIfMissing) postedDate = today;
+      items.push({ title: parsed.title, postedDate });
+    }
+
+    if (items.length === 0) {
+      showSuccessMessage("No valid assignments found.");
+      closeModal('bulk-assignment-modal');
+      e.target.reset();
+      return;
+    }
+
+    try {
+      const batch = writeBatch(db);
+      let i = 0;
+      for (const item of items) {
+        const ref = doc(assignmentsCol);
+        batch.set(ref, {
+          title: item.title,
+          postedDate: item.postedDate || today,
+          scores: {},
+          id: Date.now() + i
+        });
+        i++;
+      }
+      await batch.commit();
+      showSuccessMessage(`${items.length} assignment(s) added successfully.`);
+    } catch (err) {
+      console.error("Bulk add assignments failed:", err);
+      showSuccessMessage("Bulk add failed. See console for details.");
+    } finally {
+      closeModal('bulk-assignment-modal');
+      e.target.reset();
+    }
+  });
+}
+
+
     </script>
 </body>
 </html>
