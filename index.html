@@ -39,6 +39,7 @@
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         }
     </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body class="bg-gray-100 text-gray-800">
 
@@ -63,7 +64,7 @@
 <p class="text-gray-600 mb-8">Enter the teacher password to access the dashboard.</p>
 <input type="password" id="teacher-password" placeholder="Enter Password"
        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-4" required>
-<button onclick="checkTeacherPassword()"
+<button onclick="checkTeacherPassword()" 
         class="w-full bg-blue-600 text-white font-semibold py-4 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105">
   Access Dashboard
 </button>
@@ -91,6 +92,14 @@
                     <p class="text-gray-500">Manage your classroom assignments, students, and seating arrangements.</p>
                 </div>
                  <button onclick="switchView('login-type-selection')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Logout</button>
+<button onclick="downloadBackupCSV()" class="bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-purple-700 transition">
+  Download Backup (CSV)
+</button>
+<button onclick="restoreBackup()" 
+  class="bg-yellow-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-yellow-700 transition">
+  Restore Backup
+</button>
+<input type="file" id="backup-file-input" accept=".zip" class="hidden" />
             </header>
             
             <!-- Tabs -->
@@ -413,8 +422,484 @@ Drafting Quiz | 2025-09-03</pre>
 
 
     <script type="module">
+
+// --- Restore Backup from ZIP ---
+async function restoreBackup() {
+  const fileInput = document.getElementById("backup-file-input");
+  fileInput.click();
+
+  fileInput.onchange = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      const zip = await JSZip.loadAsync(file);
+
+      function parseCSV(text) {
+        const [headerLine, ...lines] = text.trim().split(/?
+/);
+        if (!headerLine) return [];
+        const headers = headerLine.split(",").map(h => h.replace(/^"|"$/g, ""));
+        return lines.filter(l => l.trim().length > 0).map(line => {
+          const values = line.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(v => v.replace(/^"|"$/g, ""));
+          const obj = {};
+          headers.forEach((h, i) => obj[h] = values[i] || "");
+          return obj;
+        });
+      }
+
+      // Preview counts
+      const counts = {};
+      async function countCSV(filename) {
+        if (zip.files[filename]) {
+          const content = await zip.files[filename].async("string");
+          return parseCSV(content).length;
+        }
+        return 0;
+      }
+      counts.students = await countCSV("students.csv");
+      counts.assignments = await countCSV("assignments.csv");
+      counts.seating = await countCSV("seating.csv");
+      counts.help = await countCSV("help_requests.csv");
+      counts.check = await countCSV("check_requests.csv");
+
+      const proceed = confirm(
+        `Backup Preview:\n` +
+        `- ${counts.students} students\n` +
+        `- ${counts.assignments} assignments\n` +
+        `- ${counts.seating} seating entries\n` +
+        `- ${counts.help} help requests\n` +
+        `- ${counts.check} check requests\n\n` +
+        `⚠️ Restoring will ERASE all current data and replace it with this backup. Continue?`
+      );
+      if (!proceed) return;
+
+      async function clearCollection(colRef) {
+        const snap = await getDocs(colRef);
+        const chunks = [];
+        let batch = writeBatch(db);
+        let count = 0;
+        for (const docSnap of snap.docs) {
+          batch.delete(docSnap.ref);
+          count++;
+          if (count % 500 === 0) {
+            chunks.push(batch.commit());
+            batch = writeBatch(db);
+          }
+        }
+        if (count % 500 !== 0) {
+          chunks.push(batch.commit());
+        }
+        await Promise.all(chunks);
+      }
+
+      await clearCollection(studentsCol);
+      await clearCollection(assignmentsCol);
+      await clearCollection(seatingCol);
+      await clearCollection(helpRequestsCol);
+      await clearCollection(checkRequestsCol);
+
+      const batch = writeBatch(db);
+
+      if (zip.files["students.csv"]) {
+        const content = await zip.files["students.csv"].async("string");
+        parseCSV(content).forEach(row => {
+          const ref = doc(studentsCol);
+          batch.set(ref, row);
+        });
+      }
+      if (zip.files["assignments.csv"]) {
+        const content = await zip.files["assignments.csv"].async("string");
+        parseCSV(content).forEach(row => {
+          const ref = doc(assignmentsCol);
+          batch.set(ref, row);
+        });
+      }
+      if (zip.files["seating.csv"]) {
+        const content = await zip.files["seating.csv"].async("string");
+        parseCSV(content).forEach(row => {
+          const ref = doc(seatingCol);
+          batch.set(ref, row);
+        });
+      }
+      if (zip.files["help_requests.csv"]) {
+        const content = await zip.files["help_requests.csv"].async("string");
+        parseCSV(content).forEach(row => {
+          const ref = doc(helpRequestsCol);
+          batch.set(ref, row);
+        });
+      }
+      if (zip.files["check_requests.csv"]) {
+        const content = await zip.files["check_requests.csv"].async("string");
+        parseCSV(content).forEach(row => {
+          const ref = doc(checkRequestsCol);
+          batch.set(ref, row);
+        });
+      }
+
+      await batch.commit();
+      showSuccessMessage("Backup restored successfully! Refresh to see data.");
+    } catch (err) {
+      console.error("Restore error:", err);
+      showSuccessMessage("Restore failed. Check console for details.");
+    } finally {
+      fileInput.value = "";
+    }
+  };
+};
+          headers.forEach((h, i) => obj[h] = values[i] || "");
+          return obj;
+        });
+      }
+
+      async function clearCollection(colRef) {
+        const snap = await getDocs(colRef);
+        const chunks = [];
+        let batch = writeBatch(db);
+        let count = 0;
+        for (const docSnap of snap.docs) {
+          batch.delete(docSnap.ref);
+          count++;
+          if (count % 500 === 0) {
+            chunks.push(batch.commit());
+            batch = writeBatch(db);
+          }
+        }
+        if (count % 500 !== 0) {
+          chunks.push(batch.commit());
+        }
+        await Promise.all(chunks);
+      }
+
+      await clearCollection(studentsCol);
+      await clearCollection(assignmentsCol);
+      await clearCollection(seatingCol);
+      await clearCollection(helpRequestsCol);
+      await clearCollection(checkRequestsCol);
+
+      const batch = writeBatch(db);
+
+      if (zip.files["students.csv"]) {
+        const content = await zip.files["students.csv"].async("string");
+        const rows = parseCSV(content);
+        rows.forEach(row => {
+          const ref = doc(studentsCol);
+          batch.set(ref, row);
+        });
+      }
+
+      if (zip.files["assignments.csv"]) {
+        const content = await zip.files["assignments.csv"].async("string");
+        const rows = parseCSV(content);
+        rows.forEach(row => {
+          const ref = doc(assignmentsCol);
+          batch.set(ref, row);
+        });
+      }
+
+      if (zip.files["seating.csv"]) {
+        const content = await zip.files["seating.csv"].async("string");
+        const rows = parseCSV(content);
+        rows.forEach(row => {
+          const ref = doc(seatingCol);
+          batch.set(ref, row);
+        });
+      }
+
+      if (zip.files["help_requests.csv"]) {
+        const content = await zip.files["help_requests.csv"].async("string");
+        const rows = parseCSV(content);
+        rows.forEach(row => {
+          const ref = doc(helpRequestsCol);
+          batch.set(ref, row);
+        });
+      }
+
+      if (zip.files["check_requests.csv"]) {
+        const content = await zip.files["check_requests.csv"].async("string");
+        const rows = parseCSV(content);
+        rows.forEach(row => {
+          const ref = doc(checkRequestsCol);
+          batch.set(ref, row);
+        });
+      }
+
+      await batch.commit();
+      showSuccessMessage("Backup restored successfully! Refresh to see data.");
+    } catch (err) {
+      console.error("Restore error:", err);
+      showSuccessMessage("Restore failed. Check console for details.");
+    } finally {
+      fileInput.value = "";
+    }
+  };
+};
+          headers.forEach((h, i) => obj[h] = values[i] || "");
+          return obj;
+        });
+      }
+
+      // Helper to clear a collection in chunks of 500
+      async function clearCollection(colRef) {
+        const snap = await getDocs(colRef);
+        const chunks = [];
+        let batch = writeBatch(db);
+        let count = 0;
+        for (const docSnap of snap.docs) {
+          batch.delete(docSnap.ref);
+          count++;
+          if (count % 500 === 0) {
+            chunks.push(batch.commit());
+            batch = writeBatch(db);
+          }
+        }
+        if (count % 500 !== 0) {
+          chunks.push(batch.commit());
+        }
+        await Promise.all(chunks);
+      }
+
+      // Clear collections first
+      await clearCollection(studentsCol);
+      await clearCollection(assignmentsCol);
+      await clearCollection(seatingCol);
+      await clearCollection(helpRequestsCol);
+      await clearCollection(checkRequestsCol);
+
+      // Restore from backup
+      const batch = writeBatch(db);
+
+      if (zip.files["students.csv"]) {
+        const content = await zip.files["students.csv"].async("string");
+        const rows = parseCSV(content);
+        rows.forEach(row => {
+          const ref = doc(studentsCol);
+          batch.set(ref, row);
+        });
+      }
+
+      if (zip.files["assignments.csv"]) {
+        const content = await zip.files["assignments.csv"].async("string");
+        const rows = parseCSV(content);
+        rows.forEach(row => {
+          const ref = doc(assignmentsCol);
+          batch.set(ref, row);
+        });
+      }
+
+      if (zip.files["seating.csv"]) {
+        const content = await zip.files["seating.csv"].async("string");
+        const rows = parseCSV(content);
+        rows.forEach(row => {
+          const ref = doc(seatingCol);
+          batch.set(ref, row);
+        });
+      }
+
+      if (zip.files["help_requests.csv"]) {
+        const content = await zip.files["help_requests.csv"].async("string");
+        const rows = parseCSV(content);
+        rows.forEach(row => {
+          const ref = doc(helpRequestsCol);
+          batch.set(ref, row);
+        });
+      }
+
+      if (zip.files["check_requests.csv"]) {
+        const content = await zip.files["check_requests.csv"].async("string");
+        const rows = parseCSV(content);
+        rows.forEach(row => {
+          const ref = doc(checkRequestsCol);
+          batch.set(ref, row);
+        });
+      }
+
+      await batch.commit();
+      showSuccessMessage("Backup restored successfully! Refresh to see data.");
+    } catch (err) {
+      console.error("Restore error:", err);
+      showSuccessMessage("Restore failed. Check console for details.");
+    } finally {
+      fileInput.value = "";
+    }
+  };
+};
+          headers.forEach((h, i) => obj[h] = values[i] || "");
+          return obj;
+        });
+      }
+
+      // Students
+      if (zip.files["students.csv"]) {
+        const content = await zip.files["students.csv"].async("string");
+        const rows = parseCSV(content);
+        rows.forEach(row => {
+          const ref = doc(studentsCol);
+          batch.set(ref, row);
+        });
+      }
+
+      // Assignments
+      if (zip.files["assignments.csv"]) {
+        const content = await zip.files["assignments.csv"].async("string");
+        const rows = parseCSV(content);
+        rows.forEach(row => {
+          const ref = doc(assignmentsCol);
+          batch.set(ref, row);
+        });
+      }
+
+      // Seating
+      if (zip.files["seating.csv"]) {
+        const content = await zip.files["seating.csv"].async("string");
+        const rows = parseCSV(content);
+        rows.forEach(row => {
+          const ref = doc(seatingCol);
+          batch.set(ref, row);
+        });
+      }
+
+      // Help Requests
+      if (zip.files["help_requests.csv"]) {
+        const content = await zip.files["help_requests.csv"].async("string");
+        const rows = parseCSV(content);
+        rows.forEach(row => {
+          const ref = doc(helpRequestsCol);
+          batch.set(ref, row);
+        });
+      }
+
+      // Check Requests
+      if (zip.files["check_requests.csv"]) {
+        const content = await zip.files["check_requests.csv"].async("string");
+        const rows = parseCSV(content);
+        rows.forEach(row => {
+          const ref = doc(checkRequestsCol);
+          batch.set(ref, row);
+        });
+      }
+
+      await batch.commit();
+      showSuccessMessage("Backup restored successfully! Refresh to see data.");
+    } catch (err) {
+      console.error("Restore error:", err);
+      showSuccessMessage("Restore failed. Check console for details.");
+    } finally {
+      fileInput.value = "";
+    }
+  };
+}
+
+
+
+// --- CSV Backup Export (ZIP) ---
+function convertToCSV(rows) {
+  if (!rows || rows.length === 0) return '';
+  const headers = Object.keys(rows[0]);
+  const csvContent = [
+    headers.join(","),
+    ...rows.map(row => headers.map(h => JSON.stringify(row[h] ?? "")).join(","))
+  ];
+  return csvContent.join("
+");
+}
+
+async function downloadBackupCSV() {
+  try {
+    const allStudents = students || [];
+    const allAssignments = assignments || [];
+    const allSeating = seatingChart || [];
+    const allHelp = helpRequests || [];
+    const allCheck = checkRequests || [];
+
+    const zip = new JSZip();
+
+    if (allStudents.length) zip.file("students.csv", convertToCSV(allStudents));
+    if (allAssignments.length) zip.file("assignments.csv", convertToCSV(allAssignments));
+    if (allSeating.length) {
+      zip.file("seating.csv", convertToCSV(allSeating.map((s, i) => ({ seat: i, studentId: s }))));
+    }
+    if (allHelp.length) zip.file("help_requests.csv", convertToCSV(allHelp));
+    if (allCheck.length) zip.file("check_requests.csv", convertToCSV(allCheck));
+
+    const blob = await zip.generateAsync({ type: "blob" });
+
+    // Create timestamped filename with date and time
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const hh = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    const ss = String(now.getSeconds()).padStart(2, '0');
+    const filename = `backup-${yyyy}-${mm}-${dd}-${hh}-${min}-${ss}.zip`;
+
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+
+    showSuccessMessage("Backup ZIP downloaded successfully!");
+  } catch (err) {
+    console.error("CSV backup error:", err);
+    showSuccessMessage("CSV backup failed. Check console for details.");
+  }
+}))));
+    }
+    if (allHelp.length) zip.file("help_requests.csv", convertToCSV(allHelp));
+    if (allCheck.length) zip.file("check_requests.csv", convertToCSV(allCheck));
+
+    const blob = await zip.generateAsync({ type: "blob" });
+
+    // Create timestamped filename
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const filename = `backup-${yyyy}-${mm}-${dd}.zip`;
+
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+
+    showSuccessMessage("Backup ZIP downloaded successfully!");
+  } catch (err) {
+    console.error("CSV backup error:", err);
+    showSuccessMessage("CSV backup failed. Check console for details.");
+  }
+}))));
+    }
+    if (allHelp.length) zip.file("help_requests.csv", convertToCSV(allHelp));
+    if (allCheck.length) zip.file("check_requests.csv", convertToCSV(allCheck));
+
+    const blob = await zip.generateAsync({ type: "blob" });
+
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "backup.zip";
+    link.click();
+
+    showSuccessMessage("Backup ZIP downloaded successfully!");
+  } catch (err) {
+    console.error("CSV backup error:", err);
+    showSuccessMessage("CSV backup failed. Check console for details.");
+  }
+})));
+    if (allHelp.length) downloadCSV("help_requests.csv", allHelp);
+    if (allCheck.length) downloadCSV("check_requests.csv", allCheck);
+
+    showSuccessMessage("CSV backups downloaded successfully!");
+  } catch (err) {
+    console.error("CSV backup error:", err);
+    showSuccessMessage("CSV backup failed. Check console for details.");
+  }
+}
+
+
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- FIREBASE & DATA ---
@@ -500,8 +985,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
             }
         }
 
-
-        // --- DATA SYNC ---
+// --- DATA SYNC ---
         function loadData() {
             onSnapshot(query(studentsCol), (snapshot) => {
                 students = snapshot.docs.map(doc => ({ fbId: doc.id, ...doc.data() }));
@@ -560,7 +1044,10 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
         let currentTeacherTab = 'seating-chart';
 
         function switchView(viewName) {
-            views[currentView].classList.remove('active');
+            
+  // Guard teacher view if not signed in (non-anonymous)
+  
+views[currentView].classList.remove('active');
             views[viewName].classList.add('active');
             currentView = viewName;
             
@@ -1012,8 +1499,8 @@ function handleDragEnd(event) {
             saveSeatingChart();
         }
  // --- ACTIONS ---
-        function logout() {
-            currentStudentId = null;
+        async function logout() {
+              currentStudentId = null;
             document.getElementById('login-error').textContent = '';
 
             const selectAllCheckbox = document.getElementById('select-all-students');
@@ -1519,9 +2006,9 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     const textarea = document.getElementById('bulk-assignment-data');
     const useTodayIfMissing = document.getElementById('bulk-assignment-default-today').checked;
-    const lines = (textarea.value || '')
-  .replace(/\r\n|\r|\u2028|\u2029/g, '\n')  // normalize all line breaks
-  .split('\n');  // then split into an array
+    const lines = (textarea.value || '').replace(/\r\n|\r|\u2028|\u2029/g, '
+').split('
+');
     const items = [];
     const today = new Date().toISOString().split('T')[0];
     for (const line of lines) {
