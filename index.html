@@ -59,7 +59,7 @@
         </div>
 
         <!-- Teacher Login View -->
-        <div id="teacher-login-view" class="view text-center bg-white p-8 rounded-xl shadow-md max-w-md mx-auto">
+        <div id="teacher-view" class="view text-center bg-white p-8 rounded-xl shadow-md max-w-md mx-auto">
 
   <h1 class="text-3xl font-bold mb-4 text-gray-900">Teacher Portal</h1>
   <p class="text-gray-600 mb-8">Enter the teacher password to access the dashboard.</p>
@@ -75,7 +75,7 @@
 </div>
 
         <!-- Student Login View -->
-        <div id="student-login-view" class="view bg-white p-8 rounded-xl shadow-md max-w-md mx-auto">
+        <div id="student-view" class="view bg-white p-8 rounded-xl shadow-md max-w-md mx-auto">
             <h1 class="text-3xl font-bold mb-4 text-gray-900 text-center">Student Login</h1>
             <form id="student-login-form" class="flex flex-col items-center gap-4 mx-auto">
                 <label for="student-id-login" class="sr-only">Student ID</label>
@@ -633,10 +633,10 @@ async function restoreBackup() {
 // --- Attach event listeners after DOM is ready ---
 document.addEventListener("DOMContentLoaded", () => {
   const menuStudentBtn = document.getElementById("menu-student-login-btn");
-  if (menuStudentBtn) menuStudentBtn.addEventListener("click", () => switchView("student-login"));
+  if (menuStudentBtn) menuStudentBtn.addEventListener("click", () => switchView("student"));
 
   const menuTeacherBtn = document.getElementById("menu-teacher-login-btn");
-  if (menuTeacherBtn) menuTeacherBtn.addEventListener("click", () => switchView("teacher-login"));
+  if (menuTeacherBtn) menuTeacherBtn.addEventListener("click", () => switchView("teacher"));
 
   const backToLoginBtnStudent = document.getElementById("back-to-login-btn-student");
   if (backToLoginBtnStudent) backToLoginBtnStudent.addEventListener("click", () => switchView("login-type-selection"));
