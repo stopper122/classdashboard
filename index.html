@@ -75,7 +75,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (!rawData) return;
 
-      const lines = rawData.split(/?
+      const lines = rawData.split(/
+?
 /).map(line => line.trim()).filter(line => line.length > 0);
       console.log("Lines parsed:", lines);
 
@@ -511,6 +512,7 @@ Drafting Quiz | 2025-09-03</pre>
 
 
     <script type="module">
+console.log("✅ SCRIPT LOADED AND RUNNING");
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
