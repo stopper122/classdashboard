@@ -489,10 +489,6 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
     seatingChart = Array(TOTAL_SEATS).fill(null);
     if (typeof setDoc === 'function') await setDoc(seatingChartDoc, { chart: seatingChart });
   }
-  seatingLoaded = true;
-  if (typeof maybeRenderSeatingChart === 'function') maybeRenderSeatingChart();
-});
-}
 seatingLoaded = true;
 if (typeof maybeRenderSeatingChart === 'function') maybeRenderSeatingChart();
 });
