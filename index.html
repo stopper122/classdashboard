@@ -23,6 +23,7 @@
 
 document.getElementById("bulk-assignment-form").addEventListener("submit", async (e) => {
   e.preventDefault();
+  console.log("🔥 BULK HANDLER STARTED");
 
   const textarea = document.getElementById("bulk-assignment-data");
   const rawData = textarea.value.trim();
