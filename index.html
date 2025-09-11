@@ -93,6 +93,7 @@
             <header class="flex justify-between items-center mb-6">
                 <div>
                     <h1 class="text-4xl font-bold text-gray-900">Teacher Dashboard</h1>
+  <button id="logout-btn-teacher" class="mt-4 bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Logout</button>
                     <p class="text-gray-500">Manage your classroom assignments, students, and seating arrangements.</p>
                 </div>
                  <button id="logout-btn" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Logout</button>
@@ -203,6 +204,7 @@
             <header class="flex justify-between items-center mb-8">
                  <div>
                     <h1 class="text-4xl font-bold text-gray-900">Student Dashboard</h1>
+  <button id="logout-btn-student" class="mt-4 bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Logout</button>
                     <p class="text-gray-500">Welcome, <span id="student-name" class="font-semibold"></span>!</p>
                 </div>
                  <button id="logout-btn" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Logout</button>
@@ -649,6 +651,13 @@ async function restoreBackup() {
 
 // --- Attach event listeners after DOM is ready ---
 document.addEventListener("DOMContentLoaded", () => {
+  // Logout buttons
+  const logoutBtnTeacher = document.getElementById("logout-btn-teacher");
+  if (logoutBtnTeacher) logoutBtnTeacher.addEventListener("click", () => switchView("login-type-selection"));
+
+  const logoutBtnStudent = document.getElementById("logout-btn-student");
+  if (logoutBtnStudent) logoutBtnStudent.addEventListener("click", () => switchView("login-type-selection"));
+
   console.log("Attaching event listeners...");
 
   const menuStudentBtn = document.getElementById("menu-student-login-btn");
