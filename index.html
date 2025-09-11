@@ -34,6 +34,8 @@ document.getElementById("bulk-assignment-form").addEventListener("submit", async
   const lines = rawData.split(/
 ?
 /).map(line => line.trim()).filter(line => line.length > 0);
+  console.log("Bulk handler running!");
+  console.log("Lines parsed:", lines);
 
   for (const line of lines) {
     let [title, date] = line.split(/[,|]/).map(s => s.trim());
@@ -69,6 +71,8 @@ if (bulkTextarea && bulkPreview) {
     const lines = rawData.split(/
 ?
 /).map(line => line.trim()).filter(line => line.length > 0);
+  console.log("Bulk handler running!");
+  console.log("Lines parsed:", lines);
 
     if (lines.length === 0) {
       bulkPreview.innerHTML = "";
