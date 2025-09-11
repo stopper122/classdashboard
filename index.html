@@ -59,7 +59,7 @@
         </div>
 
         <!-- Teacher Login View -->
-        <div id="teacher-view" class="view text-center bg-white p-8 rounded-xl shadow-md max-w-md mx-auto" class="hidden">
+        <div id="teacher-login-view" class="view text-center bg-white p-8 rounded-xl shadow-md max-w-md mx-auto" class="hidden">
 
   <h1 class="text-3xl font-bold mb-4 text-gray-900">Teacher Portal</h1>
   <p class="text-gray-600 mb-8">Enter the teacher password to access the dashboard.</p>
@@ -71,12 +71,12 @@
   </button>
   <p id="teacher-login-error" class="text-red-500 text-sm h-4 mt-2"></p>
 <p id="teacher-login-success" class="text-green-600 text-sm h-4 mt-2"></p> class="text-red-500 text-sm h-4 mt-2"></p>
-  <button id="back-to-login-btn-student" class="mt-4 text-sm text-gray-600 hover:text-gray-800">Back to login selection</button>
+  <button id="back-to-login-btn-teacher" class="mt-4 text-sm text-gray-600 hover:text-gray-800">Back to login selection</button>
 
 </div>
 
         <!-- Student Login View -->
-        <div id="student-view" class="view bg-white p-8 rounded-xl shadow-md max-w-md mx-auto" class="hidden">
+        <div id="student-login-view" class="view bg-white p-8 rounded-xl shadow-md max-w-md mx-auto" class="hidden">
             <h1 class="text-3xl font-bold mb-4 text-gray-900 text-center">Student Login</h1>
             <form id="student-login-form" class="flex flex-col items-center gap-4 mx-auto">
                 <label for="student-id-login" class="sr-only">Student ID</label>
@@ -85,7 +85,7 @@
 <p id="student-login-error" class="text-red-500 text-sm h-4 mt-2"></p>
 <p id="student-login-success" class="text-green-600 text-sm h-4 mt-2"></p> class="text-red-500 text-sm h-4 mt-2"></p> <!-- For error messages -->
             </form>
-            <button id="back-to-login-btn" class="mt-4 block w-full text-center text-sm text-gray-600 hover:text-gray-800">Back to login selection</button>
+            <button id="back-to-login-btn-student" class="mt-4 block w-full text-center text-sm text-gray-600 hover:text-gray-800">Back to login selection</button>
         </div>
 
         <!-- Teacher View -->
@@ -651,10 +651,10 @@ document.addEventListener("DOMContentLoaded", () => {
   console.log("Attaching event listeners...");
 
   const menuStudentBtn = document.getElementById("menu-student-login-btn");
-  if (menuStudentBtn) menuStudentBtn.addEventListener("click", () => switchView("student"));
+  if (menuStudentBtn) menuStudentBtn.addEventListener("click", () => switchView("student-login"));
 
   const menuTeacherBtn = document.getElementById("menu-teacher-login-btn");
-  if (menuTeacherBtn) menuTeacherBtn.addEventListener("click", () => switchView("teacher"));
+  if (menuTeacherBtn) menuTeacherBtn.addEventListener("click", () => switchView("teacher-login"));
 
   const backToLoginBtnStudent = document.getElementById("back-to-login-btn-student");
   if (backToLoginBtnStudent) backToLoginBtnStudent.addEventListener("click", () => switchView("login-type-selection"));
