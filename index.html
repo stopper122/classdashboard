@@ -424,6 +424,18 @@ Drafting Quiz | 2025-09-03</pre>
 
 
     <script type="module">
+function switchView(viewId) {
+  document.querySelectorAll("[id$='-view']").forEach(view => {
+    view.classList.add("hidden");
+  });
+  const target = document.getElementById(`${viewId}-view`);
+  if (target) target.classList.remove("hidden");
+}
+
+function logout() {
+  switchView("login-type-selection");
+}
+
 // --- Teacher Password (hardcoded) ---
 const TEACHER_PASSWORD = "Rocket_22!!"; // change this
 
