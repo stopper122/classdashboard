@@ -63,7 +63,7 @@
 <p class="text-gray-600 mb-8">Enter the teacher password to access the dashboard.</p>
 <input type="password" id="teacher-password" placeholder="Enter Password"
        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-4" required>
-<button onclick="checkTeacherPassword()" 
+<button onclick="checkTeacherPassword()"
         class="w-full bg-blue-600 text-white font-semibold py-4 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105">
   Access Dashboard
 </button>
@@ -415,7 +415,6 @@ Drafting Quiz | 2025-09-03</pre>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- FIREBASE & DATA ---
@@ -501,7 +500,8 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
             }
         }
 
-// --- DATA SYNC ---
+
+        // --- DATA SYNC ---
         function loadData() {
             onSnapshot(query(studentsCol), (snapshot) => {
                 students = snapshot.docs.map(doc => ({ fbId: doc.id, ...doc.data() }));
@@ -560,10 +560,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
         let currentTeacherTab = 'seating-chart';
 
         function switchView(viewName) {
-            
-  // Guard teacher view if not signed in (non-anonymous)
-  
-views[currentView].classList.remove('active');
+            views[currentView].classList.remove('active');
             views[viewName].classList.add('active');
             currentView = viewName;
             
@@ -1015,8 +1012,8 @@ function handleDragEnd(event) {
             saveSeatingChart();
         }
  // --- ACTIONS ---
-        async function logout() {
-              currentStudentId = null;
+        function logout() {
+            currentStudentId = null;
             document.getElementById('login-error').textContent = '';
 
             const selectAllCheckbox = document.getElementById('select-all-students');
@@ -1522,9 +1519,7 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     const textarea = document.getElementById('bulk-assignment-data');
     const useTodayIfMissing = document.getElementById('bulk-assignment-default-today').checked;
-    const lines = (textarea.value || '').replace(/\r\n|\r|\u2028|\u2029/g, '
-').split('
-');
+    const lines = (textarea.value || '').split('\\n');
     const items = [];
     const today = new Date().toISOString().split('T')[0];
     for (const line of lines) {
