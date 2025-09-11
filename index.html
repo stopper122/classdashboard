@@ -612,15 +612,42 @@ if (typeof maybeRenderSeatingChart === 'function') maybeRenderSeatingChart();
             `).join('');
         }
 
-        function renderSeatingChart() {
-  if (!studentsLoaded || !seatingLoaded) return;
-  if (typeof currentView === 'undefined' || currentView === 'teacher') {
-    if (typeof renderSeatingChart === 'function') renderSeatingChart();
-    if (typeof renderUnseatedStudentList === 'function') renderUnseatedStudentList();
-    if (typeof renderStudentRequests === 'function') renderStudentRequests();
+        // --- Seating Chart Rendering ---
+function renderSeatingChart() {
+  const grid = document.getElementById('seating-chart-grid');
+  const studentsNeedingHelp = new Set(helpRequests.map(req => req.studentId));
+  const studentsNeedingCheck = new Set(checkRequests.map(req => req.studentId));
+  grid.innerHTML = '';
+
+  for (let i = 0; i < TOTAL_SEATS; i++) {
+    const seatContent = seatingChart[i];
+    const seatEl = document.createElement('div');
+    seatEl.dataset.seatIndex = i;
+    seatEl.className = 'seat border border-gray-300 rounded-lg h-24 flex items-center justify-center text-center p-2 transition-colors duration-300';
+
+    seatEl.addEventListener('dragover', handleDragOver);
+    seatEl.addEventListener('dragleave', handleDragLeave);
+    seatEl.addEventListener('drop', handleDrop);
+
+    if (seatContent === 'BLANK') {
+      seatEl.classList.add('blank-seat');
+      seatEl.textContent = 'Blank';
+      seatEl.draggable = true;
+      // ... keep your existing BLANK-seat logic here ...
+    } else if (typeof seatContent === 'number') {
+      const student = students.find(s => s.id === seatContent);
+      if (student) {
+        seatEl.textContent = `${student.firstName} ${student.lastName}`;
+        seatEl.draggable = true;
+        // ... keep any badge/need-help/check code you already have ...
+      }
+    }
+
+    grid.appendChild(seatEl);
   }
 }
 
+// --- Sync Rendering helper (MUST be outside renderSeatingChart) ---
 function maybeRenderSeatingChart() {
   if (!studentsLoaded || !seatingLoaded) return;
   if (typeof currentView === 'undefined' || currentView === 'teacher') {
