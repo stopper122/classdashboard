@@ -2051,6 +2051,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+// --- Ensure login functions are globally accessible ---
+if (typeof studentLogin === "function") window.studentLogin = studentLogin;
+if (typeof checkTeacherPassword === "function") window.checkTeacherPassword = checkTeacherPassword;
+
 
 
     </script>
