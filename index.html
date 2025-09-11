@@ -463,6 +463,7 @@ function checkTeacherPassword() {
     switchView('teacher');
   } else {
     if (errorEl) errorEl.textContent = 'Incorrect password. Please try again.';
+    if (successEl) successEl.textContent = '';
   }
 }
 
