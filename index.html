@@ -31,7 +31,8 @@ document.getElementById("bulk-assignment-form").addEventListener("submit", async
   if (!rawData) return;
 
   // Split lines safely
-  const lines = rawData.split(/?
+  const lines = rawData.split(/
+?
 /).map(line => line.trim()).filter(line => line.length > 0);
 
   for (const line of lines) {
@@ -52,6 +53,36 @@ document.getElementById("bulk-assignment-form").addEventListener("submit", async
   closeModal("bulk-assignment-modal");
   textarea.value = "";
 });
+
+
+const bulkTextarea = document.getElementById("bulk-assignment-data");
+const bulkPreview = document.getElementById("bulk-assignment-preview");
+
+if (bulkTextarea && bulkPreview) {
+  bulkTextarea.addEventListener("input", () => {
+    const rawData = bulkTextarea.value.trim();
+    if (!rawData) {
+      bulkPreview.innerHTML = "";
+      return;
+    }
+
+    const lines = rawData.split(/?
+/).map(line => line.trim()).filter(line => line.length > 0);
+
+    if (lines.length === 0) {
+      bulkPreview.innerHTML = "";
+      return;
+    }
+
+    let html = "<p class='font-semibold mb-2'>Preview (" + lines.length + " assignments):</p><ul class='list-disc ml-6'>";
+    for (const line of lines) {
+      let [title, date] = line.split(/[,|]/).map(s => s.trim());
+      html += "<li>" + title + (date ? " (date: " + date + ")" : "") + "</li>";
+    }
+    html += "</ul>";
+    bulkPreview.innerHTML = html;
+  });
+}
 
 </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -438,6 +469,7 @@ Drafting Quiz | 2025-09-03</pre>
       <textarea id="bulk-assignment-data" rows="10"
         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 font-mono text-sm"
         placeholder="One per line: Title[, YYYY-MM-DD] or Title | YYYY-MM-DD"></textarea>
+<div id="bulk-assignment-preview" class="mt-4 text-left text-sm text-gray-700"></div>
 
       <div class="flex items-center justify-between">
         <label class="flex items-center gap-2 text-sm">
