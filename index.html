@@ -457,11 +457,11 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
         // --- DATA SYNC ---
         function loadData() {
             onSnapshot(query(studentsCol), (snapshot) => {
-students = snapshot.docs.map(doc => ({ fbId: doc.id, ...doc.data() }));
-if (typeof sortStudents === 'function') sortStudents();
-studentsLoaded = true;
-if (typeof currentView !== 'undefined' && currentView === 'teacher' && typeof renderTeacherView === 'function') renderTeacherView();
-if (typeof maybeRenderSeatingChart === 'function') maybeRenderSeatingChart();
+  students = snapshot.docs.map(doc => ({ fbId: doc.id, ...doc.data() }));
+  if (typeof sortStudents === 'function') sortStudents();
+  studentsLoaded = true;
+  if (typeof currentView !== 'undefined' && currentView === 'teacher' && typeof renderTeacherView === 'function') { renderTeacherView(); }
+  if (typeof maybeRenderSeatingChart === 'function') maybeRenderSeatingChart();
 });
 
             onSnapshot(query(assignmentsCol), (snapshot) => {
@@ -483,11 +483,15 @@ if (typeof maybeRenderSeatingChart === 'function') maybeRenderSeatingChart();
             });
 
              onSnapshot(seatingChartDoc, async (docSnap) => {
-if (docSnap.exists()) {
-  seatingChart = docSnap.data().chart || Array(TOTAL_SEATS).fill(null);
-} else {
-  seatingChart = Array(TOTAL_SEATS).fill(null);
-  if (typeof setDoc === 'function') await setDoc(seatingChartDoc, { chart: seatingChart });
+  if (docSnap.exists()) {
+    seatingChart = docSnap.data().chart || Array(TOTAL_SEATS).fill(null);
+  } else {
+    seatingChart = Array(TOTAL_SEATS).fill(null);
+    if (typeof setDoc === 'function') await setDoc(seatingChartDoc, { chart: seatingChart });
+  }
+  seatingLoaded = true;
+  if (typeof maybeRenderSeatingChart === 'function') maybeRenderSeatingChart();
+});
 }
 seatingLoaded = true;
 if (typeof maybeRenderSeatingChart === 'function') maybeRenderSeatingChart();
@@ -608,7 +612,14 @@ if (typeof maybeRenderSeatingChart === 'function') maybeRenderSeatingChart();
             `).join('');
         }
 
-        function renderSeatingChart(
+        function renderSeatingChart() {
+  if (!studentsLoaded || !seatingLoaded) return;
+  if (typeof currentView === 'undefined' || currentView === 'teacher') {
+    if (typeof renderSeatingChart === 'function') renderSeatingChart();
+    if (typeof renderUnseatedStudentList === 'function') renderUnseatedStudentList();
+    if (typeof renderStudentRequests === 'function') renderStudentRequests();
+  }
+}
 
 function maybeRenderSeatingChart() {
   if (!studentsLoaded || !seatingLoaded) return;
@@ -618,6 +629,8 @@ function maybeRenderSeatingChart() {
     if (typeof renderStudentRequests === 'function') renderStudentRequests();
   }
 }
+
+
 ) {
             const grid = document.getElementById('seating-chart-grid');
             const studentsNeedingHelp = new Set(helpRequests.map(req => req.studentId));
