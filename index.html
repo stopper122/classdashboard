@@ -60,15 +60,24 @@
         <!-- Teacher Login View -->
         <div id="teacher-login-view" class="view text-center bg-white p-8 rounded-xl shadow-md max-w-md mx-auto">
 <h1 class="text-3xl font-bold mb-4 text-gray-900">Teacher Portal</h1>
-<p class="text-gray-600 mb-8">Enter the teacher password to access the dashboard.</p>
-<input type="password" id="teacher-password" placeholder="Enter Password"
+<p class="text-gray-600 mb-6">Sign in with your teacher account.</p>
+
+<input type="email" id="teacher-email" placeholder="Email"
+       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-3" required>
+
+<input type="password" id="teacher-password" placeholder="Password"
        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-4" required>
-<button onclick="checkTeacherPassword()"
-        class="w-full bg-blue-600 text-white font-semibold py-4 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105">
-  Access Dashboard
+
+<button onclick="teacherSignIn()"
+        class="w-full bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-blue-700 transition">
+  Sign In
 </button>
-<p id="teacher-login-error" class="text-red-500 text-sm h-4 mt-2"></p>
-<button onclick="switchView('login-type-selection')" class="mt-4 text-sm text-gray-600 hover:text-gray-800">Back to login selection</button>
+
+<p id="teacher-login-error" class="text-red-500 text-sm h-5 mt-3"></p>
+
+<button onclick="switchView('login-type-selection')" class="mt-4 text-sm text-gray-600 hover:text-gray-800">
+  Back to login selection
+</button>
 </div>
 
         <!-- Student Login View -->
@@ -378,27 +387,10 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- FIREBASE & DATA ---
-
-
-// --- Teacher Password (front-end gate) ---
-const TEACHER_PASSWORD = "Rocket_22!!"; // TODO: change this to your real password
-
-function checkTeacherPassword() {
-    const input = document.getElementById('teacher-password')?.value || "";
-    const errorEl = document.getElementById('teacher-login-error');
-    if (input === TEACHER_PASSWORD) {
-        if (errorEl) errorEl.textContent = '';
-        switchView('teacher'); // grant access
-    } else {
-        if (errorEl) errorEl.textContent = 'Incorrect password. Please try again.';
-    }
-}
-// IMPORTANT for <script type="module"> + inline onclick handler:
-window.checkTeacherPassword = checkTeacherPassword;
-
         let db, auth;
         let students = [];
         let assignments = [];
@@ -463,6 +455,57 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
             }
         }
 
+// === Teacher Auth (Email/Password) ===
+let teacherSignedIn = false;
+
+// Keep UI in sync with auth state
+onAuthStateChanged(auth, (user) => {
+  teacherSignedIn = !!(user && !user.isAnonymous);
+  if (!teacherSignedIn && currentView === 'teacher') {
+    const err = document.getElementById('teacher-login-error');
+    if (err) err.textContent = "Please sign in to access the teacher dashboard.";
+    switchView('teacher-login');
+  }
+});
+
+async function teacherSignIn() {
+  const emailEl = document.getElementById('teacher-email');
+  const passEl = document.getElementById('teacher-password');
+  const errorEl = document.getElementById('teacher-login-error');
+  const email = (emailEl && emailEl.value || '').trim();
+  const password = passEl && passEl.value || '';
+
+  try {
+    if (!email || !password) {
+      if (errorEl) errorEl.textContent = "Please enter email and password.";
+      return;
+    }
+    await signInWithEmailAndPassword(auth, email, password);
+    if (errorEl) errorEl.textContent = "";
+    showSuccessMessage("Welcome!");
+    switchView('teacher');
+  } catch (err) {
+    console.error("Teacher sign-in failed:", err);
+    if (errorEl) errorEl.textContent = (err && err.message || "Sign-in failed. Check your credentials.").replace(/^Firebase:\s*/,'')
+  }
+}
+
+// Sign out teacher if currently signed in (non-anonymous)
+async function teacherSignOutIfNeeded() {
+  try {
+    if (auth?.currentUser && !auth.currentUser.isAnonymous) {
+      await signOut(auth);
+    }
+  } catch (e) {
+    console.warn("Sign-out warning:", e);
+  }
+}
+
+// Expose to inline HTML handler (module script)
+window.teacherSignIn = teacherSignIn;
+
+
+
 
         // --- DATA SYNC ---
         function loadData() {
@@ -523,7 +566,14 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
         let currentTeacherTab = 'seating-chart';
 
         function switchView(viewName) {
-            views[currentView].classList.remove('active');
+            
+  // Guard teacher view if not signed in (non-anonymous)
+  if (viewName === 'teacher' && !teacherSignedIn) {
+    const err = document.getElementById('teacher-login-error');
+    if (err) err.textContent = "Please sign in to access the teacher dashboard.";
+    viewName = 'teacher-login';
+  }
+views[currentView].classList.remove('active');
             views[viewName].classList.add('active');
             currentView = viewName;
             
@@ -975,8 +1025,9 @@ function handleDragEnd(event) {
             saveSeatingChart();
         }
  // --- ACTIONS ---
-        function logout() {
-            currentStudentId = null;
+        async function logout() {
+              try { await teacherSignOutIfNeeded(); } catch(e) {}
+currentStudentId = null;
             document.getElementById('login-error').textContent = '';
 
             const selectAllCheckbox = document.getElementById('select-all-students');
