@@ -792,10 +792,15 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                 }
             });
 
+            const sortedHelpRequests = [...helpRequests].sort((a, b) => a.timestamp?.seconds - b.timestamp?.seconds);
+            const sortedCheckRequests = [...checkRequests].sort((a, b) => a.timestamp?.seconds - b.timestamp?.seconds);
+
             list.innerHTML = sortedAssignments.map(a => {
                 const score = a.scores && a.scores[student.id] !== undefined ? a.scores[student.id] : 'Not Graded';
-                const helpRequest = helpRequests.find(r => r.studentId === student.id && r.assignmentId === a.fbId);
-                const checkRequest = checkRequests.find(r => r.studentId === student.id && r.assignmentId === a.fbId);
+                const helpRequest = sortedHelpRequests.find(r => r.studentId === student.id && r.assignmentId === a.fbId);
+                const helpQueuePosition = helpRequest ? sortedHelpRequests.indexOf(helpRequest) + 1 : -1;
+                const checkRequest = sortedCheckRequests.find(r => r.studentId === student.id && r.assignmentId === a.fbId);
+                const checkQueuePosition = checkRequest ? sortedCheckRequests.indexOf(checkRequest) + 1 : -1;
 
                 return `
                     <div class="p-5 border border-gray-200 rounded-lg">
@@ -807,7 +812,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                              <div class="flex items-center gap-2 mt-3 sm:mt-0">
                                 ${helpRequest ? 
                                     `<button onclick="cancelRequest('help', '${helpRequest.fbId}')" class="text-sm font-semibold py-2 px-4 rounded-full bg-yellow-200 text-yellow-800 hover:bg-yellow-300">
-                                        Cancel Help
+                                        Cancel Help (#${helpQueuePosition})
                                     </button>` :
                                     `<button onclick="requestHelp('${a.fbId}', '${a.title}')" class="text-sm font-semibold py-2 px-4 rounded-full bg-red-200 text-red-800 hover:bg-red-300">
                                         I need Help
@@ -815,7 +820,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                                 }
                                 ${checkRequest ? 
                                     `<button onclick="cancelRequest('check', '${checkRequest.fbId}')" class="text-sm font-semibold py-2 px-4 rounded-full bg-yellow-200 text-yellow-800 hover:bg-yellow-300">
-                                        Cancel Check
+                                        Cancel Check (#${checkQueuePosition})
                                     </button>` :
                                     `<button onclick="requestCheck('${a.fbId}', '${a.title}')" class="text-sm font-semibold py-2 px-4 rounded-full bg-sky-200 text-sky-800 hover:bg-sky-300">
                                         Program ready to check
