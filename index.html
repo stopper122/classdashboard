@@ -4,106 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Classroom Management App</title>
-    <script src="https://cdn.tailwindcss.com">
-
-  }
-
-  closeModal("bulk-assignment-modal");
-  document.getElementById("bulk-assignment-data").value = "";
-});
-
-
-
-  }
-
-  closeModal("bulk-assignment-modal");
-  document.getElementById("bulk-assignment-data").value = "";
-});
-
-
-
-  }
-
-  closeModal("bulk-assignment-modal");
-  textarea.value = "";
-});
-
-
-const bulkTextarea = document.getElementById("bulk-assignment-data");
-const bulkPreview = document.getElementById("bulk-assignment-preview");
-
-if (bulkTextarea && bulkPreview) {
-  bulkTextarea.addEventListener("input", () => {
-    const rawData = bulkTextarea.value.trim();
-    if (!rawData) {
-      bulkPreview.innerHTML = "";
-      return;
-    }
-
-    const lines = rawData.split(/
-?
-/).map(line => line.trim()).filter(line => line.length > 0);
-  console.log("Bulk handler running!");
-  console.log("Lines parsed:", lines);
-
-    if (lines.length === 0) {
-      bulkPreview.innerHTML = "";
-      return;
-    }
-
-    let html = "<p class='font-semibold mb-2'>Preview (" + lines.length + " assignments):</p><ul class='list-disc ml-6'>";
-    for (const line of lines) {
-      let [title, date] = line.split(/[,|]/).map(s => s.trim());
-      html += "<li>" + title + (date ? " (date: " + date + ")" : "") + "</li>";
-    }
-    html += "</ul>";
-    bulkPreview.innerHTML = html;
-  });
-}
-
-
-
-// --- Direct attach bulk handler ---
-const bulkForm = document.getElementById("bulk-assignment-form");
-console.log("🔍 bulkForm found immediately?", bulkForm);
-
-if (bulkForm) {
-  bulkForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    console.log("🔥 BULK HANDLER STARTED");
-
-    const textarea = document.getElementById("bulk-assignment-data");
-    const rawData = textarea.value.trim();
-    const useToday = document.getElementById("bulk-assignment-default-today").checked;
-
-    if (!rawData) return;
-
-    const lines = rawData.split(/?
-/).map(line => line.trim()).filter(line => line.length > 0);
-    console.log("Lines parsed:", lines);
-
-    for (const line of lines) {
-      let [title, date] = line.split(/[,|]/).map(s => s.trim());
-
-      if (!date && useToday) {
-        date = new Date().toISOString().split("T")[0];
-      }
-
-      await addDoc(assignmentsCol, {
-        title,
-        postedDate: date || null,
-        createdAt: new Date().toISOString()
-      });
-    }
-
-    closeModal("bulk-assignment-modal");
-    textarea.value = "";
-  });
-} else {
-  console.error("❌ bulk-assignment-form not found immediately");
-}
-
-</script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
@@ -158,1511 +59,702 @@ if (bulkForm) {
 
         <!-- Teacher Login View -->
         <div id="teacher-login-view" class="view text-center bg-white p-8 rounded-xl shadow-md max-w-md mx-auto">
-<h1 class="text-3xl font-bold mb-4 text-gray-900">Teacher Portal</h1>
-<p class="text-gray-600 mb-8">Enter the teacher password to access the dashboard.</p>
-<input type="password" id="teacher-password" placeholder="Enter Password"
-       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-4" required>
-<button onclick="checkTeacherPassword()"
-        class="w-full bg-blue-600 text-white font-semibold py-4 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105">
-  Access Dashboard
-</button>
-<p id="teacher-login-error" class="text-red-500 text-sm h-4 mt-2"></p>
-<button onclick="switchView('login-type-selection')" class="mt-4 text-sm text-gray-600 hover:text-gray-800">Back to login selection</button>
-</div>
+            <h1 class="text-3xl font-bold mb-4 text-gray-900">Teacher Portal</h1>
+            <p class="text-gray-600 mb-8">Enter the teacher password to access the dashboard.</p>
+            <input type="password" id="teacher-password" placeholder="Enter Password"
+                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-4" required>
+            <button onclick="checkTeacherPassword()"
+                    class="w-full bg-blue-600 text-white font-semibold py-4 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105">
+              Access Dashboard
+            </button>
+            <p id="teacher-login-error" class="text-red-500 text-sm h-4 mt-2"></p>
+            <button onclick="switchView('login-type-selection')" class="mt-4 text-sm text-gray-600 hover:text-gray-800">Back to login selection</button>
+        </div>
 
         <!-- Student Login View -->
         <div id="student-login-view" class="view bg-white p-8 rounded-xl shadow-md max-w-md mx-auto">
             <h1 class="text-3xl font-bold mb-4 text-gray-900 text-center">Student Login</h1>
             <form id="student-login-form" class="flex flex-col items-center gap-4 mx-auto">
                 <label for="student-id-login" class="sr-only">Student ID</label>
-                <input type="number" id="student-id-login" placeholder="Enter Your Student ID#" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" required>
-                <button type="submit" class="w-full bg-green-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-green-700 transition">Login</button>
-                <p id="login-error" class="text-red-500 text-sm h-4"></p> <!-- For error messages -->
+                <input type="text" id="student-id-login" placeholder="Enter Your Student ID" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" required>
+                <button type="submit" class="w-full bg-green-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-green-700 transition-transform transform hover:scale-105">Login</button>
+                <p id="student-login-error" class="text-red-500 text-sm h-4"></p>
             </form>
-            <button onclick="switchView('login-type-selection')" class="mt-4 block w-full text-center text-sm text-gray-600 hover:text-gray-800">Back to login selection</button>
+             <button onclick="switchView('login-type-selection')" class="mt-4 text-sm text-gray-600 hover:text-gray-800 block text-center w-full">Back to login selection</button>
         </div>
 
-        <!-- Teacher View -->
-        <div id="teacher-view" class="view">
-            <header class="flex justify-between items-center mb-6">
-                <div>
-                    <h1 class="text-4xl font-bold text-gray-900">Teacher Dashboard</h1>
-                    <p class="text-gray-500">Manage your classroom assignments, students, and seating arrangements.</p>
-                </div>
-                 <button onclick="switchView('login-type-selection')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Logout</button>
-            </header>
-            
+
+        <!-- Teacher Dashboard View -->
+        <div id="teacher-dashboard-view" class="view">
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-3xl font-bold text-gray-900">Teacher Dashboard</h1>
+                <button onclick="logout()" class="bg-red-500 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-red-600 transition">Logout</button>
+            </div>
+
             <!-- Tabs -->
-            <div class="mb-6 border-b border-gray-200">
-                <nav class="flex space-x-4" aria-label="Tabs">
-                    <button onclick="switchTeacherTab('assignments')" id="tab-assignments" class="tab-btn whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
-                        Assignments
-                    </button>
-                    <button onclick="switchTeacherTab('students')" id="tab-students" class="tab-btn whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
-                        Students
-                    </button>
-                    <button onclick="switchTeacherTab('seating-chart')" id="tab-seating-chart" class="tab-btn whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
-                        Seating Chart
-                    </button>
-                </nav>
+            <div class="mb-6">
+                <div class="border-b border-gray-200">
+                    <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                        <button onclick="openTab(event, 'students')" class="tab-link whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-blue-500 text-blue-600">
+                            Students
+                        </button>
+                        <button onclick="openTab(event, 'assignments')" class="tab-link whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                            Assignments
+                        </button>
+                        <button onclick="openTab(event, 'seating-chart')" class="tab-link whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                            Seating Chart
+                        </button>
+                    </nav>
+                </div>
             </div>
 
-            <!-- Tab Content: Assignments -->
-            <div id="content-assignments" class="tab-content">
+            <!-- Students Tab -->
+            <div id="students" class="tab-content active">
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-semibold">Manage Students</h2>
+                        <button onclick="openModal('add-student-modal')" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-blue-700 transition">Add Student</button>
+                    </div>
+                    <div id="student-list" class="divide-y divide-gray-200">
+                        <!-- Student items will be injected here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Assignments Tab -->
+            <div id="assignments" class="tab-content">
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <div class="flex justify-between items-center mb-4">
+                         <h2 class="text-2xl font-semibold">Manage Assignments</h2>
+                         <div>
+                            <button onclick="openModal('add-assignment-modal')" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-blue-700 transition mr-2">Add Assignment</button>
+                            <button onclick="openModal('bulk-assignment-modal')" class="bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-green-700 transition">Bulk Upload</button>
+                        </div>
+                    </div>
+                    <div id="assignment-list" class="divide-y divide-gray-200">
+                        <!-- Assignment items will be injected here -->
+                    </div>
+                </div>
+            </div>
+
+             <!-- Seating Chart Tab -->
+            <div id="seating-chart" class="tab-content">
                  <div class="bg-white p-6 rounded-xl shadow-md">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-2xl font-bold">Assignments</h2>
-                        <div class="flex gap-2">
-  <button onclick="openModal('bulk-assignment-modal')" class="bg-purple-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-purple-700 transition">Bulk Add</button>
-  <button onclick="openModal('add-assignment-modal')" class="bg-blue-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-blue-700 transition">Add Assignment</button>
-</div>
-</div>
-                    <div id="teacher-assignment-list" class="space-y-4">
-                        <!-- Assignments will be populated here -->
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tab Content: Students -->
-            <div id="content-students" class="tab-content">
-                 <div class="bg-white p-6 rounded-xl shadow-md">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-2xl font-bold">Student Roster</h2>
-                        <div class="flex items-center gap-2">
-                            <button onclick="openModal('add-student-modal')" class="bg-green-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-green-700 transition">Add</button>
-                            <button onclick="openModal('bulk-upload-modal')" class="bg-purple-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-purple-700 transition">Bulk Upload</button>
+                    <div class="flex flex-col md:flex-row justify-between md:items-center mb-4 gap-4">
+                        <h2 class="text-2xl font-semibold">Seating Chart</h2>
+                        <div class="flex items-center gap-4">
+                             <div class="flex items-center">
+                                <label for="chart-rows" class="mr-2 text-sm font-medium">Rows:</label>
+                                <input type="number" id="chart-rows" min="1" max="10" value="4" class="w-16 p-2 border border-gray-300 rounded-md">
+                            </div>
+                            <div class="flex items-center">
+                                <label for="chart-cols" class="mr-2 text-sm font-medium">Cols:</label>
+                                <input type="number" id="chart-cols" min="1" max="10" value="5" class="w-16 p-2 border border-gray-300 rounded-md">
+                            </div>
+                            <button id="update-chart-btn" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-blue-700 transition">Update Chart</button>
+                            <button id="clear-chart-btn" class="bg-red-500 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-red-600 transition">Clear All</button>
                         </div>
                     </div>
-                    <div class="flex items-center gap-2 mb-4 border-b pb-4">
-                        <span class="text-sm font-medium text-gray-600">Sort by:</span>
-                        <button onclick="sortStudents('firstName')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full hover:bg-gray-300 transition">First Name</button>
-                        <button onclick="sortStudents('lastName')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full hover:bg-gray-300 transition">Last Name</button>
-                    </div>
-                    <div class="flex justify-between items-center mb-4">
-                         <div class="flex items-center gap-3">
-                            <input type="checkbox" id="select-all-students" onchange="toggleSelectAll(this)" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                            <label for="select-all-students" class="text-sm font-medium text-gray-700">Select All</label>
+                    <div class="flex flex-col lg:flex-row gap-6">
+                        <div id="seating-chart-grid" class="flex-grow grid gap-4 p-4 bg-gray-50 rounded-lg border">
+                           <!-- Seating chart grid will be injected here -->
                         </div>
-                        <button id="delete-selected-btn" onclick="confirmDeleteSelectedStudents()" class="hidden bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition">Delete Selected</button>
-                    </div>
-                    <ul id="teacher-student-list" class="space-y-3">
-                        <!-- Student data will be populated here -->
-                    </ul>
-                </div>
-            </div>
-
-             <!-- Tab Content: Seating Chart -->
-            <div id="content-seating-chart" class="tab-content">
-                <div class="flex flex-col xl:flex-row gap-8">
-                    <div class="flex-grow bg-white p-6 rounded-xl shadow-md">
-                        <h2 class="text-2xl font-bold mb-4">Classroom Layout</h2>
-                        <div id="seating-chart-grid" class="grid grid-cols-6 gap-4">
-                            <!-- Seating chart will be dynamically generated here -->
+                        <div id="student-roster-list" class="w-full lg:w-64 bg-gray-50 p-4 rounded-lg border">
+                            <h3 class="font-semibold mb-2">Unseated Students</h3>
+                             <!-- Unseated student list will be injected here -->
                         </div>
                     </div>
-                    <div class="xl:w-1/4 xl:max-w-sm flex-shrink-0 space-y-8">
-                        <div class="bg-white p-6 rounded-xl shadow-md">
-                            <h2 class="text-2xl font-bold mb-4">Student Requests</h2>
-                            <ul id="student-requests-list" class="space-y-4 max-h-60 overflow-y-auto pr-2">
-                                <!-- Help and check requests will be populated here -->
-                                 <li class="text-gray-500 italic">No student requests at the moment.</li>
-                            </ul>
-                        </div>
-                        <div class="bg-white p-6 rounded-xl shadow-md">
-                             <h2 class="text-2xl font-bold mb-4">Unseated Students</h2>
-                             <div class="mb-4">
-                                 <div id="add-blank-seat" draggable="true" class="p-3 text-center bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 cursor-grab font-medium">
-                                     Add Blank Seat
-                                 </div>
-                             </div>
-                             <ul id="unseated-student-list" class="space-y-3 max-h-60 overflow-y-auto pr-2">
-                                <!-- Unseated students will be populated here -->
-                             </ul>
-                        </div>
-                    </div>
-                </div>
+                 </div>
             </div>
         </div>
+
 
         <!-- Student View -->
         <div id="student-view" class="view">
-            <header class="flex justify-between items-center mb-8">
-                 <div>
-                    <h1 class="text-4xl font-bold text-gray-900">Student Dashboard</h1>
-                    <p class="text-gray-500">Welcome, <span id="student-name" class="font-semibold"></span>!</p>
-                </div>
-                 <button onclick="logout()" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Logout</button>
-            </header>
-
+             <div class="flex justify-between items-center mb-6">
+                <h1 id="student-welcome" class="text-3xl font-bold text-gray-900">Welcome!</h1>
+                <button onclick="logout()" class="bg-red-500 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-red-600 transition">Logout</button>
+            </div>
             <div class="bg-white p-6 rounded-xl shadow-md">
-                <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
-                    <h2 class="text-2xl font-bold">Your Assignments</h2>
-                    <div class="flex items-center gap-2 flex-wrap">
-                        <span class="text-sm font-medium text-gray-600">Sort by:</span>
-                        <button onclick="sortAssignments('date_desc')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full hover:bg-gray-300 transition">Date (Newest)</button>
-                        <button onclick="sortAssignments('date_asc')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full hover:bg-gray-300 transition">Date (Oldest)</button>
-                        <button onclick="sortAssignments('score_desc')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full hover:bg-gray-300 transition">Score (High)</button>
-                        <button onclick="sortAssignments('score_asc')" class="text-sm bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full hover:bg-gray-300 transition">Score (Low)</button>
-                    </div>
-                </div>
-                <div id="student-assignment-list" class="space-y-5">
-                     <!-- Student assignments will be populated here -->
+                <h2 class="text-2xl font-semibold mb-4">Your Assignments</h2>
+                <div id="student-assignment-list" class="divide-y divide-gray-200">
+                    <!-- Student assignment list will be generated here -->
                 </div>
             </div>
         </div>
+
     </div>
 
     <!-- Modals -->
-    <!-- Add Assignment Modal -->
-    <div id="add-assignment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg">
-            <h2 class="text-2xl font-bold mb-6">New Assignment</h2>
-            <form id="add-assignment-form" class="space-y-6">
-                <div>
-                    <label for="assignment-title" class="block text-sm font-medium text-gray-700 mb-1">Title</label>
-                    <input type="text" id="assignment-title" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
-                </div>
-                <div>
-                    <label for="assignment-posted-date" class="block text-sm font-medium text-gray-700 mb-1">Posted Date</label>
-                    <input type="date" id="assignment-posted-date" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                    <p class="text-xs text-gray-500 mt-1">Leave blank to use today's date.</p>
-                </div>
-                <div class="flex justify-end gap-4">
-                    <button type="button" onclick="closeModal('add-assignment-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
-                    <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition">Add</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Edit Assignment Modal -->
-    <div id="edit-assignment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg">
-            <h2 class="text-2xl font-bold mb-6">Edit Assignment</h2>
-            <form id="edit-assignment-form" class="space-y-6">
-                <input type="hidden" id="assignment-original-id-edit">
-                <div>
-                    <label for="assignment-title-edit" class="block text-sm font-medium text-gray-700 mb-1">Title</label>
-                    <input type="text" id="assignment-title-edit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
-                </div>
-                <div>
-                    <label for="assignment-posted-date-edit" class="block text-sm font-medium text-gray-700 mb-1">Posted Date</label>
-                    <input type="date" id="assignment-posted-date-edit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                     <p class="text-xs text-gray-500 mt-1">Leave blank to use today's date.</p>
-                </div>
-                <div class="flex justify-end gap-4">
-                    <button type="button" onclick="closeModal('edit-assignment-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
-                    <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition">Save Changes</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Score Assignment Modal -->
-    <div id="score-assignment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-3xl">
-            <h2 class="text-2xl font-bold mb-2">Score Assignment</h2>
-            <h3 class="text-lg text-gray-600 mb-6" id="score-assignment-title"></h3>
-            <form id="score-assignment-form">
-                <input type="hidden" id="score-assignment-id">
-                <div id="student-scores-list" class="space-y-4 max-h-96 overflow-y-auto pr-2">
-                    <!-- Student scoring inputs will be populated here -->
-                </div>
-                <div class="flex justify-end gap-4 mt-8">
-                    <button type="button" onclick="closeModal('score-assignment-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
-                    <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition">Save Scores</button>
-                </div>
-            </form>
-        </div>
-    </div>
-    
     <!-- Add Student Modal -->
-    <div id="add-student-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg">
-            <h2 class="text-2xl font-bold mb-6">Add New Student</h2>
-            <form id="add-student-form" class="space-y-6">
-                <div>
-                    <label for="student-id-add" class="block text-sm font-medium text-gray-700 mb-1">Student ID#</label>
-                    <input type="number" id="student-id-add" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" required>
+    <div id="add-student-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Add New Student</h3>
+                <div class="mt-2 px-7 py-3">
+                    <form id="add-student-form">
+                        <input class="w-full px-3 py-2 text-gray-700 border rounded-lg focus:outline-none mb-3" type="text" id="student-name" placeholder="Student Name" required>
+                        <input class="w-full px-3 py-2 text-gray-700 border rounded-lg focus:outline-none" type="text" id="student-id" placeholder="Student ID" required>
+                    </form>
                 </div>
-                <div>
-                    <label for="student-firstName-add" class="block text-sm font-medium text-gray-700 mb-1">First Name</label>
-                    <input type="text" id="student-firstName-add" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" required>
+                <div class="items-center px-4 py-3">
+                    <button id="add-student-btn" class="px-4 py-2 bg-blue-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300">
+                        Add Student
+                    </button>
+                     <button type="button" class="mt-2 w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300" onclick="closeModal('add-student-modal')">
+                        Cancel
+                    </button>
                 </div>
-                <div>
-                    <label for="student-lastName-add" class="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-                    <input type="text" id="student-lastName-add" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" required>
-                </div>
-                <div class="flex justify-end gap-4">
-                    <button type="button" onclick="closeModal('add-student-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
-                    <button type="submit" class="bg-green-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-green-700 transition">Add Student</button>
-                </div>
-            </form>
+            </div>
         </div>
     </div>
 
-    <!-- Edit Student Modal -->
-    <div id="edit-student-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg">
-            <h2 class="text-2xl font-bold mb-6">Edit Student</h2>
-            <form id="edit-student-form" class="space-y-6">
-                <input type="hidden" id="student-original-id-edit">
-                <div>
-                    <label for="student-id-edit" class="block text-sm font-medium text-gray-700 mb-1">Student ID#</label>
-                    <input type="number" id="student-id-edit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
+    <!-- Add Assignment Modal -->
+    <div id="add-assignment-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+             <div class="mt-3 text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Add New Assignment</h3>
+                <div class="mt-2 px-7 py-3">
+                    <form id="add-assignment-form">
+                        <input class="w-full px-3 py-2 text-gray-700 border rounded-lg focus:outline-none mb-3" type="text" id="assignment-title" placeholder="Assignment Title" required>
+                        <input class="w-full px-3 py-2 text-gray-700 border rounded-lg focus:outline-none" type="date" id="assignment-date">
+                    </form>
                 </div>
-                <div>
-                    <label for="student-firstName-edit" class="block text-sm font-medium text-gray-700 mb-1">First Name</label>
-                    <input type="text" id="student-firstName-edit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
+                <div class="items-center px-4 py-3">
+                    <button id="add-assignment-btn" class="px-4 py-2 bg-blue-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300">
+                        Add Assignment
+                    </button>
+                    <button type="button" class="mt-2 w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300" onclick="closeModal('add-assignment-modal')">
+                        Cancel
+                    </button>
                 </div>
-                <div>
-                    <label for="student-lastName-edit" class="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-                    <input type="text" id="student-lastName-edit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
-                </div>
-                <div class="flex justify-end gap-4">
-                    <button type="button" onclick="closeModal('edit-student-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
-                    <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition">Save Changes</button>
-                </div>
-            </form>
+            </div>
         </div>
     </div>
     
-    <!-- Bulk Upload Modal -->
-    <div id="bulk-upload-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-xl">
-            <h2 class="text-2xl font-bold mb-6">Bulk Upload Students</h2>
-            <form id="bulk-upload-form">
-                <div class="mb-4">
-                    <label for="bulk-student-data" class="block text-sm font-medium text-gray-700 mb-1">Student Data (ID, First Name, Last Name)</label>
-                    <textarea id="bulk-student-data" rows="10" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 font-mono text-sm" placeholder="Paste student data here. One student per line.&#10;Example:&#10;101,Frank,Castle&#10;102,Grace,Hopper"></textarea>
-                    <p class="text-xs text-gray-500 mt-1">Note: Students with existing IDs will be skipped to avoid duplicates.</p>
+    <!-- Bulk Upload Assignment Modal -->
+    <div id="bulk-assignment-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+        <div class="relative top-20 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 text-center">Bulk Upload Assignments</h3>
+                <div class="mt-4">
+                    <form id="bulk-assignment-form">
+                        <label for="bulk-assignment-data" class="block text-sm font-medium text-gray-700">
+                            Enter assignments below, one per line. Format: <span class="font-mono bg-gray-200 px-1 rounded">Title, YYYY-MM-DD</span>
+                        </label>
+                        <textarea id="bulk-assignment-data" rows="10"
+                            class="mt-1 block w-full px-3 py-2 text-gray-700 border border-gray-300 rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                            placeholder="e.g., Chapter 1 Reading, 2024-09-15&#10;Math Worksheet 3.2| 2024-09-16&#10;History Essay Outline"></textarea>
+                        
+                        <div class="mt-4 flex items-center">
+                            <input type="checkbox" id="bulk-assignment-default-today" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                            <label for="bulk-assignment-default-today" class="ml-2 block text-sm text-gray-900">Use today's date if date is missing</label>
+                        </div>
+
+                         <div id="bulk-assignment-preview" class="mt-4 text-sm text-gray-600"></div>
+
+                    </form>
                 </div>
-                <div class="flex justify-end gap-4">
-                    <button type="button" onclick="closeModal('bulk-upload-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
-                    <button type="submit" class="bg-purple-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-purple-700 transition">Upload Students</button>
+                <div class="items-center px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6 -mx-5 -mb-5 mt-4 bg-gray-50 rounded-b-md">
+                    <button type="submit" form="bulk-assignment-form" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm">
+                        Upload
+                    </button>
+                    <button type="button" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:w-auto sm:text-sm"
+                        onclick="closeModal('bulk-assignment-modal')">
+                        Cancel
+                    </button>
                 </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Student Assignment Modal -->
-    <div id="student-assignment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-3xl">
-            <h2 id="student-assignment-modal-title" class="text-2xl font-bold mb-6"></h2>
-            <div id="student-assignment-modal-list" class="space-y-4 max-h-96 overflow-y-auto pr-2">
-                <!-- Student assignments will be populated here -->
-            </div>
-            <div id="student-assignment-modal-footer" class="flex justify-end mt-8 gap-4">
-                <button type="button" onclick="closeModal('student-assignment-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
-                <button type="button" id="save-student-scores-btn" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition">Save Scores</button>
             </div>
         </div>
     </div>
 
-    <!-- Confirmation Modal -->
-    <div id="confirmation-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-sm text-center">
-            <h2 class="text-xl font-bold mb-4" id="confirmation-title">Are you sure?</h2>
-            <p id="confirmation-message" class="text-gray-600 mb-6">This action cannot be undone.</p>
-            <div class="flex justify-center gap-4">
-                <button id="cancel-button" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
-                <button id="confirm-button" class="bg-red-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-red-700 transition">Confirm</button>
-            </div>
-        </div>
-    </div>
 
-    <!-- Success Message -->
-<!-- Bulk Assignment Modal -->
-<div id="bulk-assignment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-  <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-2xl">
-    <h2 class="text-2xl font-bold mb-6">Bulk Add Assignments</h2>
-
-    <div class="mb-4 text-sm text-gray-600">
-      Paste one assignment per line. Optional date in <code>YYYY-MM-DD</code> after a comma or pipe.
-      <pre class="bg-gray-50 p-3 rounded mt-2 overflow-auto">Intro to Robotics
-CAD Basics, 2025-09-01
-Drafting Quiz | 2025-09-03</pre>
-    </div>
-
-    <form id="bulk-assignment-form" class="space-y-4">
-      <textarea id="bulk-assignment-data" rows="10"
-        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 font-mono text-sm"
-        placeholder="One per line: Title[, YYYY-MM-DD] or Title | YYYY-MM-DD"></textarea>
-<div id="bulk-assignment-preview" class="mt-4 text-left text-sm text-gray-700"></div>
-
-      <div class="flex items-center justify-between">
-        <label class="flex items-center gap-2 text-sm">
-          <input id="bulk-assignment-default-today" type="checkbox" class="h-4 w-4 text-purple-600" checked>
-          Use today’s date when missing
-        </label>
-        <div class="flex gap-3">
-          <button type="button" onclick="closeModal('bulk-assignment-modal')"
-            class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
-          <button type="submit"
-            class="bg-purple-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-purple-700 transition">Add All</button>
-        </div>
-      </div>
-    </form>
-  </div>
-</div>
-
-
-    <div id="success-message" class="fixed bottom-8 right-8 bg-green-500 text-white py-3 px-6 rounded-lg shadow-xl transform translate-y-20 opacity-0 transition-all duration-300 ease-out">
-        <!-- Message is set via JS -->
-    </div>
-
-
+    <!-- Firebase and App Logic -->
     <script type="module">
-console.log("✅ SCRIPT LOADED AND RUNNING");
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, collection, doc, addDoc, getDocs, deleteDoc, updateDoc, onSnapshot, query, where, writeBatch, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-        // --- FIREBASE & DATA ---
-
-
-// --- Teacher Password (front-end gate) ---
-const TEACHER_PASSWORD = "Rocket_22!!"; // TODO: change this to your real password
-
-function checkTeacherPassword() {
-    const input = document.getElementById('teacher-password')?.value || "";
-    const errorEl = document.getElementById('teacher-login-error');
-    if (input === TEACHER_PASSWORD) {
-        if (errorEl) errorEl.textContent = '';
-        switchView('teacher'); // grant access
-    } else {
-        if (errorEl) errorEl.textContent = 'Incorrect password. Please try again.';
-    }
-}
-// IMPORTANT for <script type="module"> + inline onclick handler:
-window.checkTeacherPassword = checkTeacherPassword;
-
-        let db, auth;
-        let students = [];
-        let assignments = [];
-        let helpRequests = [];
-        let checkRequests = [];
-        let seatingChart = [];
-        let studentsLoaded = false;
-        let seatingLoaded = false;
-        
-        
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-classroom-app';
-        
-        let confirmAction = null;
-        let currentStudentId = null;
-        let currentSortKey = 'lastName'; // For student sorting
-        let currentAssignmentSortKey = 'date_desc'; // For assignment sorting
-
-        const CLASSROOM_ROWS = 4;
-        const CLASSROOM_COLS = 6;
-        const TOTAL_SEATS = CLASSROOM_ROWS * CLASSROOM_COLS;
-        
-        // --- COLLECTIONS ---
-        let studentsCol, assignmentsCol, helpRequestsCol, checkRequestsCol;
-        let seatingChartDoc;
-
-        async function initFirebase() {
-            try {
-              const firebaseConfig = {
-  apiKey: "AIzaSyCG3rtswPSuTocyRDqRPhzHEF9pB3Hkgos",
-  authDomain: "classdashboard-d8c4d.firebaseapp.com",
-  projectId: "classdashboard-d8c4d",
-  storageBucket: "classdashboard-d8c4d.appspot.com",
-  messagingSenderId: "409652457373",
-  appId: "1:409652457373:web:241cc1a53b39fc71fa8974",
-  measurementId: "G-KXJVNZKTRQ"
-};
-                const app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-                
-                // Define collection paths
-                console.log("initFirebase running...");
-console.log("appId:", appId);
-console.log("db:", db);
-
-                const basePath = `artifacts/${appId}/public/data`;
-               studentsCol = collection(db, basePath, "students");
-assignmentsCol = collection(db, basePath, "assignments");
-helpRequestsCol = collection(db, basePath, "helpRequests");
-checkRequestsCol = collection(db, basePath, "checkRequests");
-seatingChartDoc = doc(db, basePath, "seatingChart", "main");
-                loadData();
-
-            } catch (error) {
-                console.error("Firebase initialization failed:", error);
-            }
-        }
-
-
-        // --- DATA SYNC ---
-        function loadData() {
-            onSnapshot(query(studentsCol), (snapshot) => {
-                students = snapshot.docs.map(doc => ({ fbId: doc.id, ...doc.data() }));
-                sortStudents();
-                studentsLoaded = true;
-                if (currentView === 'teacher') renderTeacherView();
-                maybeRenderSeatingChart();
-            });
-
-            onSnapshot(query(assignmentsCol), (snapshot) => {
-                assignments = snapshot.docs.map(doc => ({ fbId: doc.id, ...doc.data() }));
-                if (currentView === 'teacher') renderTeacherAssignmentList();
-                if (currentView === 'student') renderStudentView();
-            });
-            
-            onSnapshot(query(helpRequestsCol), (snapshot) => {
-                helpRequests = snapshot.docs.map(doc => ({ fbId: doc.id, ...doc.data() }));
-                if (currentView === 'teacher') renderStudentRequests();
-                if (currentView === 'student') renderStudentView();
-            });
-
-            onSnapshot(query(checkRequestsCol), (snapshot) => {
-                checkRequests = snapshot.docs.map(doc => ({ fbId: doc.id, ...doc.data() }));
-                if (currentView === 'teacher') renderStudentRequests();
-                if (currentView === 'student') renderStudentView();
-            });
-
-             onSnapshot(seatingChartDoc, async (docSnap) => {
-                if (docSnap.exists()) {
-                    seatingChart = docSnap.data().chart || Array(TOTAL_SEATS).fill(null);
-                } else {
-                    seatingChart = Array(TOTAL_SEATS).fill(null);
-                    // Create the document if it doesn't exist
-                    await setDoc(seatingChartDoc, { chart: seatingChart });
-                }
-                seatingLoaded = true;
-                maybeRenderSeatingChart();
-            });
-        }
-        
-        async function saveSeatingChart() {
-            await setDoc(seatingChartDoc, { chart: seatingChart });
-        }
-
-
-        // --- VIEWS & RENDERING ---
-        const views = {
-            'login-type-selection': document.getElementById('login-type-selection'),
-            'teacher-login': document.getElementById('teacher-login-view'),
-            'student-login': document.getElementById('student-login-view'),
-            'teacher': document.getElementById('teacher-view'),
-            'student': document.getElementById('student-view'),
+        // IMPORTANT: Replace with your actual Firebase configuration
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
         };
 
-        let currentView = 'login-type-selection';
-        let currentTeacherTab = 'seating-chart';
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
 
-        function switchView(viewName) {
-            views[currentView].classList.remove('active');
-            views[viewName].classList.add('active');
-            currentView = viewName;
-            
-            if (viewName === 'teacher') {
-                switchTeacherTab('seating-chart'); // Default to seating chart tab
-                renderTeacherView();
-            }
-            if (viewName === 'student') renderStudentView();
-        }
+        // Firestore collections
+        const studentsCol = collection(db, "students");
+        const assignmentsCol = collection(db, "assignments");
+        const seatingChartCol = collection(db, "seatingChart");
 
-        function switchTeacherTab(tabName) {
-             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-             document.querySelectorAll('.tab-btn').forEach(btn => {
-                 btn.classList.remove('border-blue-600', 'text-blue-600');
-                 btn.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
-             });
-             
-             document.getElementById(`content-${tabName}`).classList.add('active');
-             document.getElementById(`tab-${tabName}`).classList.add('border-blue-600', 'text-blue-600');
-             document.getElementById(`tab-${tabName}`).classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
-             currentTeacherTab = tabName;
+        let currentStudentUnsubscribe = null;
+        let currentAssignmentsUnsubscribe = null;
+        let currentSeatingChartUnsubscribe = null;
+        let currentChartSizeUnsubscribe = null;
 
-             if(tabName === 'seating-chart') {
-                renderSeatingChart();
-                renderUnseatedStudentList();
-                renderStudentRequests();
-             }
-        }
+        // --- UI State & Navigation ---
+        window.switchView = (viewId) => {
+            document.querySelectorAll('.view').forEach(view => view.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+        };
+
+        window.openTab = (evt, tabName) => {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.style.display = 'none');
+            document.querySelectorAll('.tab-link').forEach(link => link.className = link.className.replace(" border-blue-500 text-blue-600", " border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"));
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.className = evt.currentTarget.className.replace(" border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300", " border-blue-500 text-blue-600");
+        };
+
+        window.openModal = (modalId) => document.getElementById(modalId).classList.remove('hidden');
+        window.closeModal = (modalId) => document.getElementById(modalId).classList.add('hidden');
         
-        function renderTeacherView() {
-            renderTeacherStudentList();
-            renderTeacherAssignmentList();
-            if (currentTeacherTab === 'seating-chart') {
-                renderStudentRequests();
-                renderSeatingChart();
-                renderUnseatedStudentList();
-            }
-        }
-        
-        function renderStudentView() {
-            const currentStudent = students.find(s => s.id === currentStudentId);
-            if (currentStudent) {
-                document.getElementById('student-name').textContent = `${currentStudent.firstName} ${currentStudent.lastName}`;
-                renderStudentAssignmentList(currentStudent);
-            } else {
-                 logout();
-            }
-        }
-
-        function sortStudents(key) {
-            if (key) { currentSortKey = key; }
-            if (currentSortKey) {
-                students.sort((a, b) => String(a[currentSortKey]).localeCompare(String(b[currentSortKey])));
-            }
-            renderTeacherStudentList();
-            updateDeleteSelectedButtonState();
-        }
-        
-        function sortAssignments(key) {
-            currentAssignmentSortKey = key;
-            renderStudentView();
-        }
-
-        function renderTeacherStudentList() {
-            const list = document.getElementById('teacher-student-list');
-            list.innerHTML = students.map(s => `
-                <li class="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
-                    <div class="flex items-center gap-3">
-                        <input type="checkbox" class="student-checkbox h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" data-student-id="${s.id}" onchange="updateDeleteSelectedButtonState()">
-                        <span class="font-medium">${s.firstName} ${s.lastName} <span class="text-xs text-gray-500">(ID: ${s.id})</span></span>
-                    </div>
-                    <div class="flex items-center gap-4">
-                        <button onclick="openEditStudentModal('${s.fbId}')" class="text-sm text-blue-600 hover:text-blue-800 font-medium py-1 px-3">Edit</button>
-                        <button onclick="confirmDeleteStudent('${s.fbId}')" class="text-sm text-red-600 hover:text-red-800 font-medium py-1 px-3">Delete</button>
-                    </div>
-                </li>
-            `).join('');
-        }
-        
-        function renderUnseatedStudentList() {
-            const list = document.getElementById('unseated-student-list');
-            const seatedStudentIds = new Set(seatingChart.filter(id => typeof id === 'number'));
-            const unseatedStudents = students.filter(s => !seatedStudentIds.has(s.id));
-
-            list.innerHTML = unseatedStudents.map(s => `
-                 <li id="roster-student-${s.id}" data-id="${s.id}"
-                     class="student-roster-item p-4 bg-gray-50 rounded-lg font-medium text-center"
-                     draggable="true" 
-                     ondragstart="handleDragStart(event, 'roster_student', ${s.id})"
-                     ondragend="handleDragEnd(event)">
-                    ${s.firstName} ${s.lastName}
-                </li>
-            `).join('');
-        }
-
-        function renderSeatingChart() {
-            const grid = document.getElementById('seating-chart-grid');
-            const studentsNeedingHelp = new Set(helpRequests.map(req => req.studentId));
-            const studentsNeedingCheck = new Set(checkRequests.map(req => req.studentId));
-            grid.innerHTML = '';
-
-            for (let i = 0; i < TOTAL_SEATS; i++) {
-                const seatContent = seatingChart[i];
-                const seatEl = document.createElement('div');
-                seatEl.dataset.seatIndex = i;
-                seatEl.className = 'seat border border-gray-300 rounded-lg h-24 flex items-center justify-center text-center p-2 transition-colors duration-300';
-
-                seatEl.addEventListener('dragover', handleDragOver);
-                seatEl.addEventListener('dragleave', handleDragLeave);
-                seatEl.addEventListener('drop', handleDrop);
-                
-                if (seatContent === 'BLANK') {
-                    seatEl.classList.add('blank-seat');
-                    seatEl.textContent = 'Blank';
-                    seatEl.draggable = true;
-                    seatEl.addEventListener('dragstart', (e) => handleDragStart(e, 'grid_seat', null, i));
-                    seatEl.addEventListener('dragend', handleDragEnd);
-
-                } else if (typeof seatContent === 'number') {
-                    const student = students.find(s => s.id === seatContent);
-                    if(student) {
-                        seatEl.textContent = `${student.firstName} ${student.lastName}`;
-                        seatEl.classList.add('font-semibold', 'draggable-student', 'cursor-pointer');
-                        seatEl.draggable = true;
-                        seatEl.addEventListener('dragstart', (e) => handleDragStart(e, 'grid_seat', null, i));
-                        seatEl.addEventListener('dragend', handleDragEnd);
-                        seatEl.addEventListener('click', () => openStudentAssignmentModal(student.id));
-                        
-                        const needsHelp = studentsNeedingHelp.has(student.id);
-                        const needsCheck = studentsNeedingCheck.has(student.id);
-
-                        if (needsHelp && needsCheck) {
-                            seatEl.classList.add('bg-purple-200', 'border-purple-400', 'text-purple-900');
-                        } else if (needsHelp) {
-                            seatEl.classList.add('bg-red-200', 'border-red-400', 'text-red-900');
-                        } else if (needsCheck) {
-                            seatEl.classList.add('bg-sky-200', 'border-sky-400', 'text-sky-900');
-                        } else {
-                            seatEl.classList.add('bg-blue-100');
-                        }
-                    }
-                } else {
-                    seatEl.classList.add('bg-gray-50');
-                }
-                grid.appendChild(seatEl);
-            }
-        }
-
-
-        function maybeRenderSeatingChart() {
-            if (!studentsLoaded || !seatingLoaded) return;
-            if (currentView === 'teacher') {
-                renderSeatingChart();
-                renderUnseatedStudentList();
-                if (typeof renderStudentRequests === 'function') renderStudentRequests();
-            }
-        }
-
-
-
-        function renderTeacherAssignmentList() {
-            const list = document.getElementById('teacher-assignment-list');
-            list.innerHTML = assignments.map(a => `
-                <div class="p-5 border border-gray-200 rounded-lg">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <h3 class="font-semibold text-lg">${a.title}</h3>
-                            <p class="text-sm text-gray-500">Posted: ${new Date(a.postedDate).toLocaleDateString()}</p>
-                        </div>
-                        <div class="flex items-center gap-4 mt-1">
-                            <button onclick="openScoreAssignmentModal('${a.fbId}')" class="text-sm text-green-600 hover:text-green-800 font-medium py-1 px-3">Score</button>
-                            <button onclick="openEditAssignmentModal('${a.fbId}')" class="text-sm text-blue-600 hover:text-blue-800 font-medium py-1 px-3">Edit</button>
-                            <button onclick="confirmDeleteAssignment('${a.fbId}')" class="text-sm text-red-600 hover:text-red-800 font-medium py-1 px-3">Delete</button>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-        }
-        
-        function renderStudentRequests() {
-            const list = document.getElementById('student-requests-list');
-            
-            const allRequests = [
-                ...helpRequests.map((req, index) => ({...req, type: 'help', originalIndex: index})),
-                ...checkRequests.map((req, index) => ({...req, type: 'check', originalIndex: index}))
-            ];
-
-            if (allRequests.length === 0) {
-                 list.innerHTML = `<li class="text-gray-500 italic">No student requests at the moment.</li>`;
-                 return;
-            }
-
-            list.innerHTML = allRequests.map(req => {
-                if (req.type === 'help') {
-                    return `
-                        <li class="flex justify-between items-center p-3 bg-yellow-100 border border-yellow-200 rounded-lg">
-                            <div class="flex items-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-yellow-600 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                <div>
-                                    <span class="font-semibold">${req.studentName}</span>
-                                    <span class="text-sm text-yellow-800 block">Help on: "${req.assignmentTitle}"</span>
-                                </div>
-                            </div>
-                            <button onclick="resolveRequest('help', '${req.fbId}')" class="text-sm bg-green-200 text-green-800 font-semibold py-1 px-3 rounded-full hover:bg-green-300">Resolve</button>
-                        </li>
-                    `;
-                } else { // type is 'check'
-                     return `
-                        <li class="flex justify-between items-center p-3 bg-sky-100 border border-sky-200 rounded-lg">
-                             <div class="flex items-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-sky-600 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                <div>
-                                    <span class="font-semibold">${req.studentName}</span>
-                                    <span class="text-sm text-sky-800 block">Check for: "${req.assignmentTitle}"</span>
-                                </div>
-                            </div>
-                            <button onclick="resolveRequest('check', '${req.fbId}')" class="text-sm bg-green-200 text-green-800 font-semibold py-1 px-3 rounded-full hover:bg-green-300">Resolve</button>
-                        </li>
-                    `;
-                }
-            }).join('');
-        }
-        
-        function renderStudentAssignmentList(student) {
-             const list = document.getElementById('student-assignment-list');
-             let assignmentsToSort = [...assignments];
-
-             const sortFunction = (a, b) => {
-                 const scoreA = a.scores ? a.scores[student.id] : undefined;
-                 const scoreB = b.scores ? b.scores[student.id] : undefined;
-
-                 if (currentAssignmentSortKey === 'date_desc') return new Date(b.postedDate) - new Date(a.postedDate);
-                 if (currentAssignmentSortKey === 'date_asc') return new Date(a.postedDate) - new Date(b.postedDate);
-
-                 const isAExcused = scoreA === 'excused';
-                 const isBExcused = scoreB === 'excused';
-
-                 if (isAExcused && !isBExcused) return 1;
-                 if (!isAExcused && isBExcused) return -1;
-                 if (isAExcused && isBExcused) return 0;
-
-                 const getSortableScore = (score) => score === undefined ? -Infinity : score;
-                 const sortableScoreA = getSortableScore(scoreA);
-                 const sortableScoreB = getSortableScore(scoreB);
-
-                 if (currentAssignmentSortKey === 'score_desc') return sortableScoreB - sortableScoreA;
-                 if (currentAssignmentSortKey === 'score_asc') return sortableScoreA - sortableScoreB;
-                 
-                 return 0;
-             };
-
-             assignmentsToSort.sort(sortFunction);
-            
-             list.innerHTML = assignmentsToSort.map(a => {
-                const score = a.scores ? a.scores[student.id] : undefined;
-                let scoreDisplay = '';
-
-                switch (score) {
-                    case 4: scoreDisplay = `<div class="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-1 rounded-full">Score: 4/4</div>`; break;
-                    case 3: scoreDisplay = `<div class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-1 rounded-full">Score: 3/4</div>`; break;
-                    case 2: scoreDisplay = `<div class="bg-orange-100 text-orange-800 text-xs font-semibold px-2.5 py-1 rounded-full">Score: 2/4</div>`; break;
-                    case 1: scoreDisplay = `<div class="bg-red-100 text-red-800 text-xs font-semibold px-2.5 py-1 rounded-full">Score: 1/4</div>`; break;
-                    case 'excused': scoreDisplay = `<div class="bg-yellow-200 text-yellow-800 text-xs font-semibold px-2.5 py-1 rounded-full">Excused</div>`; break;
-                    default: scoreDisplay = `<div class="bg-gray-200 text-gray-800 text-xs font-semibold px-2.5 py-1 rounded-full">Not Graded</div>`;
-                }
-                
-                const ownHelpRequest = helpRequests.find(req => req.studentId === student.id && req.assignmentId === a.id);
-                const ownCheckRequest = checkRequests.find(req => req.studentId === student.id && req.assignmentId === a.id);
-                
-                const helpQueueIndex = helpRequests.findIndex(req => req.assignmentId === a.id && req.studentId === student.id);
-                const checkQueueIndex = checkRequests.findIndex(req => req.assignmentId === a.id && req.studentId === student.id);
-
-                let helpButtonHtml = ownHelpRequest
-                    ? `<button onclick="cancelHelpRequest('${ownHelpRequest.fbId}')" class="w-full bg-red-600 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-red-700 transition text-sm">Cancel (Queue #${helpQueueIndex + 1})</button>`
-                    : `<button onclick="requestHelp(${a.id})" class="w-full bg-yellow-500 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-yellow-600 transition">Request Help</button>`;
-
-                let checkButtonHtml = ownCheckRequest
-                    ? `<button onclick="cancelCheckRequest('${ownCheckRequest.fbId}')" class="w-full bg-red-600 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-red-700 transition text-sm">Cancel (Queue #${checkQueueIndex + 1})</button>`
-                    : `<button onclick="requestCheck(${a.id})" class="w-full bg-sky-600 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-sky-700 transition">Request Check</button>`;
-
-
-                return `
-                    <div class="p-5 border border-gray-200 rounded-lg">
-                        <div class="flex justify-between items-start mb-4">
-                            <div>
-                                <h3 class="font-semibold text-lg">${a.title}</h3>
-                                <p class="text-sm text-gray-500">Posted: ${new Date(a.postedDate).toLocaleDateString()}</p>
-                            </div>
-                            ${scoreDisplay}
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            ${helpButtonHtml}
-                            ${checkButtonHtml}
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-        
-        // --- BULK ACTIONS ---
-        function toggleSelectAll(selectAllCheckbox) {
-            const studentCheckboxes = document.querySelectorAll('.student-checkbox');
-            studentCheckboxes.forEach(checkbox => {
-                checkbox.checked = selectAllCheckbox.checked;
-            });
-            updateDeleteSelectedButtonState();
-        }
-
-        function updateDeleteSelectedButtonState() {
-            const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
-            const deleteBtn = document.getElementById('delete-selected-btn');
-            const selectAllCheckbox = document.getElementById('select-all-students');
-
-            if (selectedCheckboxes.length > 0) {
-                deleteBtn.classList.remove('hidden');
-            } else {
-                deleteBtn.classList.add('hidden');
-            }
-
-            const allCheckboxes = document.querySelectorAll('.student-checkbox');
-            if (allCheckboxes.length === 0) {
-                selectAllCheckbox.checked = false;
-                selectAllCheckbox.indeterminate = false;
-                return;
-            }
-
-            if (selectedCheckboxes.length === 0) {
-                selectAllCheckbox.checked = false;
-                selectAllCheckbox.indeterminate = false;
-            } else if (selectedCheckboxes.length === allCheckboxes.length) {
-                selectAllCheckbox.checked = true;
-                selectAllCheckbox.indeterminate = false;
-            } else {
-                selectAllCheckbox.checked = false;
-                selectAllCheckbox.indeterminate = true;
-            }
-        }
-
-
-        async function confirmDeleteSelectedStudents() {
-            const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
-            const studentIdsToDelete = Array.from(selectedCheckboxes).map(cb => parseInt(cb.dataset.studentId, 10));
-
-            if (studentIdsToDelete.length === 0) {
-                showSuccessMessage("No students selected.");
-                return;
-            }
-
-            document.getElementById('confirmation-message').textContent = `Are you sure you want to delete these ${studentIdsToDelete.length} student(s)? This action cannot be undone.`;
-            confirmAction = () => deleteSelectedStudents(studentIdsToDelete);
-            openModal('confirmation-modal');
-        }
-
-        async function deleteSelectedStudents(studentIdsToDelete) {
-            const batch = writeBatch(db);
-            const studentsToDelete = students.filter(s => studentIdsToDelete.includes(s.id));
-            studentsToDelete.forEach(student => {
-                const studentDocRef = doc(db, studentsCol.path, student.fbId);
-                batch.delete(studentDocRef);
-            });
-            await batch.commit();
-            
-            const idsToDeleteSet = new Set(studentIdsToDelete);
-            let newSeatingChart = seatingChart.map(seat => idsToDeleteSet.has(seat) ? null : seat);
-            await setDoc(seatingChartDoc, { chart: newSeatingChart });
-            
-            closeModal('confirmation-modal');
-            showSuccessMessage(`${studentIdsToDelete.length} student(s) deleted successfully.`);
-        }
-
-        // --- DRAG & DROP HANDLERS ---
-        function handleDragStart(event, type, id = null, originSeatIndex = null) {
-            const el = event.currentTarget || event.target;
-            try { if (el && el.classList) el.classList.add('dragging'); } catch(e) {}
-            let payloadId = id;
-            if ((payloadId === null || payloadId === undefined) && el && el.dataset && el.dataset.id) {
-                const parsed = parseInt(el.dataset.id, 10);
-                payloadId = isNaN(parsed) ? el.dataset.id : parsed;
-            }
-            let originIdx = originSeatIndex;
-            if ((originIdx === null || originIdx === undefined) && el && el.dataset && typeof el.dataset.seatIndex !== 'undefined') {
-                const parsed = parseInt(el.dataset.seatIndex, 10);
-                originIdx = isNaN(parsed) ? null : parsed;
-            }
-            const payload = { type, id: payloadId, originSeatIndex: originIdx };
-            try {
-                event.dataTransfer.setData('application/json', JSON.stringify(payload));
-            } catch (err) {
-                console.error('handleDragStart: failed to set dataTransfer', err, payload);
-            }
-            event.dataTransfer.effectAllowed = 'move';
-        }
-function handleDragEnd(event) {
-            event.target.classList.remove('dragging');
-        }
-
-        function handleDragOver(event) {
-            event.preventDefault();
-            event.dataTransfer.dropEffect = 'move';
-            this.classList.add('dragging-over');
-        }
-
-        function handleDragLeave() {
-            this.classList.remove('dragging-over');
-        }
-
-        function handleDrop(event) {
-            event.preventDefault();
-            const target = event.currentTarget || event.target;
-            try { if (target && target.classList) target.classList.remove('dragging-over'); } catch(e) {}
-
-            const raw = event.dataTransfer.getData('application/json') || event.dataTransfer.getData('text') || '';
-            if (!raw) {
-                console.warn('handleDrop: no drag data found');
-                return;
-            }
-
-            let payload;
-            try {
-                payload = JSON.parse(raw);
-            } catch (err) {
-                console.error('handleDrop: failed to parse drag payload:', err, 'raw:', raw);
-                return;
-            }
-
-            const targetSeatIndex = parseInt((target.dataset && target.dataset.seatIndex) || target.getAttribute('data-seat-index'), 10);
-            if (isNaN(targetSeatIndex)) {
-                console.warn('handleDrop: target seat index invalid:', target && target.dataset && target.dataset.seatIndex);
-                return;
-            }
-
-            const itemAtTarget = seatingChart[targetSeatIndex];
-
-            switch (payload.type) {
-                case 'roster_student':
-                    seatingChart[targetSeatIndex] = payload.id;
-                    break;
-                case 'new_blank_seat':
-                    seatingChart[targetSeatIndex] = 'BLANK';
-                    break;
-                case 'grid_seat':
-                    const originSeatIndex = payload.originSeatIndex;
-                    const itemAtOrigin = seatingChart[originSeatIndex];
-                    seatingChart[originSeatIndex] = itemAtTarget;
-                    seatingChart[targetSeatIndex] = itemAtOrigin;
-                    break;
-            }
-
-            saveSeatingChart();
-        }
- // --- ACTIONS ---
-        function logout() {
-            currentStudentId = null;
-            document.getElementById('login-error').textContent = '';
-
-            const selectAllCheckbox = document.getElementById('select-all-students');
-            if (selectAllCheckbox) {
-                selectAllCheckbox.checked = false;
-                selectAllCheckbox.indeterminate = false;
-                updateDeleteSelectedButtonState();
-            }
-            
+        window.logout = () => {
+            localStorage.removeItem('loggedInUser');
+            localStorage.removeItem('userType');
+            if (currentStudentUnsubscribe) currentStudentUnsubscribe();
+            if (currentAssignmentsUnsubscribe) currentAssignmentsUnsubscribe();
+            if (currentSeatingChartUnsubscribe) currentSeatingChartUnsubscribe();
+            if (currentChartSizeUnsubscribe) currentChartSizeUnsubscribe();
             switchView('login-type-selection');
-        }
+        };
 
-        async function requestHelp(assignmentId) {
-            const student = students.find(s => s.id === currentStudentId);
-            const assignment = assignments.find(a => a.id === assignmentId);
-            if (student && assignment) {
-                const q = query(helpRequestsCol, where("studentId", "==", student.id), where("assignmentId", "==", assignment.id));
-                const existingRequests = await getDocs(q);
-                if (existingRequests.empty) {
-                    const studentName = `${student.firstName} ${student.lastName}`;
-                    await addDoc(helpRequestsCol, { studentId: student.id, studentName, assignmentId: assignment.id, assignmentTitle: assignment.title });
-                    showSuccessMessage('Help request sent!');
-                } else {
-                    showSuccessMessage('You already have a help request for this assignment.');
-                }
+        // --- Authentication ---
+        const TEACHER_PASSWORD = "password123"; // Replace with a more secure method in a real app
+        window.checkTeacherPassword = () => {
+            const password = document.getElementById('teacher-password').value;
+            if (password === TEACHER_PASSWORD) {
+                localStorage.setItem('userType', 'teacher');
+                switchView('teacher-dashboard-view');
+                loadTeacherData();
+                document.getElementById('teacher-login-error').textContent = '';
+            } else {
+                document.getElementById('teacher-login-error').textContent = 'Incorrect password.';
             }
-        }
+        };
 
-        async function cancelHelpRequest(fbId) {
-            await deleteDoc(doc(db, helpRequestsCol.path, fbId));
-            showSuccessMessage('Help request cancelled.');
-        }
-
-        async function requestCheck(assignmentId) {
-            const student = students.find(s => s.id === currentStudentId);
-            const assignment = assignments.find(a => a.id === assignmentId);
-            if (student && assignment) {
-                const q = query(checkRequestsCol, where("studentId", "==", student.id), where("assignmentId", "==", assignment.id));
-                const existingRequests = await getDocs(q);
-
-                if (existingRequests.empty) {
-                     const studentName = `${student.firstName} ${student.lastName}`;
-                    await addDoc(checkRequestsCol, { studentId: student.id, studentName, assignmentId: assignment.id, assignmentTitle: assignment.title });
-                    showSuccessMessage('Check request sent!');
-                } else {
-                    showSuccessMessage('You already have a check request for this assignment.');
-                }
-            }
-        }
-
-        async function cancelCheckRequest(fbId) {
-            await deleteDoc(doc(db, checkRequestsCol.path, fbId));
-            showSuccessMessage('Check request cancelled.');
-        }
-        
-        async function resolveRequest(type, fbId) {
-            const col = type === 'help' ? helpRequestsCol : checkRequestsCol;
-            await deleteDoc(doc(db, col.path, fbId));
-        }
-        
-        function confirmDeleteStudent(fbId) {
-            const student = students.find(s => s.fbId === fbId);
-            if (student) {
-                document.getElementById('confirmation-message').textContent = `Are you sure you want to delete ${student.firstName} ${student.lastName}? This will also remove them from the seating chart.`;
-                confirmAction = () => deleteStudent(fbId, student.id);
-                openModal('confirmation-modal');
-            }
-        }
-
-        async function deleteStudent(fbId, studentId) {
-            await deleteDoc(doc(db, studentsCol.path, fbId));
-            let newSeatingChart = seatingChart.map(seat => seat === studentId ? null : seat);
-            await setDoc(seatingChartDoc, { chart: newSeatingChart });
-            closeModal('confirmation-modal');
-            showSuccessMessage('Student deleted successfully.');
-        }
-
-        function confirmDeleteAssignment(fbId) {
-            const assignment = assignments.find(a => a.fbId === fbId);
-            if (assignment) {
-                document.getElementById('confirmation-message').textContent = `Are you sure you want to delete the assignment "${assignment.title}"? This action cannot be undone.`;
-                confirmAction = () => deleteAssignment(fbId);
-                openModal('confirmation-modal');
-            }
-        }
-
-        async function deleteAssignment(fbId) {
-            await deleteDoc(doc(db, assignmentsCol.path, fbId));
-            closeModal('confirmation-modal');
-            showSuccessMessage('Assignment deleted successfully.');
-        }
-
-        document.getElementById('add-assignment-form').addEventListener('submit', async function(e) {
+        document.getElementById('student-login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const title = document.getElementById('assignment-title').value;
-            let postedDate = document.getElementById('assignment-posted-date').value;
-            
-            if (!postedDate) {
-                postedDate = new Date().toISOString().split('T')[0]; // Get YYYY-MM-DD
-            }
-            
-            if (title) {
-                await addDoc(assignmentsCol, {
-                    title,
-                    postedDate,
-                    scores: {},
-                    id: Date.now() // Simple unique ID
-                });
-                closeModal('add-assignment-modal');
-                this.reset();
-            }
-        });
+            const studentId = document.getElementById('student-id-login').value.trim();
+            const errorEl = document.getElementById('student-login-error');
 
-        document.getElementById('edit-assignment-form').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const fbId = document.getElementById('assignment-original-id-edit').value;
-            const title = document.getElementById('assignment-title-edit').value;
-            let postedDate = document.getElementById('assignment-posted-date-edit').value;
-
-            if (!postedDate) {
-                postedDate = new Date().toISOString().split('T')[0]; 
-            }
-
-            if (title) {
-                const assignmentDoc = doc(db, assignmentsCol.path, fbId);
-                await updateDoc(assignmentDoc, { title, postedDate });
-                closeModal('edit-assignment-modal');
-                showSuccessMessage('Assignment updated successfully.');
-            }
-        });
-
-        document.getElementById('score-assignment-form').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const assignmentFbId = document.getElementById('score-assignment-id').value;
-            const assignment = assignments.find(a => a.fbId === assignmentFbId);
-            if (!assignment) return;
-            
-            const newScores = { ...assignment.scores };
-            const formData = new FormData(e.target);
-            for (let [studentIdStr, score] of formData.entries()) {
-                const studentId = parseInt(studentIdStr.split('-')[1], 10);
-                newScores[studentId] = isNaN(parseInt(score, 10)) ? score : parseInt(score, 10);
-            }
-            
-            const assignmentDoc = doc(db, assignmentsCol.path, assignmentFbId);
-            await updateDoc(assignmentDoc, { scores: newScores });
-            
-            closeModal('score-assignment-modal');
-            showSuccessMessage('Scores saved successfully.');
-        });
-
-        document.getElementById('add-student-form').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const id = parseInt(document.getElementById('student-id-add').value, 10);
-            const firstName = document.getElementById('student-firstName-add').value;
-            const lastName = document.getElementById('student-lastName-add').value;
-
-            if (firstName && lastName && !isNaN(id)) {
-                try {
-                    const existingIds = new Set(students.map(s => s.id));
-                    if (existingIds.has(id)) {
-                        showSuccessMessage(`Student with ID ${id} already exists.`);
-                        return;
-                    }
-
-                    await addDoc(studentsCol, { id, firstName, lastName });
-                    showSuccessMessage('Student added successfully!');
-                    closeModal('add-student-modal');
-                    this.reset();
-                } catch (error) {
-                    console.error("Error adding student:", error);
-                    showSuccessMessage("Error: Could not add student.");
-                }
-            }
-        });
-
-        document.getElementById('edit-student-form').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const fbId = document.getElementById('student-original-id-edit').value;
-            const originalStudent = students.find(s => s.fbId === fbId);
-            const newId = parseInt(document.getElementById('student-id-edit').value, 10);
-            const firstName = document.getElementById('student-firstName-edit').value;
-            const lastName = document.getElementById('student-lastName-edit').value;
-
-            if (students.some(s => s.id === newId && s.id !== originalStudent.id)) {
-                showSuccessMessage(`Error: Student ID ${newId} is already in use.`);
+            if (!studentId) {
+                errorEl.textContent = 'Please enter a Student ID.';
                 return;
             }
+            
+            const q = query(studentsCol, where("id", "==", studentId));
+            const querySnapshot = await getDocs(q);
 
-            if (firstName && lastName && !isNaN(newId)) {
-                const studentDoc = doc(db, studentsCol.path, fbId);
-                await updateDoc(studentDoc, { id: newId, firstName, lastName });
-
-                if (originalStudent.id !== newId) {
-                    let newSeatingChart = seatingChart.map(seat => seat === originalStudent.id ? newId : seat);
-                    await setDoc(seatingChartDoc, { chart: newSeatingChart });
-                }
-
-                closeModal('edit-student-modal');
-                showSuccessMessage('Student updated successfully.');
+            if (querySnapshot.empty) {
+                errorEl.textContent = 'Student ID not found.';
+            } else {
+                const studentDoc = querySnapshot.docs[0];
+                const student = { docId: studentDoc.id, ...studentDoc.data() };
+                localStorage.setItem('loggedInUser', JSON.stringify(student));
+                localStorage.setItem('userType', 'student');
+                errorEl.textContent = '';
+                switchView('student-view');
+                loadStudentData(student);
             }
         });
 
-        document.getElementById('bulk-upload-form').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const form = this;
-    const data = document.getElementById('bulk-student-data').value;
-    const lines = data.split('\n');
-    const studentsToProcess = [];
-    const processedIds = new Set();
+        // --- Data Loading ---
+        function loadTeacherData() {
+            // Unsubscribe from previous listeners if they exist
+            if (currentStudentUnsubscribe) currentStudentUnsubscribe();
+            if (currentAssignmentsUnsubscribe) currentAssignmentsUnsubscribe();
+            if (currentSeatingChartUnsubscribe) currentSeatingChartUnsubscribe();
+            if (currentChartSizeUnsubscribe) currentChartSizeUnsubscribe();
 
-    for (const line of lines) {
-        const trimmedLine = line.trim();
-        if (!trimmedLine) continue;
-        
-        const parts = trimmedLine.split(',');
-        if (parts.length === 3) {
-            const id = parseInt(parts[0].trim(), 10);
-            const firstName = parts[1].trim();
-            const lastName = parts[2].trim();
-
-            if (!isNaN(id) && firstName && lastName && !processedIds.has(id)) {
-                studentsToProcess.push({ id, firstName, lastName });
-                processedIds.add(id);
-            }
-        }
-    }
-
-    if (studentsToProcess.length === 0) {
-        showSuccessMessage("No valid new students found in the provided data.");
-        closeModal('bulk-upload-modal');
-        form.reset();
-        return;
-    }
-
-    try {
-        if (!studentsCol) {
-            throw new Error("Firestore not initialized: studentsCol is undefined");
-        }
-
-        const existingIds = new Set(students.map(s => s.id));
-        const studentsToUpload = studentsToProcess.filter(s => !existingIds.has(s.id));
-        const skippedCount = studentsToProcess.length - studentsToUpload.length;
-
-        if (studentsToUpload.length > 0) {
-            // Use batch + setDoc safely
-            const batch = writeBatch(db);
-            studentsToUpload.forEach(student => {
-                const newStudentRef = doc(studentsCol); // auto-id
-                batch.set(newStudentRef, student);
+            currentStudentUnsubscribe = onSnapshot(studentsCol, (snapshot) => {
+                const students = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
+                renderStudentList(students);
+                renderStudentRoster(students);
             });
-            await batch.commit();
-        }
+            currentAssignmentsUnsubscribe = onSnapshot(assignmentsCol, renderAssignmentList);
+            currentSeatingChartUnsubscribe = onSnapshot(seatingChartCol, renderSeatingChart);
 
-        let message = "";
-        if (studentsToUpload.length > 0) {
-            message += `${studentsToUpload.length} student(s) added successfully. `;
-        }
-        if (skippedCount > 0) {
-            message += `${skippedCount} student(s) were skipped as their IDs already exist.`;
-        }
-        if (!message) {
-            message = "All students in the list already exist.";
-        }
-        showSuccessMessage(message.trim());
-
-    } catch (error) {
-        console.error("Error during bulk upload:", error);
-        const details = error.code ? `${error.code} - ${error.message}` : error.message || error;
-        showSuccessMessage(`Bulk upload failed: ${details}`);
-    } finally {
-        closeModal('bulk-upload-modal');
-        form.reset();
-    }
-});
-
-        
-        // --- UTILITIES ---
-        function openStudentAssignmentModal(studentId) {
-            const student = students.find(s => s.id === studentId);
-            if (!student) return;
-
-            document.getElementById('student-assignment-modal-title').textContent = `Assignments for ${student.firstName} ${student.lastName}`;
-            
-            const listEl = document.getElementById('student-assignment-modal-list');
-            if (assignments.length === 0) {
-                listEl.innerHTML = '<p class="text-gray-500">No assignments have been posted yet.</p>';
-            } else {
-                listEl.innerHTML = assignments.map(assignment => {
-                    const hasHelpRequest = helpRequests.some(req => req.studentId === student.id && req.assignmentId === assignment.id);
-                    const hasCheckRequest = checkRequests.some(req => req.studentId === student.id && req.assignmentId === assignment.id);
-                    const currentScore = assignment.scores ? assignment.scores[student.id] : undefined;
-                    
-                    const scoreOptions = [1, 2, 3, 4, 'excused'];
-                    const radioButtons = scoreOptions.map(score => {
-                        const isChecked = currentScore !== undefined && currentScore.toString() === score.toString();
-                        return `
-                            <label class="flex items-center space-x-2 cursor-pointer">
-                                <input type="radio" name="modal-score-${student.id}-${assignment.id}" value="${score}" ${isChecked ? 'checked' : ''} class="form-radio h-4 w-4 text-blue-600">
-                                <span class="text-sm">${score.toString().charAt(0).toUpperCase() + score.toString().slice(1)}</span>
-                            </label>
-                        `;
-                    }).join('');
-
-                    let indicatorsHTML = '';
-                    if (hasHelpRequest) indicatorsHTML += '<span class="text-xs font-bold text-red-600 bg-red-100 px-2 py-1 rounded-full">HELP REQUESTED</span>';
-                    if (hasCheckRequest) indicatorsHTML += '<span class="text-xs font-bold text-sky-600 bg-sky-100 px-2 py-1 rounded-full">CHECK REQUESTED</span>';
-
-                    return `
-                        <li class="p-4 bg-gray-50 rounded-lg">
-                            <div class="flex flex-col sm:flex-row justify-between sm:items-center">
-                                <span class="font-medium mb-2 sm:mb-0">${assignment.title}</span>
-                                <div class="flex items-center space-x-4">
-                                    ${radioButtons}
-                                </div>
-                            </div>
-                            ${ (hasHelpRequest || hasCheckRequest) ? `<div class="flex gap-2 mt-2 pt-2 border-t border-gray-200">${indicatorsHTML}</div>` : '' }
-                        </li>
-                    `;
-                }).join('');
-            }
-
-            const saveBtn = document.getElementById('save-student-scores-btn');
-            const newSaveBtn = saveBtn.cloneNode(true);
-            saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
-
-            newSaveBtn.addEventListener('click', async () => {
-                const batch = writeBatch(db);
-                assignments.forEach(assignment => {
-                    const scoreInput = document.querySelector(`input[name="modal-score-${studentId}-${assignment.id}"]:checked`);
-                    if (scoreInput) {
-                        const scoreValue = scoreInput.value;
-                        const newScores = { ...assignment.scores };
-                        newScores[studentId] = isNaN(parseInt(scoreValue, 10)) ? scoreValue : parseInt(scoreValue, 10);
-                        
-                        const assignmentDoc = doc(db, assignmentsCol.path, assignment.fbId);
-                        batch.update(assignmentDoc, { scores: newScores });
-                    }
-                });
-                await batch.commit();
-                showSuccessMessage('Scores updated successfully!');
-                closeModal('student-assignment-modal');
+            const chartSizeDocRef = doc(db, "settings", "seatingChartSize");
+            currentChartSizeUnsubscribe = onSnapshot(chartSizeDocRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const { rows, cols } = docSnap.data();
+                    document.getElementById('chart-rows').value = rows;
+                    document.getElementById('chart-cols').value = cols;
+                }
             });
-
-
-            openModal('student-assignment-modal');
         }
         
-        function openEditStudentModal(fbId) {
-            const student = students.find(s => s.fbId === fbId);
-            if (student) {
-                document.getElementById('student-original-id-edit').value = student.fbId;
-                document.getElementById('student-id-edit').value = student.id;
-                document.getElementById('student-firstName-edit').value = student.firstName;
-                document.getElementById('student-lastName-edit').value = student.lastName;
-                openModal('edit-student-modal');
-            }
-        }
-
-        function openEditAssignmentModal(fbId) {
-            const assignment = assignments.find(a => a.fbId === fbId);
-            if (assignment) {
-                document.getElementById('assignment-original-id-edit').value = assignment.fbId;
-                document.getElementById('assignment-title-edit').value = assignment.title;
-                document.getElementById('assignment-posted-date-edit').value = assignment.postedDate;
-                openModal('edit-assignment-modal');
-            }
-        }
-
-        function openScoreAssignmentModal(assignmentFbId) {
-            const assignment = assignments.find(a => a.fbId === assignmentFbId);
-            if (!assignment) return;
-
-            document.getElementById('score-assignment-title').textContent = assignment.title;
-            document.getElementById('score-assignment-id').value = assignmentFbId;
-
-            const listEl = document.getElementById('student-scores-list');
-            listEl.innerHTML = students.map(student => {
-                const currentScore = assignment.scores ? assignment.scores[student.id] : undefined;
-                const scoreOptions = [1, 2, 3, 4, 'excused'];
-                
-                const radioButtons = scoreOptions.map(score => {
-                    const isChecked = currentScore !== undefined && currentScore.toString() === score.toString();
-                    return `
-                        <label class="flex items-center space-x-2">
-                            <input type="radio" name="score-${student.id}" value="${score}" ${isChecked ? 'checked' : ''} class="form-radio h-4 w-4 text-blue-600">
-                            <span class="text-sm">${score.toString().charAt(0).toUpperCase() + score.toString().slice(1)}</span>
-                        </label>
-                    `;
-                }).join('');
-
-                return `
-                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                        <span class="font-medium">${student.firstName} ${student.lastName}</span>
-                        <div class="flex items-center space-x-4">
-                           ${radioButtons}
-                        </div>
-                    </div>
-                `;
-            }).join('');
-
-            openModal('score-assignment-modal');
-        }
-        
-        function openModal(modalId) { document.getElementById(modalId).classList.remove('hidden'); }
-        function closeModal(modalId) { document.getElementById(modalId).classList.add('hidden'); }
-        
-        function showSuccessMessage(message) {
-            const messageEl = document.getElementById('success-message');
-            messageEl.textContent = message;
-            messageEl.classList.remove('translate-y-20', 'opacity-0');
-            setTimeout(() => {
-                messageEl.classList.add('translate-y-20', 'opacity-0');
-            }, 3000);
-        }
-
-        // --- INITIALIZATION ---
-        async function init() {
-            await initFirebase();
-            studentsLoaded = false;
-            seatingLoaded = false;
-
-            document.getElementById('add-blank-seat').addEventListener('dragstart', (e) => handleDragStart(e, 'new_blank_seat'));
-            document.getElementById('add-blank-seat').addEventListener('dragend', handleDragEnd);
-
-            document.getElementById('student-login-form').addEventListener('submit', function(e) {
-                e.preventDefault();
-                const loginIdInput = document.getElementById('student-id-login');
-                const errorEl = document.getElementById('login-error');
-                const loginId = parseInt(loginIdInput.value, 10);
-
-                if (isNaN(loginId)) {
-                    errorEl.textContent = 'Please enter a valid ID number.';
+        async function loadStudentData(student) {
+             document.getElementById('student-welcome').textContent = `Welcome, ${student.name}!`;
+             const assignmentListEl = document.getElementById('student-assignment-list');
+             onSnapshot(assignmentsCol, async (snapshot) => {
+                assignmentListEl.innerHTML = '';
+                if (snapshot.empty) {
+                    assignmentListEl.innerHTML = `<p class="text-gray-500">No assignments posted yet.</p>`;
                     return;
                 }
+                const assignments = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
+                for (const assignment of assignments) {
+                    const scoreDocRef = doc(db, "assignments", assignment.docId, "scores", student.docId);
+                    const scoreSnap = await getDoc(scoreDocRef);
+                    const score = scoreSnap.exists() ? scoreSnap.data().score : "Not Graded";
 
-                const studentExists = students.find(s => s.id === loginId);
-
-                if (studentExists) {
-                    currentStudentId = loginId;
-                    errorEl.textContent = '';
-                    loginIdInput.value = '';
-                    switchView('student');
-                } else {
-                    errorEl.textContent = 'Student ID not found. Please try again.';
+                    const div = document.createElement('div');
+                    div.className = "py-4 flex justify-between items-center";
+                    div.innerHTML = `
+                        <div>
+                            <p class="font-medium">${assignment.title}</p>
+                            <p class="text-sm text-gray-500">Posted: ${assignment.postedDate || 'N/A'}</p>
+                        </div>
+                        <span class="font-semibold text-lg ${score === "Not Graded" ? "text-gray-500" : "text-blue-600"}">${score}</span>
+                    `;
+                    assignmentListEl.appendChild(div);
                 }
             });
-
-            document.getElementById('confirm-button').addEventListener('click', () => {
-                if (typeof confirmAction === 'function') confirmAction();
-                confirmAction = null;
-            });
-
-            document.getElementById('cancel-button').addEventListener('click', () => {
-                confirmAction = null;
-                closeModal('confirmation-modal');
-            });
-
-            // Make functions globally accessible for onclick handlers
-            Object.assign(window, {
-                switchView, switchTeacherTab, openModal, closeModal,
-                sortStudents, sortAssignments, toggleSelectAll, confirmDeleteSelectedStudents,
-                openEditStudentModal, confirmDeleteStudent, openScoreAssignmentModal, openEditAssignmentModal, confirmDeleteAssignment,
-                requestHelp, requestCheck, cancelHelpRequest, cancelCheckRequest, resolveRequest, logout,
-                handleDragStart, handleDragEnd, handleDragOver, handleDragLeave, handleDrop
-            });
-
-            switchView('login-type-selection');
         }
 
-        init();
-// -------- Bulk Add Assignments --------
-function isValidYYYYMMDD(s) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(s);
-}
-function parseBulkAssignmentLine(line) {
-  const raw = line.trim();
-  if (!raw) return null;
-  let title = raw;
-  let date = null;
-  const idxComma = raw.indexOf(',');
-  const idxPipe = raw.indexOf('|');
-  let sepIdx = -1;
-  if (idxComma !== -1 && idxPipe !== -1) sepIdx = Math.min(idxComma, idxPipe);
-  else if (idxComma !== -1) sepIdx = idxComma;
-  else if (idxPipe !== -1) sepIdx = idxPipe;
-  if (sepIdx !== -1) {
-    title = raw.slice(0, sepIdx).trim();
-    date  = raw.slice(sepIdx + 1).trim();
-    if (date.includes(',') || date.includes('|')) {
-      date = date.split(/[|,]/)[0].trim();
-    }
-    if (!date) date = null;
-  }
-  if (!title) return null;
-  return { title, date };
-}
 
-document.addEventListener('DOMContentLoaded', () => {
-  const bulkAssignmentForm = document.getElementById('bulk-assignment-form');
-  if (!bulkAssignmentForm) return;
-  bulkAssignmentForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const textarea = document.getElementById('bulk-assignment-data');
-    const useTodayIfMissing = document.getElementById('bulk-assignment-default-today').checked;
-    const lines = (textarea.value || '').split('\\n');
-    const items = [];
-    const today = new Date().toISOString().split('T')[0];
-    for (const line of lines) {
-      const parsed = parseBulkAssignmentLine(line);
-      if (!parsed) continue;
-      let postedDate = parsed.date && isValidYYYYMMDD(parsed.date) ? parsed.date : null;
-      if (!postedDate && useTodayIfMissing) postedDate = today;
-      items.push({ title: parsed.title, postedDate });
-    }
-    if (items.length === 0) {
-      showSuccessMessage("No valid assignments found.");
-      closeModal('bulk-assignment-modal');
-      e.target.reset();
-      return;
-    }
-    try {
-      const batch = writeBatch(db);
-      let i = 0;
-      for (const item of items) {
-        const ref = doc(assignmentsCol);
-        batch.set(ref, {
-          title: item.title,
-          postedDate: item.postedDate || today,
-          scores: {},
-          id: Date.now() + i
+        // --- Rendering Functions ---
+        function renderStudentList(students) {
+            const list = document.getElementById('student-list');
+            list.innerHTML = '';
+            if (students.length === 0) {
+                list.innerHTML = '<p class="text-gray-500 p-4">No students added yet.</p>';
+                return;
+            }
+            students.forEach(student => {
+                const div = document.createElement('div');
+                div.className = "py-4 flex justify-between items-center";
+                div.innerHTML = `
+                    <div>
+                        <p class="font-medium">${student.name}</p>
+                        <p class="text-sm text-gray-500">ID: ${student.id}</p>
+                    </div>
+                    <button class="text-red-500 hover:text-red-700 font-semibold" data-id="${student.docId}">Delete</button>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function renderAssignmentList(snapshot) {
+            const list = document.getElementById('assignment-list');
+            list.innerHTML = '';
+             if (snapshot.empty) {
+                list.innerHTML = '<p class="text-gray-500 p-4">No assignments added yet.</p>';
+                return;
+            }
+            snapshot.docs.forEach(doc => {
+                const assignment = { id: doc.id, ...doc.data() };
+                const div = document.createElement('div');
+                div.className = "py-4 flex justify-between items-center";
+                div.innerHTML = `
+                    <div>
+                        <input type="text" value="${assignment.title}" class="font-medium bg-transparent border-0 p-1 rounded-md hover:bg-gray-100 focus:bg-gray-100 focus:ring-1 focus:ring-blue-500 outline-none" data-id="${assignment.id}" data-field="title">
+                        <input type="date" value="${assignment.postedDate || ''}" class="text-sm text-gray-500 bg-transparent border-0 p-1 rounded-md hover:bg-gray-100 focus:bg-gray-100 focus:ring-1 focus:ring-blue-500 outline-none" data-id="${assignment.id}" data-field="postedDate">
+                    </div>
+                    <button class="text-red-500 hover:text-red-700 font-semibold" data-id="${assignment.id}">Delete</button>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        // --- Event Handlers ---
+        // Add Student
+        document.getElementById('add-student-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('student-name').value;
+            const id = document.getElementById('student-id').value;
+            if (name && id) {
+                await addDoc(studentsCol, { name, id });
+                closeModal('add-student-modal');
+                e.target.reset();
+            }
         });
-        i++;
-      }
-      await batch.commit();
-      showSuccessMessage(`${items.length} assignment(s) added successfully.`);
-    } catch (err) {
-      console.error("Bulk add assignments failed:", err);
-      showSuccessMessage("Bulk add failed. See console for details.");
-    } finally {
-      closeModal('bulk-assignment-modal');
-      e.target.reset();
-    }
-  });
-});
 
+        // Delete Student
+        document.getElementById('student-list').addEventListener('click', async (e) => {
+            if (e.target.tagName === 'BUTTON') {
+                const docId = e.target.dataset.id;
+                if (confirm('Are you sure you want to delete this student?')) {
+                    await deleteDoc(doc(db, "students", docId));
+                }
+            }
+        });
+
+        // Add Assignment
+        document.getElementById('add-assignment-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const title = document.getElementById('assignment-title').value;
+            const date = document.getElementById('assignment-date').value;
+            if (title) {
+                await addDoc(assignmentsCol, { title, postedDate: date || null, createdAt: new Date().toISOString() });
+                closeModal('add-assignment-modal');
+                e.target.reset();
+            }
+        });
+        
+        // Bulk Add Assignments
+        document.getElementById('bulk-assignment-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const textarea = document.getElementById('bulk-assignment-data');
+            const rawData = textarea.value.trim();
+            const useToday = document.getElementById('bulk-assignment-default-today').checked;
+
+            if (!rawData) return;
+            
+            // CORRECTED: Use a regular expression to split by newlines (\n or \r\n)
+            const lines = rawData.split(/\r?\n/).map(line => line.trim()).filter(line => line.length > 0);
+            
+            const batch = writeBatch(db);
+
+            lines.forEach(line => {
+                let [title, date] = line.split(/[,|]/).map(s => s.trim());
+                let finalDate = date;
+
+                if (!finalDate && useToday) {
+                    finalDate = new Date().toISOString().split("T")[0];
+                }
+
+                const newAssignmentRef = doc(assignmentsCol); // Create a new doc reference in the batch
+                batch.set(newAssignmentRef, {
+                    title,
+                    postedDate: finalDate || null,
+                    createdAt: new Date().toISOString()
+                });
+            });
+
+            await batch.commit(); // Commit all the writes at once
+
+            closeModal('bulk-assignment-modal');
+            textarea.value = "";
+            document.getElementById('bulk-assignment-preview').innerHTML = "";
+        });
+
+
+        // Live preview for bulk upload
+        const bulkTextarea = document.getElementById("bulk-assignment-data");
+        const bulkPreview = document.getElementById("bulk-assignment-preview");
+        if (bulkTextarea && bulkPreview) {
+          bulkTextarea.addEventListener("input", () => {
+            const rawData = bulkTextarea.value.trim();
+            if (!rawData) {
+              bulkPreview.innerHTML = "";
+              return;
+            }
+            // Use the same corrected split logic for the preview
+            const lines = rawData.split(/\r?\n/).map(line => line.trim()).filter(line => line.length > 0);
+
+            if (lines.length === 0) {
+              bulkPreview.innerHTML = "";
+              return;
+            }
+            let html = `<p class='font-semibold mb-2'>Preview (${lines.length} assignments):</p><ul class='list-disc ml-6'>`;
+            for (const line of lines) {
+                let [title, date] = line.split(/[,|]/).map(s => s.trim());
+                 html += `<li class='text-gray-800'><span class='font-medium'>${title || 'No Title'}</span>, Date: ${date || 'None'}</li>`;
+            }
+            html += "</ul>";
+            bulkPreview.innerHTML = html;
+          });
+        }
+
+
+        // Delete/Update Assignment
+        document.getElementById('assignment-list').addEventListener('click', async (e) => {
+            if (e.target.tagName === 'BUTTON') {
+                const docId = e.target.dataset.id;
+                if (confirm('Are you sure you want to delete this assignment?')) {
+                    await deleteDoc(doc(db, "assignments", docId));
+                }
+            }
+        });
+        document.getElementById('assignment-list').addEventListener('change', async (e) => {
+             if (e.target.tagName === 'INPUT') {
+                const docId = e.target.dataset.id;
+                const field = e.target.dataset.field;
+                const value = e.target.value;
+                await updateDoc(doc(db, "assignments", docId), { [field]: value });
+            }
+        });
+
+        // --- Seating Chart Logic ---
+        let studentsForRoster = [];
+        let seatingChartData = new Map();
+        let draggedElement = null;
+
+        function renderStudentRoster(students) {
+            studentsForRoster = students;
+            const rosterList = document.getElementById('student-roster-list');
+            rosterList.innerHTML = '<h3 class="font-semibold mb-2">Unseated Students</h3>';
+            const seatedStudentIds = new Set(Array.from(seatingChartData.values()).map(s => s.id));
+            
+            students.forEach(student => {
+                if (!seatedStudentIds.has(student.id)) {
+                     const div = document.createElement('div');
+                     div.className = 'student-roster-item p-2 bg-white rounded-md mb-2 shadow-sm border cursor-grab';
+                     div.textContent = student.name;
+                     div.draggable = true;
+                     div.dataset.studentId = student.id;
+                     rosterList.appendChild(div);
+                }
+            });
+        }
+        
+        function renderSeatingChart(snapshot) {
+            seatingChartData.clear();
+            snapshot.forEach(doc => {
+                seatingChartData.set(doc.id, doc.data());
+            });
+            drawSeatingChartGrid();
+            renderStudentRoster(studentsForRoster);
+        }
+
+        async function drawSeatingChartGrid() {
+            const grid = document.getElementById('seating-chart-grid');
+            const rows = parseInt(document.getElementById('chart-rows').value, 10) || 4;
+            const cols = parseInt(document.getElementById('chart-cols').value, 10) || 5;
+            grid.innerHTML = '';
+            grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+            
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const seatId = `${r}-${c}`;
+                    const seatDiv = document.createElement('div');
+                    seatDiv.className = 'seat p-2 h-24 border rounded-md flex items-center justify-center text-center text-sm';
+                    seatDiv.dataset.seatId = seatId;
+
+                    const student = seatingChartData.get(seatId);
+                    if (student) {
+                        seatDiv.textContent = student.name;
+                        seatDiv.draggable = true;
+                        seatDiv.dataset.studentId = student.id;
+                        seatDiv.classList.add('bg-blue-100', 'border-blue-300', 'draggable-student');
+                    } else {
+                        seatDiv.classList.add('blank-seat');
+                    }
+                    grid.appendChild(seatDiv);
+                }
+            }
+        }
+        
+        document.getElementById('update-chart-btn').addEventListener('click', async () => {
+            const rows = parseInt(document.getElementById('chart-rows').value, 10);
+            const cols = parseInt(document.getElementById('chart-cols').value, 10);
+            if (rows > 0 && cols > 0) {
+                await setDoc(doc(db, "settings", "seatingChartSize"), { rows, cols });
+                drawSeatingChartGrid();
+            }
+        });
+        
+        document.getElementById('clear-chart-btn').addEventListener('click', async () => {
+            if (confirm("Are you sure you want to clear the entire seating chart?")) {
+                const querySnapshot = await getDocs(seatingChartCol);
+                const batch = writeBatch(db);
+                querySnapshot.docs.forEach(d => batch.delete(d.ref));
+                await batch.commit();
+            }
+        });
+        
+        // Drag and Drop Event Listeners for Seating Chart
+        const seatingChartContainer = document.getElementById('seating-chart');
+        
+        seatingChartContainer.addEventListener('dragstart', (e) => {
+            if (e.target.matches('.student-roster-item') || e.target.matches('.draggable-student')) {
+                draggedElement = e.target;
+                setTimeout(() => e.target.classList.add('dragging'), 0);
+            }
+        });
+
+        seatingChartContainer.addEventListener('dragend', (e) => {
+            if (draggedElement) {
+                draggedElement.classList.remove('dragging');
+                draggedElement = null;
+            }
+        });
+
+        seatingChartContainer.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            const targetSeat = e.target.closest('.seat');
+            if (targetSeat) {
+                 e.target.closest('.seat').classList.add('dragging-over');
+            }
+        });
+        
+        seatingChartContainer.addEventListener('dragleave', (e) => {
+             const targetSeat = e.target.closest('.seat');
+            if (targetSeat) {
+                 e.target.closest('.seat').classList.remove('dragging-over');
+            }
+        });
+        
+        seatingChartContainer.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            if (!draggedElement) return;
+
+            const targetSeat = e.target.closest('.seat');
+            if (!targetSeat) return; // Dropped outside a valid seat
+            
+            targetSeat.classList.remove('dragging-over');
+            
+            const studentIdToMove = draggedElement.dataset.studentId;
+            const studentToMove = studentsForRoster.find(s => s.id === studentIdToMove);
+            if (!studentToMove) return;
+
+            const targetSeatId = targetSeat.dataset.seatId;
+            const studentInTargetSeat = seatingChartData.get(targetSeatId);
+            
+            const originSeatId = draggedElement.dataset.seatId; // Will be undefined if from roster
+
+            const batch = writeBatch(db);
+
+            // 1. Place the dragged student in the target seat
+            batch.set(doc(db, "seatingChart", targetSeatId), { id: studentToMove.id, name: studentToMove.name });
+
+            // 2. Handle the origin
+            if (originSeatId) { // Moved from another seat
+                if (studentInTargetSeat) {
+                    // Swap: Put the student from the target seat into the origin seat
+                    batch.set(doc(db, "seatingChart", originSeatId), { id: studentInTargetSeat.id, name: studentInTargetSeat.name });
+                } else {
+                    // Move: Origin seat becomes empty
+                    batch.delete(doc(db, "seatingChart", originSeatId));
+                }
+            } else { // Moved from roster
+                 if (studentInTargetSeat) {
+                    // This case unseats the student that was in the target seat. They will reappear in the roster on next render.
+                 }
+            }
+            
+            await batch.commit();
+        });
+
+
+        // --- Initial Load ---
+        function checkLogin() {
+            const userType = localStorage.getItem('userType');
+            if (userType === 'teacher') {
+                switchView('teacher-dashboard-view');
+                loadTeacherData();
+            } else if (userType === 'student') {
+                const student = JSON.parse(localStorage.getItem('loggedInUser'));
+                if (student) {
+                    switchView('student-view');
+                    loadStudentData(student);
+                }
+            } else {
+                switchView('login-type-selection');
+            }
+        }
+
+        checkLogin();
+        // Set default tab on load
+        document.querySelector('.tab-link').click();
 
     </script>
 </body>
 </html>
-
