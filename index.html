@@ -839,7 +839,11 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
             const allRequests = [
                 ...helpRequests.map(r => ({ ...r, type: 'help' })),
                 ...checkRequests.map(r => ({ ...r, type: 'check' }))
-            ].sort((a, b) => a.timestamp?.seconds - b.timestamp?.seconds);
+            ].sort((a, b) => {
+                if (a.type === 'help' && b.type === 'check') return -1;
+                if (a.type === 'check' && b.type === 'help') return 1;
+                return (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0);
+            });
 
             if (allRequests.length === 0) {
                 list.innerHTML = `<li class="text-gray-500 italic">No student requests at the moment.</li>`;
