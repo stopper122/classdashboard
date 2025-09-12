@@ -22,6 +22,38 @@
         .tab-content.active {
             display: block;
         }
+        /* Larger Touch Targets */
+        .btn-lg {
+            padding: 1rem 2rem;
+            font-size: 1.125rem;
+        }
+        .tab-btn {
+            padding-bottom: 1rem;
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+            font-size: 1rem;
+        }
+        /* Responsive Layout */
+        @media (max-width: 1024px) {
+            #content-seating-chart .flex {
+                flex-direction: column;
+            }
+            #content-seating-chart .xl\\:w-1\/4 {
+                width: 100%;
+                max-width: 100%;
+            }
+        }
+        /* Larger Modals */
+        .modal-content {
+            width: 90%;
+            max-width: 600px;
+        }
+        @media (max-width: 768px) {
+            .modal-content {
+                width: 95%;
+                max-width: none;
+            }
+        }
         /* Drag and Drop Styles */
         .seat.dragging-over {
             outline: 3px solid #2563eb;
@@ -47,10 +79,10 @@
             <h1 class="text-3xl font-bold mb-4 text-gray-900">Classroom Management</h1>
             <p class="text-gray-600 mb-8">Please select your login type.</p>
             <div class="flex flex-col md:flex-row justify-center items-center gap-4">
-                <button onclick="switchView('teacher-login')" class="w-full max-w-xs bg-blue-600 text-white font-semibold py-4 px-8 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105">
+                <button onclick="switchView('teacher-login')" class="w-full max-w-xs bg-blue-600 text-white font-semibold py-4 px-8 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105 btn-lg">
                     Teacher Login
                 </button>
-                <button onclick="switchView('student-login')" class="w-full max-w-xs bg-green-600 text-white font-semibold py-4 px-8 rounded-lg shadow-md hover:bg-green-700 transition-transform transform hover:scale-105">
+                <button onclick="switchView('student-login')" class="w-full max-w-xs bg-green-600 text-white font-semibold py-4 px-8 rounded-lg shadow-md hover:bg-green-700 transition-transform transform hover:scale-105 btn-lg">
                     Student Login
                 </button>
             </div>
@@ -62,7 +94,7 @@
 <input type="password" id="teacher-password" placeholder="Enter Password"
        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-4" required>
 <button onclick="checkTeacherPassword()"
-        class="w-full bg-blue-600 text-white font-semibold py-4 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105">
+        class="w-full bg-blue-600 text-white font-semibold py-4 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105 btn-lg">
   Access Dashboard
 </button>
 <p id="teacher-login-error" class="text-red-500 text-sm h-4 mt-2"></p>
@@ -74,7 +106,7 @@
             <form id="student-login-form" class="flex flex-col items-center gap-4 mx-auto">
                 <label for="student-id-login" class="sr-only">Student ID</label>
                 <input type="number" id="student-id-login" placeholder="Enter Your Student ID#" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" required>
-                <button type="submit" class="w-full bg-green-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-green-700 transition">Login</button>
+                <button type="submit" class="w-full bg-green-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-green-700 transition btn-lg">Login</button>
                 <p id="login-error" class="text-red-500 text-sm h-4"></p> </form>
             <button onclick="switchView('login-type-selection')" class="mt-4 block w-full text-center text-sm text-gray-600 hover:text-gray-800">Back to login selection</button>
         </div>
@@ -110,8 +142,8 @@
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-2xl font-bold">Assignments</h2>
                         <div class="flex gap-2">
-  <button onclick="openModal('bulk-assignment-modal')" class="bg-purple-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-purple-700 transition">Bulk Add</button>
-  <button onclick="openModal('add-assignment-modal')" class="bg-blue-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-blue-700 transition">Add Assignment</button>
+  <button onclick="openModal('bulk-assignment-modal')" class="bg-purple-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-purple-700 transition btn-lg">Bulk Add</button>
+  <button onclick="openModal('add-assignment-modal')" class="bg-blue-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-blue-700 transition btn-lg">Add Assignment</button>
 </div>
 </div>
                     <div class="flex items-center gap-2 flex-wrap mb-4">
@@ -131,8 +163,8 @@
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-2xl font-bold">Student Roster</h2>
                         <div class="flex items-center gap-2">
-                            <button onclick="openModal('add-student-modal')" class="bg-green-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-green-700 transition">Add</button>
-                            <button onclick="openModal('bulk-upload-modal')" class="bg-purple-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-purple-700 transition">Bulk Upload</button>
+                            <button onclick="openModal('add-student-modal')" class="bg-green-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-green-700 transition btn-lg">Add</button>
+                            <button onclick="openModal('bulk-upload-modal')" class="bg-purple-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-purple-700 transition btn-lg">Bulk Upload</button>
                         </div>
                     </div>
                     <div class="flex items-center gap-2 mb-4 border-b pb-4">
@@ -184,7 +216,7 @@
                 <div class="bg-white p-6 rounded-xl shadow-md">
                     <h2 class="text-2xl font-bold mb-4">Data Backup</h2>
                     <p class="mb-6 text-gray-600">Export all your classroom data into a single CSV file. This includes students, assignments, scores, requests, and the seating chart arrangement.</p>
-                    <button onclick="exportAllDataAsCSV()" class="bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-indigo-700 transition">
+                    <button onclick="exportAllDataAsCSV()" class="bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-indigo-700 transition btn-lg">
                         Export All Data as CSV
                     </button>
                 </div>
@@ -221,7 +253,7 @@
     </div>
 
     <div id="add-assignment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg">
+        <div class="bg-white p-8 rounded-xl shadow-2xl modal-content">
             <h2 class="text-2xl font-bold mb-6">New Assignment</h2>
             <form id="add-assignment-form" class="space-y-6">
                 <div>
@@ -238,15 +270,15 @@
                     <p class="text-xs text-gray-500 mt-1">Leave blank to use today's date.</p>
                 </div>
                 <div class="flex justify-end gap-4">
-                    <button type="button" onclick="closeModal('add-assignment-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
-                    <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition">Add</button>
+                    <button type="button" onclick="closeModal('add-assignment-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition btn-lg">Cancel</button>
+                    <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition btn-lg">Add</button>
                 </div>
             </form>
         </div>
     </div>
 
     <div id="edit-assignment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg">
+        <div class="bg-white p-8 rounded-xl shadow-2xl modal-content">
             <h2 class="text-2xl font-bold mb-6">Edit Assignment</h2>
             <form id="edit-assignment-form" class="space-y-6">
                 <input type="hidden" id="assignment-original-id-edit">
@@ -264,15 +296,15 @@
                      <p class="text-xs text-gray-500 mt-1">Leave blank to use today's date.</p>
                 </div>
                 <div class="flex justify-end gap-4">
-                    <button type="button" onclick="closeModal('edit-assignment-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
-                    <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition">Save Changes</button>
+                    <button type="button" onclick="closeModal('edit-assignment-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition btn-lg">Cancel</button>
+                    <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition btn-lg">Save Changes</button>
                 </div>
             </form>
         </div>
     </div>
 
     <div id="score-assignment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-3xl">
+        <div class="bg-white p-8 rounded-xl shadow-2xl modal-content">
             <h2 class="text-2xl font-bold mb-2">Score Assignment</h2>
             <h3 class="text-lg text-gray-600 mb-6" id="score-assignment-title"></h3>
             <form id="score-assignment-form">
@@ -280,15 +312,15 @@
                 <div id="student-scores-list" class="space-y-4 max-h-96 overflow-y-auto pr-2">
                     </div>
                 <div class="flex justify-end gap-4 mt-8">
-                    <button type="button" onclick="closeModal('score-assignment-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
-                    <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition">Save Scores</button>
+                    <button type="button" onclick="closeModal('score-assignment-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition btn-lg">Cancel</button>
+                    <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition btn-lg">Save Scores</button>
                 </div>
             </form>
         </div>
     </div>
     
     <div id="add-student-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg">
+        <div class="bg-white p-8 rounded-xl shadow-2xl modal-content">
             <h2 class="text-2xl font-bold mb-6">Add New Student</h2>
             <form id="add-student-form" class="space-y-6">
                 <div>
@@ -304,15 +336,15 @@
                     <input type="text" id="student-lastName-add" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" required>
                 </div>
                 <div class="flex justify-end gap-4">
-                    <button type="button" onclick="closeModal('add-student-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
-                    <button type="submit" class="bg-green-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-green-700 transition">Add Student</button>
+                    <button type="button" onclick="closeModal('add-student-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition btn-lg">Cancel</button>
+                    <button type="submit" class="bg-green-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-green-700 transition btn-lg">Add Student</button>
                 </div>
             </form>
         </div>
     </div>
 
     <div id="edit-student-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg">
+        <div class="bg-white p-8 rounded-xl shadow-2xl modal-content">
             <h2 class="text-2xl font-bold mb-6">Edit Student</h2>
             <form id="edit-student-form" class="space-y-6">
                 <input type="hidden" id="student-original-id-edit">
@@ -329,15 +361,15 @@
                     <input type="text" id="student-lastName-edit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
                 </div>
                 <div class="flex justify-end gap-4">
-                    <button type="button" onclick="closeModal('edit-student-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
-                    <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition">Save Changes</button>
+                    <button type="button" onclick="closeModal('edit-student-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition btn-lg">Cancel</button>
+                    <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition btn-lg">Save Changes</button>
                 </div>
             </form>
         </div>
     </div>
     
     <div id="bulk-upload-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-xl">
+        <div class="bg-white p-8 rounded-xl shadow-2xl modal-content">
             <h2 class="text-2xl font-bold mb-6">Bulk Upload Students</h2>
             <form id="bulk-upload-form">
                 <div class="mb-4">
@@ -346,38 +378,38 @@
                     <p class="text-xs text-gray-500 mt-1">Note: Students with existing IDs will be skipped to avoid duplicates.</p>
                 </div>
                 <div class="flex justify-end gap-4">
-                    <button type="button" onclick="closeModal('bulk-upload-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
-                    <button type="submit" class="bg-purple-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-purple-700 transition">Upload Students</button>
+                    <button type="button" onclick="closeModal('bulk-upload-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition btn-lg">Cancel</button>
+                    <button type="submit" class="bg-purple-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-purple-700 transition btn-lg">Upload Students</button>
                 </div>
             </form>
         </div>
     </div>
 
     <div id="student-assignment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-3xl">
+        <div class="bg-white p-8 rounded-xl shadow-2xl modal-content">
             <h2 id="student-assignment-modal-title" class="text-2xl font-bold mb-6"></h2>
             <div id="student-assignment-modal-list" class="space-y-4 max-h-96 overflow-y-auto pr-2">
                 </div>
             <div id="student-assignment-modal-footer" class="flex justify-end mt-8 gap-4">
-                <button type="button" onclick="closeModal('student-assignment-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
-                <button type="button" id="save-student-scores-btn" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition">Save Scores</button>
+                <button type="button" onclick="closeModal('student-assignment-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition btn-lg">Cancel</button>
+                <button type="button" id="save-student-scores-btn" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition btn-lg">Save Scores</button>
             </div>
         </div>
     </div>
 
     <div id="confirmation-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-sm text-center">
+        <div class="bg-white p-8 rounded-xl shadow-2xl modal-content">
             <h2 class="text-xl font-bold mb-4" id="confirmation-title">Are you sure?</h2>
             <p id="confirmation-message" class="text-gray-600 mb-6">This action cannot be undone.</p>
             <div class="flex justify-center gap-4">
-                <button id="cancel-button" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
-                <button id="confirm-button" class="bg-red-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-red-700 transition">Confirm</button>
+                <button id="cancel-button" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition btn-lg">Cancel</button>
+                <button id="confirm-button" class="bg-red-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-red-700 transition btn-lg">Confirm</button>
             </div>
         </div>
     </div>
 
     <div id="bulk-assignment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-  <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-2xl">
+  <div class="bg-white p-8 rounded-xl shadow-2xl modal-content">
     <h2 class="text-2xl font-bold mb-6">Bulk Add Assignments</h2>
 
     <div class="mb-4 text-sm text-gray-600">
@@ -399,9 +431,9 @@ Drafting Quiz | 2025-09-03</pre>
         </label>
         <div class="flex gap-3">
           <button type="button" onclick="closeModal('bulk-assignment-modal')"
-            class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
+            class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition btn-lg">Cancel</button>
           <button type="submit"
-            class="bg-purple-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-purple-700 transition">Add All</button>
+            class="bg-purple-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-purple-700 transition btn-lg">Add All</button>
         </div>
       </div>
     </form>
