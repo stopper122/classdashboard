@@ -87,7 +87,7 @@
                 </div>
                  <button onclick="switchView('login-type-selection')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Logout</button>
             </header>
-            
+
             <div class="mb-6 border-b border-gray-200">
                 <nav class="flex space-x-4" aria-label="Tabs">
                     <button onclick="switchTeacherTab('assignments')" id="tab-assignments" class="tab-btn whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
@@ -202,6 +202,10 @@
             <h2 class="text-2xl font-bold mb-6">New Assignment</h2>
             <form id="add-assignment-form" class="space-y-6">
                 <div>
+                    <label for="assignment-number" class="block text-sm font-medium text-gray-700 mb-1">Assignment Number</label>
+                    <input type="number" id="assignment-number" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
+                </div>
+                <div>
                     <label for="assignment-title" class="block text-sm font-medium text-gray-700 mb-1">Title</label>
                     <input type="text" id="assignment-title" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
                 </div>
@@ -223,6 +227,10 @@
             <h2 class="text-2xl font-bold mb-6">Edit Assignment</h2>
             <form id="edit-assignment-form" class="space-y-6">
                 <input type="hidden" id="assignment-original-id-edit">
+                <div>
+                    <label for="assignment-number-edit" class="block text-sm font-medium text-gray-700 mb-1">Assignment Number</label>
+                    <input type="number" id="assignment-number-edit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
+                </div>
                 <div>
                     <label for="assignment-title-edit" class="block text-sm font-medium text-gray-700 mb-1">Title</label>
                     <input type="text" id="assignment-title-edit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
@@ -685,11 +693,11 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
         
         function renderTeacherAssignmentList() {
             const list = document.getElementById('teacher-assignment-list');
-            list.innerHTML = assignments.map((a, index) => `
+            list.innerHTML = assignments.map(a => `
                 <div class="p-5 border border-gray-200 rounded-lg">
                     <div class="flex justify-between items-start">
                         <div>
-                            <h3 class="font-semibold text-lg">#${index + 1}: ${a.title}</h3>
+                            <h3 class="font-semibold text-lg">#${a.assignmentNumber}: ${a.title}</h3>
                             <p class="text-sm text-gray-500">Posted: ${new Date(a.postedDate).toLocaleDateString()}</p>
                         </div>
                         <div class="flex items-center gap-4">
@@ -720,13 +728,13 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                 }
             });
 
-            list.innerHTML = sortedAssignments.map((a, index) => {
+            list.innerHTML = sortedAssignments.map(a => {
                 const score = a.scores && a.scores[student.id] !== undefined ? a.scores[student.id] : 'Not Graded';
                 return `
                     <div class="p-5 border border-gray-200 rounded-lg">
                         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center">
                             <div>
-                                <h3 class="font-semibold text-lg">#${index + 1}: ${a.title}</h3>
+                                <h3 class="font-semibold text-lg">#${a.assignmentNumber}: ${a.title}</h3>
                                 <p class="text-sm text-gray-500">Posted: ${new Date(a.postedDate).toLocaleDateString()}</p>
                             </div>
                             <div class="mt-3 sm:mt-0">
@@ -800,6 +808,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
             if (!assignment) return;
             
             document.getElementById('assignment-original-id-edit').value = assignment.id;
+            document.getElementById('assignment-number-edit').value = assignment.assignmentNumber;
             document.getElementById('assignment-title-edit').value = assignment.title;
             document.getElementById('assignment-posted-date-edit').value = assignment.postedDate;
             openModal('edit-assignment-modal');
@@ -808,10 +817,8 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
         function openScoreAssignmentModal(assignmentFbId) {
             const assignment = assignments.find(a => a.fbId === assignmentFbId);
             if (!assignment) return;
-            
-            const assignmentIndex = assignments.findIndex(a => a.fbId === assignmentFbId);
 
-            document.getElementById('score-assignment-title').textContent = `#${assignmentIndex + 1}: ${assignment.title}`;
+            document.getElementById('score-assignment-title').textContent = `#${assignment.assignmentNumber}: ${assignment.title}`;
             document.getElementById('score-assignment-id').value = assignmentFbId;
             
             const list = document.getElementById('student-scores-list');
@@ -841,11 +848,11 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
             const saveBtn = document.getElementById('save-student-scores-btn');
 
             titleEl.textContent = `Assignments for ${student.firstName} ${student.lastName}`;
-            listEl.innerHTML = assignments.map((a, index) => {
+            listEl.innerHTML = assignments.map(a => {
                 const currentScore = a.scores && a.scores[student.id] !== undefined ? a.scores[student.id] : '';
                 return `
                      <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                        <span class="font-medium">#${index + 1}: ${a.title}</span>
+                        <span class="font-medium">#${a.assignmentNumber}: ${a.title}</span>
                         <input type="number" value="${currentScore}"
                                class="w-24 px-2 py-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                                placeholder="Score"
@@ -918,12 +925,14 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
 
         document.getElementById('add-assignment-form').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const assignmentNumber = document.getElementById('assignment-number').value;
             const title = document.getElementById('assignment-title').value;
             let postedDate = document.getElementById('assignment-posted-date').value;
             if (!postedDate) postedDate = new Date().toISOString().split('T')[0];
 
             await addDoc(assignmentsCol, { 
-                id: Date.now(), 
+                id: Date.now(),
+                assignmentNumber: Number(assignmentNumber),
                 title, 
                 postedDate,
                 scores: {}
@@ -936,13 +945,18 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
         document.getElementById('edit-assignment-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const originalId = Number(document.getElementById('assignment-original-id-edit').value);
+            const assignmentNumber = document.getElementById('assignment-number-edit').value;
             const title = document.getElementById('assignment-title-edit').value;
             let postedDate = document.getElementById('assignment-posted-date-edit').value;
              if (!postedDate) postedDate = new Date().toISOString().split('T')[0];
 
             const assignmentDoc = assignments.find(a => a.id === originalId);
             if (assignmentDoc) {
-                await updateDoc(doc(assignmentsCol, assignmentDoc.fbId), { title, postedDate });
+                await updateDoc(doc(assignmentsCol, assignmentDoc.fbId), {
+                    assignmentNumber: Number(assignmentNumber),
+                    title,
+                    postedDate
+                });
                 showSuccessMessage('Assignment updated successfully.');
             }
             closeModal('edit-assignment-modal');
@@ -1217,7 +1231,8 @@ document.getElementById('bulk-assignment-form').addEventListener('submit', async
         title: item.title,
         postedDate: item.postedDate || today,
         scores: {},
-        id: Date.now() + i
+        id: Date.now() + i,
+        assignmentNumber: assignments.length + i + 1,
       });
       i++;
     }
