@@ -621,6 +621,13 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
             updateDeleteSelectedButtonState();
         }
         
+        function getSortableScore(score) {
+            if (score === 'Excused' || score === 'Not Graded' || score === undefined || score === null) {
+                return -1; // Treat non-numeric scores as the lowest value
+            }
+            return Number(score);
+        }
+        
         function sortAssignments(key) {
             currentAssignmentSortKey = key;
             renderStudentView();
@@ -757,16 +764,16 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
             let sortedAssignments = [...assignments];
 
             sortedAssignments.sort((a, b) => {
-                const scoreA = a.scores ? a.scores[student.id] : -Infinity;
-                const scoreB = b.scores ? b.scores[student.id] : -Infinity;
+                const scoreA = a.scores ? a.scores[student.id] : undefined;
+                const scoreB = b.scores ? b.scores[student.id] : undefined;
 
                 switch (currentAssignmentSortKey) {
                     case 'number_asc': return a.assignmentNumber - b.assignmentNumber;
                     case 'number_desc': return b.assignmentNumber - a.assignmentNumber;
                     case 'date_desc': return new Date(b.postedDate) - new Date(a.postedDate);
                     case 'date_asc': return new Date(a.postedDate) - new Date(b.postedDate);
-                    case 'score_desc': return (scoreB ?? -1) - (scoreA ?? -1);
-                    case 'score_asc': return (scoreA ?? -1) - (scoreB ?? -1);
+                    case 'score_desc': return getSortableScore(scoreB) - getSortableScore(scoreA);
+                    case 'score_asc': return getSortableScore(scoreA) - getSortableScore(scoreB);
                     default: return 0;
                 }
             });
@@ -865,15 +872,19 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
             document.getElementById('score-assignment-id').value = assignmentFbId;
             
             const list = document.getElementById('student-scores-list');
+            const scoreOptions = ['0', '1', '2', '3', '4', 'Excused'];
             list.innerHTML = students.map(s => {
-                const currentScore = assignment.scores && assignment.scores[s.id] !== undefined ? assignment.scores[s.id] : '';
+                const currentScore = assignment.scores && assignment.scores[s.id] !== undefined ? String(assignment.scores[s.id]) : '';
+                const radioButtons = scoreOptions.map(option => `
+                    <label class="flex items-center">
+                        <input type="radio" name="score-${s.id}" value="${option}" ${currentScore === option ? 'checked' : ''} class="mr-1">
+                        ${option}
+                    </label>
+                `).join('');
                 return `
-                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg" data-student-id="${s.id}">
                         <span class="font-medium">${s.firstName} ${s.lastName}</span>
-                        <input type="number" value="${currentScore}"
-                               class="w-24 px-2 py-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                               placeholder="Score"
-                               data-student-id="${s.id}">
+                        <div class="flex items-center gap-x-4">${radioButtons}</div>
                     </div>
                 `;
             }).join('');
@@ -891,16 +902,19 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
             const saveBtn = document.getElementById('save-student-scores-btn');
 
             titleEl.textContent = `Assignments for ${student.firstName} ${student.lastName}`;
+            const scoreOptions = ['0', '1', '2', '3', '4', 'Excused'];
             listEl.innerHTML = assignments.map(a => {
-                const currentScore = a.scores && a.scores[student.id] !== undefined ? a.scores[student.id] : '';
+                const currentScore = a.scores && a.scores[student.id] !== undefined ? String(a.scores[student.id]) : '';
+                const radioButtons = scoreOptions.map(option => `
+                    <label class="flex items-center">
+                        <input type="radio" name="score-${a.fbId}-${student.id}" value="${option}" ${currentScore === option ? 'checked' : ''} class="mr-1">
+                        ${option}
+                    </label>
+                `).join('');
                 return `
-                     <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                     <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg" data-assignment-id="${a.fbId}">
                         <span class="font-medium">#${a.assignmentNumber}: ${a.title}</span>
-                        <input type="number" value="${currentScore}"
-                               class="w-24 px-2 py-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                               placeholder="Score"
-                               data-assignment-id="${a.fbId}"
-                               data-student-id="${student.id}">
+                        <div class="flex items-center gap-x-4">${radioButtons}</div>
                     </div>
                 `;
             }).join('');
@@ -910,15 +924,18 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
         }
         
         async function saveStudentScoresFromModal(studentId) {
-            const scoreInputs = document.querySelectorAll('#student-assignment-modal-list input');
+            const scoreDivs = document.querySelectorAll('#student-assignment-modal-list > div');
             const batch = writeBatch(db);
 
-            scoreInputs.forEach(input => {
-                const assignmentFbId = input.dataset.assignmentId;
-                const score = input.value;
-                if (score !== '') {
+            scoreDivs.forEach(div => {
+                const assignmentFbId = div.dataset.assignmentId;
+                const selectedRadio = div.querySelector(`input[name="score-${assignmentFbId}-${studentId}"]:checked`);
+                
+                if (selectedRadio) {
+                    const score = selectedRadio.value;
+                    let scoreToSave = score === 'Excused' ? 'Excused' : Number(score);
                     const assignmentRef = doc(assignmentsCol, assignmentFbId);
-                    batch.update(assignmentRef, { [`scores.${studentId}`]: Number(score) });
+                    batch.update(assignmentRef, { [`scores.${studentId}`]: scoreToSave });
                 }
             });
 
@@ -1008,16 +1025,19 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
         document.getElementById('score-assignment-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const assignmentFbId = document.getElementById('score-assignment-id').value;
-            const scoreInputs = document.querySelectorAll('#student-scores-list input');
+            const studentScoreDivs = document.querySelectorAll('#student-scores-list > div');
 
             const assignmentRef = doc(assignmentsCol, assignmentFbId);
             const updates = {};
-            scoreInputs.forEach(input => {
-                const studentId = input.dataset.studentId;
-                const score = input.value;
-                 if (score !== '') {
-                    updates[`scores.${studentId}`] = Number(score);
-                 }
+            
+            studentScoreDivs.forEach(div => {
+                const studentId = div.dataset.studentId;
+                const selectedRadio = div.querySelector(`input[name="score-${studentId}"]:checked`);
+                if (selectedRadio) {
+                    const score = selectedRadio.value;
+                    const scoreToSave = score === 'Excused' ? 'Excused' : Number(score);
+                    updates[`scores.${studentId}`] = scoreToSave;
+                }
             });
 
             await updateDoc(assignmentRef, updates);
