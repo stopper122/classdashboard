@@ -706,6 +706,14 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
 
                         const needsHelp = studentsNeedingHelp.has(student.id);
                         const needsCheck = studentsNeedingCheck.has(student.id);
+                        
+                        // Remove all potential color classes first
+                        seatEl.classList.remove(
+                            'bg-purple-200', 'border-purple-400', 'text-purple-900',
+                            'bg-red-200', 'border-red-400', 'text-red-900',
+                            'bg-sky-200', 'border-sky-400', 'text-sky-900',
+                            'bg-blue-100'
+                        );
 
                         if (needsHelp && needsCheck) {
                             seatEl.classList.add('bg-purple-200', 'border-purple-400', 'text-purple-900');
