@@ -99,6 +99,9 @@
                     <button onclick="switchTeacherTab('seating-chart')" id="tab-seating-chart" class="tab-btn whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
                         Seating Chart
                     </button>
+                    <button onclick="switchTeacherTab('backup')" id="tab-backup" class="tab-btn whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                        Backup
+                    </button>
                 </nav>
             </div>
 
@@ -176,6 +179,17 @@
                     </div>
                 </div>
             </div>
+            
+            <div id="content-backup" class="tab-content">
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h2 class="text-2xl font-bold mb-4">Data Backup</h2>
+                    <p class="mb-6 text-gray-600">Export all your classroom data into a single CSV file. This includes students, assignments, scores, requests, and the seating chart arrangement.</p>
+                    <button onclick="exportAllDataAsCSV()" class="bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-indigo-700 transition">
+                        Export All Data as CSV
+                    </button>
+                </div>
+            </div>
+
         </div>
 
         <div id="student-view" class="view">
@@ -1276,6 +1290,89 @@ document.getElementById('bulk-assignment-form').addEventListener('submit', async
   }
 });
 
+        // --- CSV EXPORT ---
+        function escapeCSV(str) {
+            if (str === null || str === undefined) return '';
+            str = String(str);
+            if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                return `"${str.replace(/"/g, '""')}"`;
+            }
+            return str;
+        }
+
+        function exportAllDataAsCSV() {
+            let csvContent = "";
+
+            // Students
+            csvContent += "Students\n";
+            csvContent += "ID,First Name,Last Name\n";
+            students.forEach(s => {
+                csvContent += `${s.id},${escapeCSV(s.firstName)},${escapeCSV(s.lastName)}\n`;
+            });
+            csvContent += "\n";
+
+            // Assignments and Scores
+            csvContent += "Assignments and Scores\n";
+            const studentHeaders = students.map(s => `"${s.firstName} ${s.lastName} (ID: ${s.id})"`).join(',');
+            csvContent += `Assignment Number,Title,Posted Date,${studentHeaders}\n`;
+            assignments.forEach(a => {
+                const scoresRow = students.map(s => a.scores[s.id] || '').join(',');
+                csvContent += `${a.assignmentNumber},${escapeCSV(a.title)},${a.postedDate},${scoresRow}\n`;
+            });
+            csvContent += "\n";
+            
+            // Seating Chart
+            csvContent += "Seating Chart\n";
+            for (let i = 0; i < CLASSROOM_ROWS; i++) {
+                let row = [];
+                for (let j = 0; j < CLASSROOM_COLS; j++) {
+                    const seatIndex = i * CLASSROOM_COLS + j;
+                    const seatContent = seatingChart[seatIndex];
+                    if (seatContent === 'BLANK') {
+                        row.push('BLANK');
+                    } else if (typeof seatContent === 'number') {
+                        const student = students.find(s => s.id === seatContent);
+                        row.push(student ? `${student.firstName} ${student.lastName}` : `ID ${seatContent}`);
+                    } else {
+                        row.push('');
+                    }
+                }
+                csvContent += row.map(escapeCSV).join(',') + '\n';
+            }
+            csvContent += "\n";
+
+            // Help Requests
+            csvContent += "Help Requests\n";
+            csvContent += "Student ID,Student Name,Timestamp\n";
+            helpRequests.forEach(r => {
+                const student = students.find(s => s.id === r.studentId);
+                const name = student ? `${student.firstName} ${student.lastName}` : '';
+                csvContent += `${r.studentId},${escapeCSV(name)},${new Date(r.timestamp.seconds * 1000).toLocaleString()}\n`;
+            });
+             csvContent += "\n";
+
+            // Check Requests
+            csvContent += "Check Requests\n";
+            csvContent += "Student ID,Student Name,Timestamp\n";
+            checkRequests.forEach(r => {
+                const student = students.find(s => s.id === r.studentId);
+                const name = student ? `${student.firstName} ${student.lastName}` : '';
+                csvContent += `${r.studentId},${escapeCSV(name)},${new Date(r.timestamp.seconds * 1000).toLocaleString()}\n`;
+            });
+
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            const date = new Date().toISOString().split('T')[0];
+            link.setAttribute("download", `classroom_backup_${date}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
         
         // --- GLOBAL ATTACHMENTS ---
         window.switchView = switchView;
@@ -1300,6 +1397,7 @@ document.getElementById('bulk-assignment-form').addEventListener('submit', async
         window.handleDragLeave = handleDragLeave;
         window.handleDrop = handleDrop;
         window.openStudentAssignmentModal = openStudentAssignmentModal;
+        window.exportAllDataAsCSV = exportAllDataAsCSV;
 
         // --- INITIALIZATION ---
         initFirebase();
