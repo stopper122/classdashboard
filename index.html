@@ -416,7 +416,7 @@ Drafting Quiz | 2025-09-03</pre>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, writeBatch, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- FIREBASE & DATA ---
 
@@ -521,13 +521,19 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
             
             onSnapshot(query(helpRequestsCol), (snapshot) => {
                 helpRequests = snapshot.docs.map(doc => ({ fbId: doc.id, ...doc.data() }));
-                if (currentView === 'teacher') renderStudentRequests();
+                if (currentView === 'teacher') {
+                    renderStudentRequests();
+                    renderSeatingChart();
+                }
                 if (currentView === 'student') renderStudentView();
             });
 
             onSnapshot(query(checkRequestsCol), (snapshot) => {
                 checkRequests = snapshot.docs.map(doc => ({ fbId: doc.id, ...doc.data() }));
-                if (currentView === 'teacher') renderStudentRequests();
+                if (currentView === 'teacher') {
+                    renderStudentRequests();
+                    renderSeatingChart();
+                }
                 if (currentView === 'student') renderStudentView();
             });
 
@@ -700,16 +706,16 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
 
                         const needsHelp = studentsNeedingHelp.has(student.id);
                         const needsCheck = studentsNeedingCheck.has(student.id);
+                        
+                        // Remove all potential color classes first
+                        seatEl.classList.remove(
+                            'bg-purple-200', 'border-purple-400', 'text-purple-900',
+                            'bg-red-200', 'border-red-400', 'text-red-900',
+                            'bg-sky-200', 'border-sky-400', 'text-sky-900',
+                            'bg-blue-100'
+                        );
 
                         if (needsHelp && needsCheck) {
-                            seatEl.classList.add('bg-purple-200', 'border-purple-400', 'text-purple-900');
-                            seatEl.style.color = 'purple';
-                        } else if (needsHelp) {
-                            seatEl.classList.add('bg-red-200', 'border-red-400', 'text-red-900');
-                            seatEl.style.color = 'red';
-                        } else if (needsCheck) {
-                            seatEl.classList.add('bg-sky-200', 'border-sky-400', 'text-sky-900');
-                            seatEl.style.color = 'blue';
                             seatEl.classList.add('bg-purple-200', 'border-purple-400', 'text-purple-900');
                         } else if (needsHelp) {
                             seatEl.classList.add('bg-red-200', 'border-red-400', 'text-red-900');
@@ -788,6 +794,9 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
 
             list.innerHTML = sortedAssignments.map(a => {
                 const score = a.scores && a.scores[student.id] !== undefined ? a.scores[student.id] : 'Not Graded';
+                const hasHelpRequest = helpRequests.some(r => r.studentId === student.id && r.assignmentId === a.fbId);
+                const hasCheckRequest = checkRequests.some(r => r.studentId === student.id && r.assignmentId === a.fbId);
+
                 return `
                     <div class="p-5 border border-gray-200 rounded-lg">
                         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center">
@@ -795,7 +804,13 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                                 <h3 class="font-semibold text-lg">#${a.assignmentNumber}: ${a.title}</h3>
                                 <p class="text-sm text-gray-500">Posted: ${new Date(a.postedDate).toLocaleDateString()}</p>
                             </div>
-                            <div class="mt-3 sm:mt-0">
+                             <div class="flex items-center gap-2 mt-3 sm:mt-0">
+                                <button onclick="requestHelp('${a.fbId}', '${a.title}')" class="text-sm font-semibold py-2 px-4 rounded-full ${hasHelpRequest ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-red-200 text-red-800 hover:bg-red-300'}" ${hasHelpRequest ? 'disabled' : ''}>
+                                    I need Help
+                                </button>
+                                <button onclick="requestCheck('${a.fbId}', '${a.title}')" class="text-sm font-semibold py-2 px-4 rounded-full ${hasCheckRequest ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-sky-200 text-sky-800 hover:bg-sky-300'}" ${hasCheckRequest ? 'disabled' : ''}>
+                                    Program ready to check
+                                </button>
                                 <span class="font-bold text-lg ${score === 'Not Graded' ? 'text-gray-500' : 'text-blue-600'}">${score}</span>
                             </div>
                         </div>
@@ -809,7 +824,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
             const allRequests = [
                 ...helpRequests.map(r => ({ ...r, type: 'help' })),
                 ...checkRequests.map(r => ({ ...r, type: 'check' }))
-            ].sort((a, b) => a.timestamp - b.timestamp);
+            ].sort((a, b) => a.timestamp?.seconds - b.timestamp?.seconds);
 
             if (allRequests.length === 0) {
                 list.innerHTML = `<li class="text-gray-500 italic">No student requests at the moment.</li>`;
@@ -822,11 +837,15 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                 const bgColor = req.type === 'help' ? 'bg-red-100' : 'bg-sky-100';
                 const textColor = req.type === 'help' ? 'text-red-800' : 'text-sky-800';
                 const buttonColor = req.type === 'help' ? 'bg-red-200 hover:bg-red-300' : 'bg-sky-200 hover:bg-sky-300';
+                const assignmentTitle = req.assignmentTitle ? `for "${req.assignmentTitle}"` : '';
 
                 return `
                     <li class="${bgColor} ${textColor} p-3 rounded-lg flex justify-between items-center">
-                        <span class="font-medium">${name} needs ${req.type}</span>
-                        <button onclick="resolveRequest('${req.type}', '${req.fbId}')" class="${buttonColor} text-xs font-bold py-1 px-2 rounded-full">
+                        <div>
+                            <span class="font-medium">${name} needs ${req.type}</span>
+                            <span class="text-xs block">${assignmentTitle}</span>
+                        </div>
+                        <button onclick="resolveRequest('${req.type}', '${req.fbId}')" class="${buttonColor} text-xs font-bold py-1 px-2 rounded-full flex-shrink-0 ml-2">
                             RESOLVE
                         </button>
                     </li>
@@ -1404,6 +1423,36 @@ document.getElementById('bulk-assignment-form').addEventListener('submit', async
             document.body.removeChild(link);
         }
 
+        async function requestHelp(assignmentId, assignmentTitle) {
+            const existingRequest = helpRequests.some(r => r.studentId === currentStudentId && r.assignmentId === assignmentId);
+            if (existingRequest) {
+                showSuccessMessage("You already have a help request for this assignment.");
+                return;
+            }
+            await addDoc(helpRequestsCol, {
+                studentId: currentStudentId,
+                assignmentId,
+                assignmentTitle,
+                timestamp: serverTimestamp()
+            });
+            showSuccessMessage("Help request sent!");
+        }
+
+        async function requestCheck(assignmentId, assignmentTitle) {
+            const existingRequest = checkRequests.some(r => r.studentId === currentStudentId && r.assignmentId === assignmentId);
+            if (existingRequest) {
+                showSuccessMessage("You already have a check request for this assignment.");
+                return;
+            }
+            await addDoc(checkRequestsCol, {
+                studentId: currentStudentId,
+                assignmentId,
+                assignmentTitle,
+                timestamp: serverTimestamp()
+            });
+            showSuccessMessage("Check request sent!");
+        }
+
         
         // --- GLOBAL ATTACHMENTS ---
         window.switchView = switchView;
@@ -1429,6 +1478,8 @@ document.getElementById('bulk-assignment-form').addEventListener('submit', async
         window.handleDrop = handleDrop;
         window.openStudentAssignmentModal = openStudentAssignmentModal;
         window.exportAllDataAsCSV = exportAllDataAsCSV;
+        window.requestHelp = requestHelp;
+        window.requestCheck = requestCheck;
 
         // --- INITIALIZATION ---
         initFirebase();
