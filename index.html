@@ -63,42 +63,7 @@ if (bulkTextarea && bulkPreview) {
 
 
 document.addEventListener("DOMContentLoaded", () => {
-  const bulkForm = document.getElementById("bulk-assignment-form");
-  console.log("🔍 bulkForm found?", bulkForm);
-  if (bulkForm) {
-    bulkForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      console.log("🔥 BULK HANDLER STARTED");
-
-      const textarea = document.getElementById("bulk-assignment-data");
-      const rawData = textarea.value.trim();
-      const useToday = document.getElementById("bulk-assignment-default-today").checked;
-
-      if (!rawData) return;
-
-      const lines = rawData.split(/
-?
-/).map(line => line.trim()).filter(line => line.length > 0);
-      console.log("Lines parsed:", lines);
-
-      for (const line of lines) {
-        let [title, date] = line.split(/[,|]/).map(s => s.trim());
-
-        if (!date && useToday) {
-          date = new Date().toISOString().split("T")[0];
-        }
-
-        await addDoc(assignmentsCol, {
-          title,
-          postedDate: date || null,
-          createdAt: new Date().toISOString()
-        });
-      }
-
-      closeModal("bulk-assignment-modal");
-      textarea.value = "";
-    });
-  } else {
+  const bulkForm = } else {
     console.error("❌ bulk-assignment-form not found");
   }
 });
