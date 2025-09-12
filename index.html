@@ -794,8 +794,8 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
 
             list.innerHTML = sortedAssignments.map(a => {
                 const score = a.scores && a.scores[student.id] !== undefined ? a.scores[student.id] : 'Not Graded';
-                const hasHelpRequest = helpRequests.some(r => r.studentId === student.id && r.assignmentId === a.fbId);
-                const hasCheckRequest = checkRequests.some(r => r.studentId === student.id && r.assignmentId === a.fbId);
+                const helpRequest = helpRequests.find(r => r.studentId === student.id && r.assignmentId === a.fbId);
+                const checkRequest = checkRequests.find(r => r.studentId === student.id && r.assignmentId === a.fbId);
 
                 return `
                     <div class="p-5 border border-gray-200 rounded-lg">
@@ -805,12 +805,22 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                                 <p class="text-sm text-gray-500">Posted: ${new Date(a.postedDate).toLocaleDateString()}</p>
                             </div>
                              <div class="flex items-center gap-2 mt-3 sm:mt-0">
-                                <button onclick="requestHelp('${a.fbId}', '${a.title}')" class="text-sm font-semibold py-2 px-4 rounded-full ${hasHelpRequest ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-red-200 text-red-800 hover:bg-red-300'}" ${hasHelpRequest ? 'disabled' : ''}>
-                                    I need Help
-                                </button>
-                                <button onclick="requestCheck('${a.fbId}', '${a.title}')" class="text-sm font-semibold py-2 px-4 rounded-full ${hasCheckRequest ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-sky-200 text-sky-800 hover:bg-sky-300'}" ${hasCheckRequest ? 'disabled' : ''}>
-                                    Program ready to check
-                                </button>
+                                ${helpRequest ? 
+                                    `<button onclick="cancelRequest('help', '${helpRequest.fbId}')" class="text-sm font-semibold py-2 px-4 rounded-full bg-yellow-200 text-yellow-800 hover:bg-yellow-300">
+                                        Cancel Help
+                                    </button>` :
+                                    `<button onclick="requestHelp('${a.fbId}', '${a.title}')" class="text-sm font-semibold py-2 px-4 rounded-full bg-red-200 text-red-800 hover:bg-red-300">
+                                        I need Help
+                                    </button>`
+                                }
+                                ${checkRequest ? 
+                                    `<button onclick="cancelRequest('check', '${checkRequest.fbId}')" class="text-sm font-semibold py-2 px-4 rounded-full bg-yellow-200 text-yellow-800 hover:bg-yellow-300">
+                                        Cancel Check
+                                    </button>` :
+                                    `<button onclick="requestCheck('${a.fbId}', '${a.title}')" class="text-sm font-semibold py-2 px-4 rounded-full bg-sky-200 text-sky-800 hover:bg-sky-300">
+                                        Program ready to check
+                                    </button>`
+                                }
                                 <span class="font-bold text-lg ${score === 'Not Graded' ? 'text-gray-500' : 'text-blue-600'}">${score}</span>
                             </div>
                         </div>
@@ -1453,6 +1463,12 @@ document.getElementById('bulk-assignment-form').addEventListener('submit', async
             });
             showSuccessMessage("Check request sent!");
         }
+        
+        async function cancelRequest(type, fbId) {
+            const collectionRef = type === 'help' ? helpRequestsCol : checkRequestsCol;
+            await deleteDoc(doc(collectionRef, fbId));
+            showSuccessMessage('Request cancelled.');
+        }
 
         
         // --- GLOBAL ATTACHMENTS ---
@@ -1482,6 +1498,7 @@ document.getElementById('bulk-assignment-form').addEventListener('submit', async
         window.requestHelp = requestHelp;
         window.requestCheck = requestCheck;
         window.resolveRequest = resolveRequest;
+        window.cancelRequest = cancelRequest;
 
         // --- INITIALIZATION ---
         initFirebase();
