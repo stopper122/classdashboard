@@ -903,7 +903,10 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
 
             titleEl.textContent = `Assignments for ${student.firstName} ${student.lastName}`;
             const scoreOptions = ['0', '1', '2', '3', '4', 'Excused'];
-            listEl.innerHTML = assignments.map(a => {
+            
+            const sortedAssignments = [...assignments].sort((a, b) => a.assignmentNumber - b.assignmentNumber);
+
+            listEl.innerHTML = sortedAssignments.map(a => {
                 const currentScore = a.scores && a.scores[student.id] !== undefined ? String(a.scores[student.id]) : '';
                 const radioButtons = scoreOptions.map(option => `
                     <label class="flex items-center">
