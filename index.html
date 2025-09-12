@@ -1465,8 +1465,9 @@ document.getElementById('bulk-assignment-form').addEventListener('submit', async
         }
         
         async function cancelRequest(type, fbId) {
-            const collectionRef = type === 'help' ? helpRequestsCol : checkRequestsCol;
-            await deleteDoc(doc(collectionRef, fbId));
+            const collectionName = type === 'help' ? 'helpRequests' : 'checkRequests';
+            const docRef = doc(db, `artifacts/${appId}/public/data/${collectionName}`, fbId);
+            await deleteDoc(docRef);
             showSuccessMessage('Request cancelled.');
         }
 
