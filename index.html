@@ -801,7 +801,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
             const allRequests = [
                 ...helpRequests.map(r => ({ ...r, type: 'help' })),
                 ...checkRequests.map(r => ({ ...r, type: 'check' }))
-            ].sort((a, b) => a.timestamp - b.timestamp);
+            ].sort((a, b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
 
             if (allRequests.length === 0) {
                 list.innerHTML = `<li class="text-gray-500 italic">No student requests at the moment.</li>`;
@@ -830,6 +830,9 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
             const col = type === 'help' ? helpRequestsCol : checkRequestsCol;
             await deleteDoc(doc(col, fbId));
             showSuccessMessage('Request resolved.');
+            // Force refresh of UI immediately
+            renderStudentRequests();
+            renderSeatingChart();
         }
 
         
