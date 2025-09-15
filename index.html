@@ -829,7 +829,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                         <div>
                             <h3 class="font-semibold text-lg">#${a.assignmentNumber}: ${a.title}</h3>
                             <p class="text-sm text-gray-500">Posted: ${new Date(a.postedDate).toLocaleDateString()}</p>
-<p class="text-gray-600 text-sm mt-1">${a.description || ""}</p>
+<p contenteditable="true" onblur="updateAssignmentDescription('${a.fbId}', this.innerText)" class="text-gray-600 text-sm mt-1 border border-transparent hover:border-gray-300 rounded px-1">${a.description || "Click to add description..."}</p>
                         </div>
                         <div class="flex items-center gap-4">
                             <button onclick="openScoreAssignmentModal('${a.fbId}')" class="text-sm text-green-600 hover:text-green-800 font-medium py-2 px-4 bg-green-100 rounded-full">Score</button>
@@ -877,7 +877,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                             <div>
                                 <h3 class="font-semibold text-lg">#${a.assignmentNumber}: ${a.title}</h3>
                                 <p class="text-sm text-gray-500">Posted: ${new Date(a.postedDate).toLocaleDateString()}</p>
-<p class="text-gray-600 text-sm mt-1">${a.description || ""}</p>
+<p contenteditable="true" onblur="updateAssignmentDescription('${a.fbId}', this.innerText)" class="text-gray-600 text-sm mt-1 border border-transparent hover:border-gray-300 rounded px-1">${a.description || "Click to add description..."}</p>
                             </div>
                              <div class="flex items-center gap-2 mt-3 sm:mt-0">
                                 ${helpRequest ? 
@@ -1435,6 +1435,18 @@ document.getElementById('bulk-assignment-form').addEventListener('submit', async
 });
 
         // --- CSV EXPORT ---
+async function updateAssignmentDescription(assignmentId, newDescription) {
+    try {
+        const assignmentRef = doc(assignmentsCol, assignmentId);
+        await updateDoc(assignmentRef, { description: newDescription });
+        showSuccessMessage("Description updated.");
+    } catch (err) {
+        console.error("Failed to update description", err);
+        alert("Error updating description. Please try again.");
+    }
+}
+window.updateAssignmentDescription = updateAssignmentDescription;
+
 function exportStudentDataAsCSVForTeacher(studentId) {
     const student = students.find(s => s.id === studentId);
     if (!student) return;
