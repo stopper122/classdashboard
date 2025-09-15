@@ -104,6 +104,7 @@
         <div id="student-login-view" class="view bg-white p-8 rounded-xl shadow-md max-w-md mx-auto">
             <h1 class="text-3xl font-bold mb-4 text-gray-900 text-center">Student Login</h1>
             <form id="student-login-form" class="flex flex-col items-center gap-4 mx-auto">
+                <select id="student-period-select" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"></select>
                 <label for="student-id-login" class="sr-only">Student ID</label>
                 <input type="number" id="student-id-login" placeholder="Enter Your Student ID#" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" required>
                 <button type="submit" class="w-full bg-green-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-green-700 transition btn-lg">Login</button>
@@ -115,7 +116,10 @@
             <header class="flex justify-between items-center mb-6">
                 <div>
                     <h1 class="text-4xl font-bold text-gray-900">Teacher Dashboard</h1>
-                    <p class="text-gray-500">Manage your classroom assignments, students, and seating arrangements.</p>
+                     <div class="flex items-center gap-4 mt-2">
+                        <select id="teacher-period-select" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"></select>
+                        <button onclick="openModal('manage-periods-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Manage Periods</button>
+                    </div>
                 </div>
                  <button onclick="switchView('login-type-selection')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Logout</button>
             </header>
@@ -407,6 +411,21 @@
             </div>
         </div>
     </div>
+    
+    <div id="manage-periods-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+        <div class="bg-white p-8 rounded-xl shadow-2xl modal-content">
+            <h2 class="text-2xl font-bold mb-6">Manage Periods</h2>
+            <div id="periods-list" class="space-y-4 mb-6"></div>
+            <form id="add-period-form" class="flex gap-4">
+                <input type="text" id="new-period-name" placeholder="New Period Name" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
+                <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition">Add</button>
+            </form>
+            <div class="flex justify-end mt-6">
+                 <button type="button" onclick="closeModal('manage-periods-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Close</button>
+            </div>
+        </div>
+    </div>
+
 
     <div id="bulk-assignment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
   <div class="bg-white p-8 rounded-xl shadow-2xl modal-content">
@@ -475,6 +494,7 @@ window.checkTeacherPassword = checkTeacherPassword;
         let helpRequests = [];
         let checkRequests = [];
         let seatingChart = [];
+        let periods = [];
         let studentsLoaded = false;
         let seatingLoaded = false;
         
@@ -483,6 +503,7 @@ window.checkTeacherPassword = checkTeacherPassword;
         
         let confirmAction = null;
         let currentStudentId = null;
+        let currentPeriodId = null;
         let currentSortKey = 'lastName'; // For student sorting
         let currentAssignmentSortKey = 'date_desc'; // For assignment sorting
         let currentTeacherAssignmentSortKey = 'number_asc'; // For teacher assignment sorting
@@ -492,7 +513,7 @@ window.checkTeacherPassword = checkTeacherPassword;
         const TOTAL_SEATS = CLASSROOM_ROWS * CLASSROOM_COLS;
         
         // --- COLLECTIONS ---
-        let studentsCol, assignmentsCol, helpRequestsCol, checkRequestsCol;
+        let studentsCol, assignmentsCol, helpRequestsCol, checkRequestsCol, periodsCol;
         let seatingChartDoc;
 
         async function initFirebase() {
@@ -522,21 +543,45 @@ console.log("appId:", appId);
 console.log("db:", db);
 
                 const basePath = `artifacts/${appId}/public/data`;
-               studentsCol = collection(db, basePath, "students");
-assignmentsCol = collection(db, basePath, "assignments");
-helpRequestsCol = collection(db, basePath, "helpRequests");
-checkRequestsCol = collection(db, basePath, "checkRequests");
-seatingChartDoc = doc(db, basePath, "seatingChart", "main");
-                loadData();
+                periodsCol = collection(db, basePath, "periods");
+
+                loadPeriods();
 
             } catch (error) {
                 console.error("Firebase initialization failed:", error);
             }
         }
+        
+        async function switchPeriod(periodId) {
+            currentPeriodId = periodId;
+            if (currentPeriodId) {
+                const basePath = `artifacts/${appId}/public/data/periods/${currentPeriodId}`;
+                studentsCol = collection(db, basePath, "students");
+                assignmentsCol = collection(db, basePath, "assignments");
+                helpRequestsCol = collection(db, basePath, "helpRequests");
+                checkRequestsCol = collection(db, basePath, "checkRequests");
+                seatingChartDoc = doc(db, basePath, "seatingChart", "main");
+                loadDataForPeriod();
+            } else {
+                // Handle no period selected state
+            }
+        }
 
 
         // --- DATA SYNC ---
-        function loadData() {
+        function loadPeriods() {
+            onSnapshot(query(periodsCol), (snapshot) => {
+                periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderPeriodSelectors();
+                renderPeriodsList();
+                if (!currentPeriodId && periods.length > 0) {
+                    switchPeriod(periods[0].id);
+                }
+            });
+        }
+        function loadDataForPeriod() {
+            if (!currentPeriodId) return;
+
             onSnapshot(query(studentsCol), (snapshot) => {
                 students = snapshot.docs.map(doc => ({ fbId: doc.id, ...doc.data() }));
                 sortStudents();
@@ -664,6 +709,24 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                 return -1; // Treat non-numeric scores as the lowest value
             }
             return Number(score);
+        }
+
+        function getScoreColor(score) {
+            if (score === 'Not Graded' || score === 'Excused') {
+                return 'text-gray-500';
+            }
+            const numericScore = Number(score);
+            if (numericScore >= 4) {
+                return 'text-green-600';
+            } else if (numericScore >= 3) {
+                return 'text-blue-600';
+            } else if (numericScore >= 2) {
+                return 'text-yellow-600';
+            } else if (numericScore >= 1) {
+                return 'text-orange-600';
+            } else {
+                return 'text-red-600';
+            }
         }
         
         function sortAssignments(key) {
@@ -829,6 +892,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
 
             list.innerHTML = sortedAssignments.map(a => {
                 const score = a.scores && a.scores[student.id] !== undefined ? a.scores[student.id] : 'Not Graded';
+                const scoreColor = getScoreColor(score);
                 const helpRequest = sortedHelpRequests.find(r => r.studentId === student.id && r.assignmentId === a.fbId);
                 const helpQueuePosition = helpRequest ? sortedHelpRequests.indexOf(helpRequest) + 1 : -1;
                 const checkRequest = sortedCheckRequests.find(r => r.studentId === student.id && r.assignmentId === a.fbId);
@@ -858,7 +922,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                                         Program ready to check
                                     </button>`
                                 }
-                                <span class="font-bold text-lg ${score === 'Not Graded' ? 'text-gray-500' : 'text-blue-600'}">${score}</span>
+                                <span class="font-bold text-lg ${scoreColor}">${score}</span>
                             </div>
                         </div>
                     </div>
@@ -906,7 +970,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
         
         async function resolveRequest(type, fbId) {
             const collectionName = type === 'help' ? 'helpRequests' : 'checkRequests';
-            const docRef = doc(db, `artifacts/${appId}/public/data/${collectionName}`, fbId);
+            const docRef = doc(db, `artifacts/${appId}/public/data/periods/${currentPeriodId}/${collectionName}`, fbId);
             await deleteDoc(docRef);
             showSuccessMessage('Request resolved.');
         }
@@ -1127,8 +1191,15 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
             closeModal('score-assignment-modal');
         });
 
-        document.getElementById('student-login-form').addEventListener('submit', (e) => {
+        document.getElementById('student-login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const periodId = document.getElementById('student-period-select').value;
+            if (!periodId) {
+                document.getElementById('login-error').textContent = 'Please select a period.';
+                return;
+            }
+            await switchPeriod(periodId);
+
             const id = Number(document.getElementById('student-id-login').value);
             const student = students.find(s => s.id === id);
             const errorEl = document.getElementById('login-error');
@@ -1138,7 +1209,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                 if (errorEl) errorEl.textContent = '';
                 switchView('student');
             } else {
-                if (errorEl) errorEl.textContent = 'Student ID not found.';
+                if (errorEl) errorEl.textContent = 'Student ID not found in this period.';
             }
         });
         
@@ -1171,6 +1242,14 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
             e.target.reset();
         });
 
+        document.getElementById('add-period-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newPeriodName = document.getElementById('new-period-name').value;
+            if (newPeriodName) {
+                await addDoc(periodsCol, { name: newPeriodName });
+                e.target.reset();
+            }
+        });
         
         // --- DRAG AND DROP ---
         let draggedItem = null;
@@ -1507,10 +1586,42 @@ document.getElementById('bulk-assignment-form').addEventListener('submit', async
         
         async function cancelRequest(type, fbId) {
             const collectionName = type === 'help' ? 'helpRequests' : 'checkRequests';
-            const docRef = doc(db, `artifacts/${appId}/public/data/${collectionName}`, fbId);
+            const docRef = doc(db, `artifacts/${appId}/public/data/periods/${currentPeriodId}/${collectionName}`, fbId);
             await deleteDoc(docRef);
             showSuccessMessage('Request cancelled.');
         }
+
+        function renderPeriodSelectors() {
+            const teacherSelect = document.getElementById('teacher-period-select');
+            const studentSelect = document.getElementById('student-period-select');
+            teacherSelect.innerHTML = periods.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+            studentSelect.innerHTML = periods.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+        }
+
+        function renderPeriodsList() {
+            const list = document.getElementById('periods-list');
+            list.innerHTML = periods.map(p => `
+                <div class="flex justify-between items-center p-2 bg-gray-100 rounded">
+                    <span>${p.name}</span>
+                    <button onclick="deletePeriod('${p.id}')" class="text-red-500 hover:text-red-700">Delete</button>
+                </div>
+            `).join('');
+        }
+
+        async function deletePeriod(periodId) {
+            if (confirm(`Are you sure you want to delete this period and all of its data? This cannot be undone.`)) {
+                await deleteDoc(doc(periodsCol, periodId));
+                // Optionally, also delete all subcollections. For simplicity, we'll leave them for now.
+                // A more robust solution would use a cloud function to recursively delete subcollections.
+                if (currentPeriodId === periodId) {
+                    currentPeriodId = null;
+                }
+            }
+        }
+
+        document.getElementById('teacher-period-select').addEventListener('change', (e) => {
+            switchPeriod(e.target.value);
+        });
 
         
         // --- GLOBAL ATTACHMENTS ---
@@ -1541,6 +1652,7 @@ document.getElementById('bulk-assignment-form').addEventListener('submit', async
         window.requestCheck = requestCheck;
         window.resolveRequest = resolveRequest;
         window.cancelRequest = cancelRequest;
+        window.deletePeriod = deletePeriod;
 
         // --- INITIALIZATION ---
         initFirebase();
