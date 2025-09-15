@@ -829,6 +829,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                         <div>
                             <h3 class="font-semibold text-lg">#${a.assignmentNumber}: ${a.title}</h3>
                             <p class="text-sm text-gray-500">Posted: ${new Date(a.postedDate).toLocaleDateString()}</p>
+<p class="text-gray-600 text-sm mt-1">${a.description || ""}</p>
                         </div>
                         <div class="flex items-center gap-4">
                             <button onclick="openScoreAssignmentModal('${a.fbId}')" class="text-sm text-green-600 hover:text-green-800 font-medium py-2 px-4 bg-green-100 rounded-full">Score</button>
@@ -876,6 +877,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                             <div>
                                 <h3 class="font-semibold text-lg">#${a.assignmentNumber}: ${a.title}</h3>
                                 <p class="text-sm text-gray-500">Posted: ${new Date(a.postedDate).toLocaleDateString()}</p>
+<p class="text-gray-600 text-sm mt-1">${a.description || ""}</p>
                             </div>
                              <div class="flex items-center gap-2 mt-3 sm:mt-0">
                                 ${helpRequest ? 
@@ -1108,10 +1110,12 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
             let postedDate = document.getElementById('assignment-posted-date').value;
             if (!postedDate) postedDate = new Date().toISOString().split('T')[0];
 
+            const description = document.getElementById('assignment-description').value;
             await addDoc(assignmentsCol, { 
                 id: Date.now(),
                 assignmentNumber: Number(assignmentNumber),
-                title, 
+                title,
+                description,
                 postedDate,
                 scores: {}
             });
@@ -1125,6 +1129,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
             const originalId = Number(document.getElementById('assignment-original-id-edit').value);
             const assignmentNumber = document.getElementById('assignment-number-edit').value;
             const title = document.getElementById('assignment-title-edit').value;
+            const description = document.getElementById('assignment-description-edit').value;
             let postedDate = document.getElementById('assignment-posted-date-edit').value;
              if (!postedDate) postedDate = new Date().toISOString().split('T')[0];
 
@@ -1133,6 +1138,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                 await updateDoc(doc(assignmentsCol, assignmentDoc.fbId), {
                     assignmentNumber: Number(assignmentNumber),
                     title,
+                    description,
                     postedDate
                 });
                 showSuccessMessage('Assignment updated successfully.');
@@ -1429,6 +1435,32 @@ document.getElementById('bulk-assignment-form').addEventListener('submit', async
 });
 
         // --- CSV EXPORT ---
+function exportStudentDataAsCSVForTeacher(studentId) {
+    const student = students.find(s => s.id === studentId);
+    if (!student) return;
+
+    let csvContent = "Number,Title,Description,Posted Date,Score\n";
+
+    let sortedAssignments = [...assignments].sort((a, b) => a.assignmentNumber - b.assignmentNumber);
+    sortedAssignments.forEach(a => {
+        const score = a.scores && a.scores[student.id] !== undefined ? a.scores[student.id] : "";
+        csvContent += [
+            a.assignmentNumber,
+            escapeCSV(a.title),
+            escapeCSV(a.description || ""),
+            a.postedDate,
+            score
+        ].join(",") + "\n";
+    });
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `${student.firstName}_${student.lastName}_Assignments.csv`;
+    link.click();
+}
+window.exportStudentDataAsCSVForTeacher = exportStudentDataAsCSVForTeacher;
+
 function exportStudentDataAsCSV() {
     const student = students.find(s => s.id === currentStudentId);
     if (!student) return;
