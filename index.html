@@ -22,38 +22,6 @@
         .tab-content.active {
             display: block;
         }
-        /* Larger Touch Targets */
-        .btn-lg {
-            padding: 1rem 2rem;
-            font-size: 1.125rem;
-        }
-        .tab-btn {
-            padding-bottom: 1rem;
-            padding-left: 0.5rem;
-            padding-right: 0.5rem;
-            font-size: 1rem;
-        }
-        /* Responsive Layout */
-        @media (max-width: 1024px) {
-            #content-seating-chart .flex {
-                flex-direction: column;
-            }
-            #content-seating-chart .xl\\:w-1\/4 {
-                width: 100%;
-                max-width: 100%;
-            }
-        }
-        /* Larger Modals */
-        .modal-content {
-            width: 90%;
-            max-width: 600px;
-        }
-        @media (max-width: 768px) {
-            .modal-content {
-                width: 95%;
-                max-width: none;
-            }
-        }
         /* Drag and Drop Styles */
         .seat.dragging-over {
             outline: 3px solid #2563eb;
@@ -79,10 +47,10 @@
             <h1 class="text-3xl font-bold mb-4 text-gray-900">Classroom Management</h1>
             <p class="text-gray-600 mb-8">Please select your login type.</p>
             <div class="flex flex-col md:flex-row justify-center items-center gap-4">
-                <button onclick="switchView('teacher-login')" class="w-full max-w-xs bg-blue-600 text-white font-semibold py-4 px-8 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105 btn-lg">
+                <button onclick="switchView('teacher-login')" class="w-full max-w-xs bg-blue-600 text-white font-semibold py-4 px-8 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105">
                     Teacher Login
                 </button>
-                <button onclick="switchView('student-login')" class="w-full max-w-xs bg-green-600 text-white font-semibold py-4 px-8 rounded-lg shadow-md hover:bg-green-700 transition-transform transform hover:scale-105 btn-lg">
+                <button onclick="switchView('student-login')" class="w-full max-w-xs bg-green-600 text-white font-semibold py-4 px-8 rounded-lg shadow-md hover:bg-green-700 transition-transform transform hover:scale-105">
                     Student Login
                 </button>
             </div>
@@ -94,7 +62,7 @@
 <input type="password" id="teacher-password" placeholder="Enter Password"
        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-4" required>
 <button onclick="checkTeacherPassword()"
-        class="w-full bg-blue-600 text-white font-semibold py-4 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105 btn-lg">
+        class="w-full bg-blue-600 text-white font-semibold py-4 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105">
   Access Dashboard
 </button>
 <p id="teacher-login-error" class="text-red-500 text-sm h-4 mt-2"></p>
@@ -104,10 +72,9 @@
         <div id="student-login-view" class="view bg-white p-8 rounded-xl shadow-md max-w-md mx-auto">
             <h1 class="text-3xl font-bold mb-4 text-gray-900 text-center">Student Login</h1>
             <form id="student-login-form" class="flex flex-col items-center gap-4 mx-auto">
-                <select id="student-period-select" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"></select>
                 <label for="student-id-login" class="sr-only">Student ID</label>
                 <input type="number" id="student-id-login" placeholder="Enter Your Student ID#" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" required>
-                <button type="submit" class="w-full bg-green-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-green-700 transition btn-lg">Login</button>
+                <button type="submit" class="w-full bg-green-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-green-700 transition">Login</button>
                 <p id="login-error" class="text-red-500 text-sm h-4"></p> </form>
             <button onclick="switchView('login-type-selection')" class="mt-4 block w-full text-center text-sm text-gray-600 hover:text-gray-800">Back to login selection</button>
         </div>
@@ -116,10 +83,7 @@
             <header class="flex justify-between items-center mb-6">
                 <div>
                     <h1 class="text-4xl font-bold text-gray-900">Teacher Dashboard</h1>
-                     <div class="flex items-center gap-4 mt-2">
-                        <select id="teacher-period-select" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"></select>
-                        <button onclick="openModal('manage-periods-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Manage Periods</button>
-                    </div>
+                    <p class="text-gray-500">Manage your classroom assignments, students, and seating arrangements.</p>
                 </div>
                  <button onclick="switchView('login-type-selection')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Logout</button>
             </header>
@@ -146,8 +110,8 @@
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-2xl font-bold">Assignments</h2>
                         <div class="flex gap-2">
-  <button onclick="openModal('bulk-assignment-modal')" class="bg-purple-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-purple-700 transition btn-lg">Bulk Add</button>
-  <button onclick="openModal('add-assignment-modal')" class="bg-blue-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-blue-700 transition btn-lg">Add Assignment</button>
+  <button onclick="openModal('bulk-assignment-modal')" class="bg-purple-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-purple-700 transition">Bulk Add</button>
+  <button onclick="openModal('add-assignment-modal')" class="bg-blue-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-blue-700 transition">Add Assignment</button>
 </div>
 </div>
                     <div class="flex items-center gap-2 flex-wrap mb-4">
@@ -167,8 +131,8 @@
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-2xl font-bold">Student Roster</h2>
                         <div class="flex items-center gap-2">
-                            <button onclick="openModal('add-student-modal')" class="bg-green-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-green-700 transition btn-lg">Add</button>
-                            <button onclick="openModal('bulk-upload-modal')" class="bg-purple-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-purple-700 transition btn-lg">Bulk Upload</button>
+                            <button onclick="openModal('add-student-modal')" class="bg-green-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-green-700 transition">Add</button>
+                            <button onclick="openModal('bulk-upload-modal')" class="bg-purple-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-purple-700 transition">Bulk Upload</button>
                         </div>
                     </div>
                     <div class="flex items-center gap-2 mb-4 border-b pb-4">
@@ -220,7 +184,7 @@
                 <div class="bg-white p-6 rounded-xl shadow-md">
                     <h2 class="text-2xl font-bold mb-4">Data Backup</h2>
                     <p class="mb-6 text-gray-600">Export all your classroom data into a single CSV file. This includes students, assignments, scores, requests, and the seating chart arrangement.</p>
-                    <button onclick="exportAllDataAsCSV()" class="bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-indigo-700 transition btn-lg">
+                    <button onclick="exportAllDataAsCSV()" class="bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-indigo-700 transition">
                         Export All Data as CSV
                     </button>
                 </div>
@@ -257,7 +221,7 @@
     </div>
 
     <div id="add-assignment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl modal-content">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg">
             <h2 class="text-2xl font-bold mb-6">New Assignment</h2>
             <form id="add-assignment-form" class="space-y-6">
                 <div>
@@ -269,20 +233,24 @@
                     <input type="text" id="assignment-title" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
                 </div>
                 <div>
+                    <label for="assignment-description" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <textarea id="assignment-description" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"></textarea>
+                </div>
+                <div>
                     <label for="assignment-posted-date" class="block text-sm font-medium text-gray-700 mb-1">Posted Date</label>
                     <input type="date" id="assignment-posted-date" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
                     <p class="text-xs text-gray-500 mt-1">Leave blank to use today's date.</p>
                 </div>
                 <div class="flex justify-end gap-4">
-                    <button type="button" onclick="closeModal('add-assignment-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition btn-lg">Cancel</button>
-                    <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition btn-lg">Add</button>
+                    <button type="button" onclick="closeModal('add-assignment-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
+                    <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition">Add</button>
                 </div>
             </form>
         </div>
     </div>
 
     <div id="edit-assignment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl modal-content">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg">
             <h2 class="text-2xl font-bold mb-6">Edit Assignment</h2>
             <form id="edit-assignment-form" class="space-y-6">
                 <input type="hidden" id="assignment-original-id-edit">
@@ -295,20 +263,24 @@
                     <input type="text" id="assignment-title-edit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
                 </div>
                 <div>
+                    <label for="assignment-description-edit" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <textarea id="assignment-description-edit" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"></textarea>
+                </div>
+                <div>
                     <label for="assignment-posted-date-edit" class="block text-sm font-medium text-gray-700 mb-1">Posted Date</label>
                     <input type="date" id="assignment-posted-date-edit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
                      <p class="text-xs text-gray-500 mt-1">Leave blank to use today's date.</p>
                 </div>
                 <div class="flex justify-end gap-4">
-                    <button type="button" onclick="closeModal('edit-assignment-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition btn-lg">Cancel</button>
-                    <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition btn-lg">Save Changes</button>
+                    <button type="button" onclick="closeModal('edit-assignment-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
+                    <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition">Save Changes</button>
                 </div>
             </form>
         </div>
     </div>
 
     <div id="score-assignment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl modal-content">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-3xl">
             <h2 class="text-2xl font-bold mb-2">Score Assignment</h2>
             <h3 class="text-lg text-gray-600 mb-6" id="score-assignment-title"></h3>
             <form id="score-assignment-form">
@@ -316,15 +288,15 @@
                 <div id="student-scores-list" class="space-y-4 max-h-96 overflow-y-auto pr-2">
                     </div>
                 <div class="flex justify-end gap-4 mt-8">
-                    <button type="button" onclick="closeModal('score-assignment-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition btn-lg">Cancel</button>
-                    <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition btn-lg">Save Scores</button>
+                    <button type="button" onclick="closeModal('score-assignment-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
+                    <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition">Save Scores</button>
                 </div>
             </form>
         </div>
     </div>
     
     <div id="add-student-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl modal-content">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg">
             <h2 class="text-2xl font-bold mb-6">Add New Student</h2>
             <form id="add-student-form" class="space-y-6">
                 <div>
@@ -340,15 +312,15 @@
                     <input type="text" id="student-lastName-add" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" required>
                 </div>
                 <div class="flex justify-end gap-4">
-                    <button type="button" onclick="closeModal('add-student-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition btn-lg">Cancel</button>
-                    <button type="submit" class="bg-green-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-green-700 transition btn-lg">Add Student</button>
+                    <button type="button" onclick="closeModal('add-student-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
+                    <button type="submit" class="bg-green-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-green-700 transition">Add Student</button>
                 </div>
             </form>
         </div>
     </div>
 
     <div id="edit-student-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl modal-content">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg">
             <h2 class="text-2xl font-bold mb-6">Edit Student</h2>
             <form id="edit-student-form" class="space-y-6">
                 <input type="hidden" id="student-original-id-edit">
@@ -365,15 +337,15 @@
                     <input type="text" id="student-lastName-edit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
                 </div>
                 <div class="flex justify-end gap-4">
-                    <button type="button" onclick="closeModal('edit-student-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition btn-lg">Cancel</button>
-                    <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition btn-lg">Save Changes</button>
+                    <button type="button" onclick="closeModal('edit-student-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
+                    <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition">Save Changes</button>
                 </div>
             </form>
         </div>
     </div>
     
     <div id="bulk-upload-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl modal-content">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-xl">
             <h2 class="text-2xl font-bold mb-6">Bulk Upload Students</h2>
             <form id="bulk-upload-form">
                 <div class="mb-4">
@@ -382,53 +354,38 @@
                     <p class="text-xs text-gray-500 mt-1">Note: Students with existing IDs will be skipped to avoid duplicates.</p>
                 </div>
                 <div class="flex justify-end gap-4">
-                    <button type="button" onclick="closeModal('bulk-upload-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition btn-lg">Cancel</button>
-                    <button type="submit" class="bg-purple-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-purple-700 transition btn-lg">Upload Students</button>
+                    <button type="button" onclick="closeModal('bulk-upload-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
+                    <button type="submit" class="bg-purple-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-purple-700 transition">Upload Students</button>
                 </div>
             </form>
         </div>
     </div>
 
     <div id="student-assignment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl modal-content">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-3xl">
             <h2 id="student-assignment-modal-title" class="text-2xl font-bold mb-6"></h2>
             <div id="student-assignment-modal-list" class="space-y-4 max-h-96 overflow-y-auto pr-2">
                 </div>
             <div id="student-assignment-modal-footer" class="flex justify-end mt-8 gap-4">
-                <button type="button" onclick="closeModal('student-assignment-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition btn-lg">Cancel</button>
-                <button type="button" id="save-student-scores-btn" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition btn-lg">Save Scores</button>
+                <button type="button" onclick="closeModal('student-assignment-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
+                <button type="button" id="save-student-scores-btn" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition">Save Scores</button>
             </div>
         </div>
     </div>
 
     <div id="confirmation-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl modal-content">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-sm text-center">
             <h2 class="text-xl font-bold mb-4" id="confirmation-title">Are you sure?</h2>
             <p id="confirmation-message" class="text-gray-600 mb-6">This action cannot be undone.</p>
             <div class="flex justify-center gap-4">
-                <button id="cancel-button" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition btn-lg">Cancel</button>
-                <button id="confirm-button" class="bg-red-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-red-700 transition btn-lg">Confirm</button>
+                <button id="cancel-button" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
+                <button id="confirm-button" class="bg-red-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-red-700 transition">Confirm</button>
             </div>
         </div>
     </div>
-    
-    <div id="manage-periods-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl modal-content">
-            <h2 class="text-2xl font-bold mb-6">Manage Periods</h2>
-            <div id="periods-list" class="space-y-4 mb-6"></div>
-            <form id="add-period-form" class="flex gap-4">
-                <input type="text" id="new-period-name" placeholder="New Period Name" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
-                <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition">Add</button>
-            </form>
-            <div class="flex justify-end mt-6">
-                 <button type="button" onclick="closeModal('manage-periods-modal')" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Close</button>
-            </div>
-        </div>
-    </div>
-
 
     <div id="bulk-assignment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-  <div class="bg-white p-8 rounded-xl shadow-2xl modal-content">
+  <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-2xl">
     <h2 class="text-2xl font-bold mb-6">Bulk Add Assignments</h2>
 
     <div class="mb-4 text-sm text-gray-600">
@@ -450,9 +407,9 @@ Drafting Quiz | 2025-09-03</pre>
         </label>
         <div class="flex gap-3">
           <button type="button" onclick="closeModal('bulk-assignment-modal')"
-            class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition btn-lg">Cancel</button>
+            class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition">Cancel</button>
           <button type="submit"
-            class="bg-purple-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-purple-700 transition btn-lg">Add All</button>
+            class="bg-purple-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-purple-700 transition">Add All</button>
         </div>
       </div>
     </form>
@@ -494,7 +451,6 @@ window.checkTeacherPassword = checkTeacherPassword;
         let helpRequests = [];
         let checkRequests = [];
         let seatingChart = [];
-        let periods = [];
         let studentsLoaded = false;
         let seatingLoaded = false;
         
@@ -503,7 +459,6 @@ window.checkTeacherPassword = checkTeacherPassword;
         
         let confirmAction = null;
         let currentStudentId = null;
-        let currentPeriodId = null;
         let currentSortKey = 'lastName'; // For student sorting
         let currentAssignmentSortKey = 'date_desc'; // For assignment sorting
         let currentTeacherAssignmentSortKey = 'number_asc'; // For teacher assignment sorting
@@ -513,7 +468,7 @@ window.checkTeacherPassword = checkTeacherPassword;
         const TOTAL_SEATS = CLASSROOM_ROWS * CLASSROOM_COLS;
         
         // --- COLLECTIONS ---
-        let studentsCol, assignmentsCol, helpRequestsCol, checkRequestsCol, periodsCol;
+        let studentsCol, assignmentsCol, helpRequestsCol, checkRequestsCol;
         let seatingChartDoc;
 
         async function initFirebase() {
@@ -543,45 +498,21 @@ console.log("appId:", appId);
 console.log("db:", db);
 
                 const basePath = `artifacts/${appId}/public/data`;
-                periodsCol = collection(db, basePath, "periods");
-
-                loadPeriods();
+               studentsCol = collection(db, basePath, "students");
+assignmentsCol = collection(db, basePath, "assignments");
+helpRequestsCol = collection(db, basePath, "helpRequests");
+checkRequestsCol = collection(db, basePath, "checkRequests");
+seatingChartDoc = doc(db, basePath, "seatingChart", "main");
+                loadData();
 
             } catch (error) {
                 console.error("Firebase initialization failed:", error);
             }
         }
-        
-        async function switchPeriod(periodId) {
-            currentPeriodId = periodId;
-            if (currentPeriodId) {
-                const basePath = `artifacts/${appId}/public/data/periods/${currentPeriodId}`;
-                studentsCol = collection(db, basePath, "students");
-                assignmentsCol = collection(db, basePath, "assignments");
-                helpRequestsCol = collection(db, basePath, "helpRequests");
-                checkRequestsCol = collection(db, basePath, "checkRequests");
-                seatingChartDoc = doc(db, basePath, "seatingChart", "main");
-                loadDataForPeriod();
-            } else {
-                // Handle no period selected state
-            }
-        }
 
 
         // --- DATA SYNC ---
-        function loadPeriods() {
-            onSnapshot(query(periodsCol), (snapshot) => {
-                periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderPeriodSelectors();
-                renderPeriodsList();
-                if (!currentPeriodId && periods.length > 0) {
-                    switchPeriod(periods[0].id);
-                }
-            });
-        }
-        function loadDataForPeriod() {
-            if (!currentPeriodId) return;
-
+        function loadData() {
             onSnapshot(query(studentsCol), (snapshot) => {
                 students = snapshot.docs.map(doc => ({ fbId: doc.id, ...doc.data() }));
                 sortStudents();
@@ -648,7 +579,7 @@ console.log("db:", db);
             views[currentView].classList.remove('active');
             views[viewName].classList.add('active');
             currentView = viewName;
-            
+
             if (viewName === 'teacher') {
                 switchTeacherTab('seating-chart'); // Default to seating chart tab
                 renderTeacherView();
@@ -657,24 +588,25 @@ console.log("db:", db);
         }
 
         function switchTeacherTab(tabName) {
-             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-             document.querySelectorAll('.tab-btn').forEach(btn => {
-                 btn.classList.remove('border-blue-600', 'text-blue-600');
-                 btn.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
-             });
-             
-             document.getElementById(`content-${tabName}`).classList.add('active');
-             document.getElementById(`tab-${tabName}`).classList.add('border-blue-600', 'text-blue-600');
-             document.getElementById(`tab-${tabName}`).classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
-             currentTeacherTab = tabName;
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('border-blue-600', 'text-blue-600');
+                btn.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+            });
 
-             if(tabName === 'seating-chart') {
+            document.getElementById(`content-${tabName}`).classList.add('active');
+            const tabButton = document.getElementById(`tab-${tabName}`);
+            tabButton.classList.add('border-blue-600', 'text-blue-600');
+            tabButton.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+            currentTeacherTab = tabName;
+
+            if(tabName === 'seating-chart') {
                 renderSeatingChart();
                 renderUnseatedStudentList();
                 renderStudentRequests();
-             }
+            }
         }
-        
+
         function renderTeacherView() {
             renderTeacherStudentList();
             renderTeacherAssignmentList();
@@ -684,26 +616,28 @@ console.log("db:", db);
                 renderUnseatedStudentList();
             }
         }
-        
+
         function renderStudentView() {
             const currentStudent = students.find(s => s.id === currentStudentId);
             if (currentStudent) {
                 document.getElementById('student-name').textContent = `${currentStudent.firstName} ${currentStudent.lastName}`;
                 renderStudentAssignmentList(currentStudent);
             } else {
-                 logout();
+                logout();
             }
         }
 
         function sortStudents(key) {
-            if (key) { currentSortKey = key; }
+            if (key) {
+                currentSortKey = key;
+            }
             if (currentSortKey) {
                 students.sort((a, b) => String(a[currentSortKey]).localeCompare(String(b[currentSortKey])));
             }
             renderTeacherStudentList();
             updateDeleteSelectedButtonState();
         }
-        
+
         function getSortableScore(score) {
             if (score === 'Excused' || score === 'Not Graded' || score === undefined || score === null) {
                 return -1; // Treat non-numeric scores as the lowest value
@@ -712,28 +646,26 @@ console.log("db:", db);
         }
 
         function getScoreColor(score) {
-            if (score === 'Not Graded' || score === 'Excused') {
-                return 'text-gray-500';
+            const numericScore = parseFloat(score);
+            if (isNaN(numericScore)) {
+                return 'text-gray-500'; // Default color for non-numeric scores
             }
-            const numericScore = Number(score);
-            if (numericScore >= 4) {
+            if (numericScore >= 90) {
                 return 'text-green-600';
-            } else if (numericScore >= 3) {
+            } else if (numericScore >= 80) {
                 return 'text-blue-600';
-            } else if (numericScore >= 2) {
+            } else if (numericScore >= 70) {
                 return 'text-yellow-600';
-            } else if (numericScore >= 1) {
-                return 'text-orange-600';
             } else {
                 return 'text-red-600';
             }
         }
-        
+
         function sortAssignments(key) {
             currentAssignmentSortKey = key;
             renderStudentView();
         }
-        
+
         function sortTeacherAssignments(key) {
             currentTeacherAssignmentSortKey = key;
             renderTeacherAssignmentList();
@@ -755,175 +687,77 @@ console.log("db:", db);
             `).join('');
         }
 
-        function renderUnseatedStudentList() {
-            const list = document.getElementById('unseated-student-list');
-            const seatedStudentIds = new Set(seatingChart.filter(id => typeof id === 'number'));
-            const unseatedStudents = students.filter(s => !seatedStudentIds.has(s.id));
-
-            list.innerHTML = unseatedStudents.map(s => `
-                <li id="roster-student-${s.id}" data-id="${s.id}" class="student-roster-item p-4 bg-gray-50 rounded-lg font-medium text-center" draggable="true" ondragstart="handleDragStart(event, 'roster_student', ${s.id})" ondragend="handleDragEnd(event)">
-                    ${s.firstName} ${s.lastName}
-                </li>
-            `).join('');
-        }
-        
-        function renderSeatingChart() {
-            const grid = document.getElementById('seating-chart-grid');
-            const studentsNeedingHelp = new Set(helpRequests.map(req => req.studentId));
-            const studentsNeedingCheck = new Set(checkRequests.map(req => req.studentId));
-
-            grid.innerHTML = '';
-            for (let i = 0; i < TOTAL_SEATS; i++) {
-                const seatContent = seatingChart[i];
-                const seatEl = document.createElement('div');
-                seatEl.dataset.seatIndex = i;
-                seatEl.className = 'seat border border-gray-300 rounded-lg h-24 flex items-center justify-center text-center p-2 transition-colors duration-300';
-                
-                seatEl.addEventListener('dragover', handleDragOver);
-                seatEl.addEventListener('dragleave', handleDragLeave);
-                seatEl.addEventListener('drop', handleDrop);
-                
-                if (seatContent === 'BLANK') {
-                    seatEl.classList.add('blank-seat');
-                    seatEl.textContent = 'Blank';
-                    seatEl.draggable = true;
-                    seatEl.addEventListener('dragstart', (e) => handleDragStart(e, 'grid_seat', null, i));
-                    seatEl.addEventListener('dragend', handleDragEnd);
-                } else if (typeof seatContent === 'number') {
-                    const student = students.find(s => s.id === seatContent);
-                    if(student) {
-                        seatEl.textContent = `${student.firstName} ${student.lastName}`;
-                        seatEl.classList.add('font-semibold', 'draggable-student', 'cursor-pointer');
-                        seatEl.draggable = true;
-                        seatEl.addEventListener('dragstart', (e) => handleDragStart(e, 'grid_seat', null, i));
-                        seatEl.addEventListener('dragend', handleDragEnd);
-                        seatEl.addEventListener('click', () => openStudentAssignmentModal(student.id));
-
-                        const needsHelp = studentsNeedingHelp.has(student.id);
-                        const needsCheck = studentsNeedingCheck.has(student.id);
-                        
-                        // Remove all potential color classes first
-                        seatEl.classList.remove(
-                            'bg-purple-200', 'border-purple-400', 'text-purple-900',
-                            'bg-red-200', 'border-red-400', 'text-red-900',
-                            'bg-sky-200', 'border-sky-400', 'text-sky-900',
-                            'bg-blue-100'
-                        );
-
-                        if (needsHelp && needsCheck) {
-                            seatEl.classList.add('bg-purple-200', 'border-purple-400', 'text-purple-900');
-                        } else if (needsHelp) {
-                            seatEl.classList.add('bg-red-200', 'border-red-400', 'text-red-900');
-                        } else if (needsCheck) {
-                            seatEl.classList.add('bg-sky-200', 'border-sky-400', 'text-sky-900');
-                        } else {
-                            seatEl.classList.add('bg-blue-100');
-                        }
-                    }
-                } else {
-                    seatEl.classList.add('bg-gray-50');
-                }
-                grid.appendChild(seatEl);
-            }
-        }
-        
-        function maybeRenderSeatingChart() {
-            if (!studentsLoaded || !seatingLoaded) return;
-            if (currentView === 'teacher') {
-                renderSeatingChart();
-                renderUnseatedStudentList();
-                if (typeof renderStudentRequests === 'function') renderStudentRequests();
-            }
-        }
-        
         function renderTeacherAssignmentList() {
             const list = document.getElementById('teacher-assignment-list');
-            let sortedAssignments = [...assignments];
-
-            sortedAssignments.sort((a, b) => {
+            
+            assignments.sort((a, b) => {
                 switch (currentTeacherAssignmentSortKey) {
-                    case 'number_asc': return a.assignmentNumber - b.assignmentNumber;
-                    case 'number_desc': return b.assignmentNumber - a.assignmentNumber;
-                    case 'date_desc': return new Date(b.postedDate) - new Date(a.postedDate);
+                    case 'number_asc': return a.number - b.number;
+                    case 'number_desc': return b.number - a.number;
                     case 'date_asc': return new Date(a.postedDate) - new Date(b.postedDate);
+                    case 'date_desc': return new Date(b.postedDate) - new Date(a.postedDate);
                     default: return 0;
                 }
             });
 
-            list.innerHTML = sortedAssignments.map(a => `
-                <div class="p-5 border border-gray-200 rounded-lg">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <h3 class="font-semibold text-lg">#${a.assignmentNumber}: ${a.title}</h3>
-                            <p class="text-sm text-gray-500">Posted: ${new Date(a.postedDate).toLocaleDateString()}</p>
+            list.innerHTML = assignments.map(a => {
+                const totalScores = students.map(s => s.scores ? s.scores[a.fbId] : undefined).filter(score => score !== undefined && !isNaN(parseFloat(score)));
+                const averageScore = totalScores.length > 0 ? (totalScores.reduce((sum, score) => sum + parseFloat(score), 0) / totalScores.length).toFixed(1) : 'N/A';
+                const averageScoreColor = getScoreColor(averageScore);
+
+                return `
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
+                        <div class="flex-grow mb-3 md:mb-0">
+                            <div class="flex items-center gap-3">
+                                <span class="font-bold text-lg text-gray-800">#${a.number}: ${a.title}</span>
+                                <span class="text-xs text-gray-500">(${new Date(a.postedDate).toLocaleDateString()})</span>
+                            </div>
+                            <p class="text-sm text-gray-600 mt-1">${a.description || ''}</p>
                         </div>
-                        <div class="flex items-center gap-4">
-                            <button onclick="openScoreAssignmentModal('${a.fbId}')" class="text-sm text-green-600 hover:text-green-800 font-medium py-2 px-4 bg-green-100 rounded-full">Score</button>
-                            <button onclick="openEditAssignmentModal('${a.fbId}')" class="text-sm text-blue-600 hover:text-blue-800 font-medium py-1 px-3">Edit</button>
-                            <button onclick="confirmDeleteAssignment('${a.fbId}')" class="text-sm text-red-600 hover:text-red-800 font-medium py-1 px-3">Delete</button>
+                        <div class="flex items-center gap-2 flex-shrink-0">
+                            <div class="text-center px-3">
+                                <div class="text-sm text-gray-500">Avg. Score</div>
+                                <div class="font-bold text-lg ${averageScoreColor}">${averageScore}</div>
+                            </div>
+                            <button onclick="openScoreAssignmentModal('${a.fbId}')" class="bg-green-100 text-green-800 font-semibold py-2 px-4 rounded-lg hover:bg-green-200 transition">Score</button>
+                            <button onclick="openEditAssignmentModal('${a.fbId}')" class="bg-blue-100 text-blue-800 font-semibold py-2 px-4 rounded-lg hover:bg-blue-200 transition">Edit</button>
+                            <button onclick="confirmDeleteAssignment('${a.fbId}')" class="bg-red-100 text-red-800 font-semibold py-2 px-4 rounded-lg hover:bg-red-200 transition">Delete</button>
                         </div>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
         }
-
+        
         function renderStudentAssignmentList(student) {
             const list = document.getElementById('student-assignment-list');
-            
-            let sortedAssignments = [...assignments];
+            const studentScores = student.scores || {};
 
-            sortedAssignments.sort((a, b) => {
-                const scoreA = a.scores ? a.scores[student.id] : undefined;
-                const scoreB = b.scores ? b.scores[student.id] : undefined;
-
+            const sortedAssignments = [...assignments].sort((a, b) => {
                 switch (currentAssignmentSortKey) {
-                    case 'number_asc': return a.assignmentNumber - b.assignmentNumber;
-                    case 'number_desc': return b.assignmentNumber - a.assignmentNumber;
-                    case 'date_desc': return new Date(b.postedDate) - new Date(a.postedDate);
+                    case 'number_asc': return a.number - b.number;
+                    case 'number_desc': return b.number - a.number;
                     case 'date_asc': return new Date(a.postedDate) - new Date(b.postedDate);
-                    case 'score_desc': return getSortableScore(scoreB) - getSortableScore(scoreA);
-                    case 'score_asc': return getSortableScore(scoreA) - getSortableScore(scoreB);
+                    case 'date_desc': return new Date(b.postedDate) - new Date(a.postedDate);
+                    case 'score_asc': return getSortableScore(studentScores[a.fbId]) - getSortableScore(studentScores[b.fbId]);
+                    case 'score_desc': return getSortableScore(studentScores[b.fbId]) - getSortableScore(studentScores[a.fbId]);
                     default: return 0;
                 }
             });
 
-            const sortedHelpRequests = [...helpRequests].sort((a, b) => a.timestamp?.seconds - b.timestamp?.seconds);
-            const sortedCheckRequests = [...checkRequests].sort((a, b) => a.timestamp?.seconds - b.timestamp?.seconds);
-
             list.innerHTML = sortedAssignments.map(a => {
-                const score = a.scores && a.scores[student.id] !== undefined ? a.scores[student.id] : 'Not Graded';
+                const score = studentScores[a.fbId] !== undefined ? studentScores[a.fbId] : 'Not Graded';
                 const scoreColor = getScoreColor(score);
-                const helpRequest = sortedHelpRequests.find(r => r.studentId === student.id && r.assignmentId === a.fbId);
-                const helpQueuePosition = helpRequest ? sortedHelpRequests.indexOf(helpRequest) + 1 : -1;
-                const checkRequest = sortedCheckRequests.find(r => r.studentId === student.id && r.assignmentId === a.fbId);
-                const checkQueuePosition = checkRequest ? sortedCheckRequests.indexOf(checkRequest) + 1 : -1;
-
                 return `
-                    <div class="p-5 border border-gray-200 rounded-lg">
-                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-                            <div>
-                                <h3 class="font-semibold text-lg">#${a.assignmentNumber}: ${a.title}</h3>
-                                <p class="text-sm text-gray-500">Posted: ${new Date(a.postedDate).toLocaleDateString()}</p>
-                            </div>
-                             <div class="flex items-center gap-2 mt-3 sm:mt-0">
-                                ${helpRequest ? 
-                                    `<button onclick="cancelRequest('help', '${helpRequest.fbId}')" class="text-sm font-semibold py-2 px-4 rounded-full bg-yellow-200 text-yellow-800 hover:bg-yellow-300">
-                                        Cancel Help (#${helpQueuePosition})
-                                    </button>` :
-                                    `<button onclick="requestHelp('${a.fbId}', '${a.title}')" class="text-sm font-semibold py-2 px-4 rounded-full bg-red-200 text-red-800 hover:bg-red-300">
-                                        I need Help
-                                    </button>`
-                                }
-                                ${checkRequest ? 
-                                    `<button onclick="cancelRequest('check', '${checkRequest.fbId}')" class="text-sm font-semibold py-2 px-4 rounded-full bg-yellow-200 text-yellow-800 hover:bg-yellow-300">
-                                        Cancel Check (#${checkQueuePosition})
-                                    </button>` :
-                                    `<button onclick="requestCheck('${a.fbId}', '${a.title}')" class="text-sm font-semibold py-2 px-4 rounded-full bg-sky-200 text-sky-800 hover:bg-sky-300">
-                                        Program ready to check
-                                    </button>`
-                                }
-                                <span class="font-bold text-lg ${scoreColor}">${score}</span>
-                            </div>
+                    <div class="bg-gray-50 p-4 rounded-lg flex justify-between items-center">
+                        <div>
+                            <p class="font-bold text-lg text-gray-800">#${a.number}: ${a.title}</p>
+                            <p class="text-sm text-gray-600 mt-1">${a.description || ''}</p>
+                            <p class="text-xs text-gray-500 mt-2">Posted: ${new Date(a.postedDate).toLocaleDateString()}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm text-gray-500">Your Score</p>
+                            <p class="font-bold text-2xl ${scoreColor}">${score}</p>
                         </div>
                     </div>
                 `;
@@ -935,47 +769,161 @@ console.log("db:", db);
             const allRequests = [
                 ...helpRequests.map(r => ({ ...r, type: 'help' })),
                 ...checkRequests.map(r => ({ ...r, type: 'check' }))
-            ].sort((a, b) => {
-                if (a.type === 'help' && b.type === 'check') return -1;
-                if (a.type === 'check' && b.type === 'help') return 1;
-                return (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0);
-            });
+            ];
+            allRequests.sort((a, b) => a.timestamp - b.timestamp); // Sort by oldest first
 
             if (allRequests.length === 0) {
-                list.innerHTML = `<li class="text-gray-500 italic">No student requests at the moment.</li>`;
+                list.innerHTML = '<li class="text-gray-500 italic">No student requests at the moment.</li>';
                 return;
             }
 
-            list.innerHTML = allRequests.map(req => {
-                const student = students.find(s => s.id === req.studentId);
-                const name = student ? `${student.firstName} ${student.lastName}` : `ID ${req.studentId}`;
-                const bgColor = req.type === 'help' ? 'bg-red-100' : 'bg-sky-100';
-                const textColor = req.type === 'help' ? 'text-red-800' : 'text-sky-800';
-                const buttonColor = req.type === 'help' ? 'bg-red-200 hover:bg-red-300' : 'bg-sky-200 hover:bg-sky-300';
-                const assignmentTitle = req.assignmentTitle ? `for "${req.assignmentTitle}"` : '';
+            list.innerHTML = allRequests.map(r => {
+                const student = students.find(s => s.id === r.studentId);
+                const bgColor = r.type === 'help' ? 'bg-red-50' : 'bg-yellow-50';
+                const textColor = r.type === 'help' ? 'text-red-800' : 'text-yellow-800';
+                const borderColor = r.type === 'help' ? 'border-red-200' : 'border-yellow-200';
+                const requestTypeLabel = r.type === 'help' ? 'Help' : 'Check';
 
                 return `
-                    <li class="${bgColor} ${textColor} p-3 rounded-lg flex justify-between items-center">
-                        <div>
-                            <span class="font-medium">${name} needs ${req.type}</span>
-                            <span class="text-xs block">${assignmentTitle}</span>
+                    <li class="${bgColor} ${textColor} p-3 rounded-lg border-l-4 ${borderColor}">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <span class="font-bold">${student ? `${student.firstName} ${student.lastName}` : 'Unknown'}</span>
+                                <span class="text-sm">(${requestTypeLabel})</span>
+                            </div>
+                            <button onclick="resolveRequest('${r.fbId}', '${r.type}')" class="text-sm font-medium hover:underline">Resolve</button>
                         </div>
-                        <button onclick="resolveRequest('${req.type}', '${req.fbId}')" class="${buttonColor} text-xs font-bold py-1 px-2 rounded-full flex-shrink-0 ml-2">
-                            RESOLVE
-                        </button>
                     </li>
                 `;
             }).join('');
         }
-        
-        async function resolveRequest(type, fbId) {
-            const collectionName = type === 'help' ? 'helpRequests' : 'checkRequests';
-            const docRef = doc(db, `artifacts/${appId}/public/data/periods/${currentPeriodId}/${collectionName}`, fbId);
-            await deleteDoc(docRef);
-            showSuccessMessage('Request resolved.');
+
+        function maybeRenderSeatingChart() {
+            if (studentsLoaded && seatingLoaded && currentView === 'teacher' && currentTeacherTab === 'seating-chart') {
+                renderSeatingChart();
+                renderUnseatedStudentList();
+            }
         }
 
+        function renderSeatingChart() {
+            const grid = document.getElementById('seating-chart-grid');
+            grid.innerHTML = seatingChart.map((studentId, index) => {
+                const student = studentId ? students.find(s => s.id === studentId) : null;
+                const hasHelpRequest = student && helpRequests.some(r => r.studentId === student.id);
+                const hasCheckRequest = student && checkRequests.some(r => r.studentId === student.id);
+                
+                let seatClasses = "seat relative h-24 flex items-center justify-center p-2 border rounded-lg shadow-sm transition-all duration-200 ease-in-out";
+                let content;
+
+                if (student) {
+                    seatClasses += " draggable-student bg-white";
+                    let indicator = '';
+                    if (hasHelpRequest) {
+                        indicator = '<div class="absolute top-1 right-1 h-4 w-4 bg-red-500 rounded-full border-2 border-white animate-pulse"></div>';
+                    } else if (hasCheckRequest) {
+                         indicator = '<div class="absolute top-1 right-1 h-4 w-4 bg-yellow-400 rounded-full border-2 border-white animate-pulse"></div>';
+                    }
+                    content = `<div class="text-center">
+                                 <span class="font-semibold text-sm">${student.firstName} ${student.lastName[0]}.</span>
+                                 <span class="text-xs text-gray-500 block">ID: ${student.id}</span>
+                               </div>${indicator}`;
+                } else if (studentId === 'BLANK') {
+                     seatClasses += " blank-seat";
+                     content = '<span class="text-gray-500 text-sm">Blank Seat</span>';
+                } else {
+                    seatClasses += " bg-gray-100 border-dashed border-gray-300";
+                    content = `<span class="text-gray-400 text-xs">Empty</span>`;
+                }
+
+                return `<div class="${seatClasses}" data-seat-index="${index}" draggable="${!!student || studentId === 'BLANK'}" ondragstart="handleDragStart(event)" ondragend="handleDragEnd(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">${content}</div>`;
+            }).join('');
+        }
         
+        function renderUnseatedStudentList() {
+            const list = document.getElementById('unseated-student-list');
+            const seatedStudentIds = new Set(seatingChart.filter(id => id && id !== 'BLANK'));
+            const unseatedStudents = students.filter(s => !seatedStudentIds.has(s.id));
+            
+            list.innerHTML = unseatedStudents.map(s => `
+                <li id="roster-${s.id}" class="student-roster-item bg-gray-50 p-3 rounded-lg flex justify-between items-center cursor-grab" draggable="true" ondragstart="handleDragStart(event)" ondragend="handleDragEnd(event)" data-student-id="${s.id}">
+                    <span class="font-medium">${s.firstName} ${s.lastName}</span>
+                    <span class="text-sm text-gray-500">ID: ${s.id}</span>
+                </li>
+            `).join('');
+        }
+
+        // --- DRAG & DROP LOGIC ---
+        let draggedElement = null;
+
+        function handleDragStart(event) {
+            draggedElement = event.target.closest('[draggable]');
+            draggedElement.classList.add('dragging');
+            event.dataTransfer.effectAllowed = 'move';
+            // Set data to be transferred
+            const studentId = draggedElement.dataset.studentId;
+            const seatIndex = draggedElement.dataset.seatIndex;
+            event.dataTransfer.setData('text/plain', JSON.stringify({ studentId, seatIndex }));
+        }
+
+        function handleDragEnd(event) {
+             if (draggedElement) {
+                draggedElement.classList.remove('dragging');
+            }
+            draggedElement = null;
+        }
+
+        function handleDragOver(event) {
+            event.preventDefault();
+            const targetSeat = event.target.closest('.seat');
+            if (targetSeat) {
+                targetSeat.classList.add('dragging-over');
+            }
+        }
+
+        function handleDragLeave(event) {
+            const targetSeat = event.target.closest('.seat');
+            if (targetSeat) {
+                targetSeat.classList.remove('dragging-over');
+            }
+        }
+
+        async function handleDrop(event) {
+            event.preventDefault();
+            const targetSeat = event.target.closest('.seat');
+            if (!targetSeat) return;
+            
+            targetSeat.classList.remove('dragging-over');
+            
+            const data = JSON.parse(event.dataTransfer.getData('text/plain'));
+            const droppedStudentId = data.studentId;
+            const sourceSeatIndex = data.seatIndex ? parseInt(data.seatIndex, 10) : null;
+            const targetSeatIndex = parseInt(targetSeat.dataset.seatIndex, 10);
+
+            // Case 1: Dropping a student from the roster
+            if (droppedStudentId && sourceSeatIndex === null) {
+                const targetCurrentStudentId = seatingChart[targetSeatIndex];
+                seatingChart[targetSeatIndex] = parseInt(droppedStudentId, 10);
+                // If the target seat was occupied, move the occupant to unseated
+                // (This logic is implicitly handled by re-rendering)
+            } 
+            // Case 2: Moving a student from one seat to another
+            else if (sourceSeatIndex !== null && !droppedStudentId) { // Dragged from seat
+                const studentToMove = seatingChart[sourceSeatIndex];
+                const occupantOfTarget = seatingChart[targetSeatIndex];
+                
+                // Swap them
+                seatingChart[targetSeatIndex] = studentToMove;
+                seatingChart[sourceSeatIndex] = occupantOfTarget; // Can be null or another student
+            } 
+            // Case 3: Dropping a blank seat from the "Add Blank Seat" button
+            else if (draggedElement && draggedElement.id === 'add-blank-seat') {
+                 seatingChart[targetSeatIndex] = 'BLANK';
+            }
+
+            await saveSeatingChart();
+            // The onSnapshot listener will re-render everything automatically.
+        }
+
         // --- MODALS ---
         function openModal(modalId) {
             document.getElementById(modalId).classList.remove('hidden');
@@ -985,646 +933,431 @@ console.log("db:", db);
             document.getElementById(modalId).classList.add('hidden');
         }
 
-        function openEditStudentModal(studentFbId) {
-            const student = students.find(s => s.fbId === studentFbId);
-            if (!student) return;
-
-            document.getElementById('student-original-id-edit').value = student.id;
-            document.getElementById('student-id-edit').value = student.id;
-            document.getElementById('student-firstName-edit').value = student.firstName;
-            document.getElementById('student-lastName-edit').value = student.lastName;
-            openModal('edit-student-modal');
+        function openEditStudentModal(fbId) {
+            const student = students.find(s => s.fbId === fbId);
+            if (student) {
+                document.getElementById('student-original-id-edit').value = fbId;
+                document.getElementById('student-id-edit').value = student.id;
+                document.getElementById('student-firstName-edit').value = student.firstName;
+                document.getElementById('student-lastName-edit').value = student.lastName;
+                openModal('edit-student-modal');
+            }
         }
-        
-        function openEditAssignmentModal(assignmentFbId) {
-            const assignment = assignments.find(a => a.fbId === assignmentFbId);
-            if (!assignment) return;
-            
-            document.getElementById('assignment-original-id-edit').value = assignment.id;
-            document.getElementById('assignment-number-edit').value = assignment.assignmentNumber;
-            document.getElementById('assignment-title-edit').value = assignment.title;
-            document.getElementById('assignment-posted-date-edit').value = assignment.postedDate;
-            openModal('edit-assignment-modal');
-        }
-        
-        function openScoreAssignmentModal(assignmentFbId) {
-            const assignment = assignments.find(a => a.fbId === assignmentFbId);
-            if (!assignment) return;
 
-            document.getElementById('score-assignment-title').textContent = `#${assignment.assignmentNumber}: ${assignment.title}`;
-            document.getElementById('score-assignment-id').value = assignmentFbId;
-            
-            const list = document.getElementById('student-scores-list');
-            const scoreOptions = ['0', '1', '2', '3', '4', 'Excused'];
-            list.innerHTML = students.map(s => {
-                const currentScore = assignment.scores && assignment.scores[s.id] !== undefined ? String(assignment.scores[s.id]) : '';
-                const radioButtons = scoreOptions.map(option => `
-                    <label class="flex items-center">
-                        <input type="radio" name="score-${s.id}" value="${option}" ${currentScore === option ? 'checked' : ''} class="mr-1">
-                        ${option}
-                    </label>
-                `).join('');
-                return `
-                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg" data-student-id="${s.id}">
-                        <span class="font-medium">${s.firstName} ${s.lastName}</span>
-                        <div class="flex items-center gap-x-4">${radioButtons}</div>
+        function openEditAssignmentModal(fbId) {
+            const assignment = assignments.find(a => a.fbId === fbId);
+            if (assignment) {
+                document.getElementById('assignment-original-id-edit').value = fbId;
+                document.getElementById('assignment-number-edit').value = assignment.number;
+                document.getElementById('assignment-title-edit').value = assignment.title;
+                document.getElementById('assignment-description-edit').value = assignment.description || '';
+                document.getElementById('assignment-posted-date-edit').value = assignment.postedDate;
+                openModal('edit-assignment-modal');
+            }
+        }
+
+        function openScoreAssignmentModal(fbId) {
+            const assignment = assignments.find(a => a.fbId === fbId);
+            if (assignment) {
+                document.getElementById('score-assignment-id').value = fbId;
+                document.getElementById('score-assignment-title').textContent = `#${assignment.number}: ${assignment.title}`;
+                const list = document.getElementById('student-scores-list');
+                list.innerHTML = students.map(s => `
+                    <div class="flex items-center justify-between">
+                        <label for="score-${s.id}" class="font-medium">${s.firstName} ${s.lastName}</label>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="score-${s.id}" data-student-id="${s.id}" value="${s.scores && s.scores[fbId] !== undefined ? s.scores[fbId] : ''}" class="w-24 px-2 py-1 border border-gray-300 rounded-md">
+                             <button type="button" onclick="document.getElementById('score-${s.id}').value = 'Excused'" class="text-xs bg-gray-200 text-gray-700 font-semibold py-1 px-2 rounded-md hover:bg-gray-300">Exc</button>
+                        </div>
                     </div>
-                `;
-            }).join('');
-            
-            openModal('score-assignment-modal');
-        }
-
-        function openStudentAssignmentModal(studentId) {
-            const student = students.find(s => s.id === studentId);
-            if (!student) return;
-            
-            const modal = document.getElementById('student-assignment-modal');
-            const titleEl = document.getElementById('student-assignment-modal-title');
-            const listEl = document.getElementById('student-assignment-modal-list');
-            const saveBtn = document.getElementById('save-student-scores-btn');
-
-            titleEl.textContent = `Assignments for ${student.firstName} ${student.lastName}`;
-            const scoreOptions = ['0', '1', '2', '3', '4', 'Excused'];
-            
-            const sortedAssignments = [...assignments].sort((a, b) => a.assignmentNumber - b.assignmentNumber);
-
-            listEl.innerHTML = sortedAssignments.map(a => {
-                const currentScore = a.scores && a.scores[student.id] !== undefined ? String(a.scores[student.id]) : '';
-                const radioButtons = scoreOptions.map(option => `
-                    <label class="flex items-center">
-                        <input type="radio" name="score-${a.fbId}-${student.id}" value="${option}" ${currentScore === option ? 'checked' : ''} class="mr-1">
-                        ${option}
-                    </label>
                 `).join('');
-                return `
-                     <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg" data-assignment-id="${a.fbId}">
-                        <span class="font-medium">#${a.assignmentNumber}: ${a.title}</span>
-                        <div class="flex items-center gap-x-4">${radioButtons}</div>
-                    </div>
-                `;
-            }).join('');
-            
-            saveBtn.onclick = () => saveStudentScoresFromModal(studentId);
-            openModal('student-assignment-modal');
-        }
-        
-        async function saveStudentScoresFromModal(studentId) {
-            const scoreDivs = document.querySelectorAll('#student-assignment-modal-list > div');
-            const batch = writeBatch(db);
-
-            scoreDivs.forEach(div => {
-                const assignmentFbId = div.dataset.assignmentId;
-                const selectedRadio = div.querySelector(`input[name="score-${assignmentFbId}-${studentId}"]:checked`);
-                
-                if (selectedRadio) {
-                    const score = selectedRadio.value;
-                    let scoreToSave = score === 'Excused' ? 'Excused' : Number(score);
-                    const assignmentRef = doc(assignmentsCol, assignmentFbId);
-                    batch.update(assignmentRef, { [`scores.${studentId}`]: scoreToSave });
-                }
-            });
-
-            await batch.commit();
-            showSuccessMessage("Scores updated successfully!");
-            closeModal('student-assignment-modal');
+                openModal('score-assignment-modal');
+            }
         }
 
-
-        // --- EVENT HANDLERS & FORMS ---
-        document.getElementById('add-student-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const id = Number(document.getElementById('student-id-add').value);
+        // --- DATA MANIPULATION ---
+        async function addStudent(event) {
+            event.preventDefault();
+            const id = parseInt(document.getElementById('student-id-add').value, 10);
             const firstName = document.getElementById('student-firstName-add').value;
             const lastName = document.getElementById('student-lastName-add').value;
-            
+
             if (students.some(s => s.id === id)) {
-                alert("A student with this ID already exists.");
+                alert('A student with this ID already exists.');
                 return;
             }
 
-            await addDoc(studentsCol, { id, firstName, lastName });
-            showSuccessMessage('Student added successfully.');
+            await addDoc(studentsCol, { id, firstName, lastName, scores: {} });
             closeModal('add-student-modal');
-            e.target.reset();
-        });
-
-        document.getElementById('edit-student-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const originalId = Number(document.getElementById('student-original-id-edit').value);
-            const newId = Number(document.getElementById('student-id-edit').value);
+            document.getElementById('add-student-form').reset();
+            showSuccessMessage('Student added!');
+        }
+        
+        async function updateStudent(event) {
+            event.preventDefault();
+            const fbId = document.getElementById('student-original-id-edit').value;
+            const id = parseInt(document.getElementById('student-id-edit').value, 10);
             const firstName = document.getElementById('student-firstName-edit').value;
             const lastName = document.getElementById('student-lastName-edit').value;
 
-            if (originalId !== newId && students.some(s => s.id === newId)) {
-                alert("A student with the new ID already exists.");
-                return;
-            }
+            const studentDocRef = doc(db, studentsCol.path, fbId);
+            await updateDoc(studentDocRef, { id, firstName, lastName });
 
-            const studentDoc = students.find(s => s.id === originalId);
-            if (studentDoc) {
-                await updateDoc(doc(studentsCol, studentDoc.fbId), { id: newId, firstName, lastName });
-                showSuccessMessage('Student updated successfully.');
-            }
             closeModal('edit-student-modal');
-        });
+            showSuccessMessage('Student updated!');
+        }
 
-        document.getElementById('add-assignment-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const assignmentNumber = document.getElementById('assignment-number').value;
-            const title = document.getElementById('assignment-title').value;
-            let postedDate = document.getElementById('assignment-posted-date').value;
-            if (!postedDate) postedDate = new Date().toISOString().split('T')[0];
+        function confirmDeleteStudent(fbId) {
+            const student = students.find(s => s.fbId === fbId);
+            if (!student) return;
 
-            await addDoc(assignmentsCol, { 
-                id: Date.now(),
-                assignmentNumber: Number(assignmentNumber),
-                title, 
-                postedDate,
-                scores: {}
-            });
-            showSuccessMessage('Assignment added successfully.');
-            closeModal('add-assignment-modal');
-            e.target.reset();
-        });
-
-        document.getElementById('edit-assignment-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const originalId = Number(document.getElementById('assignment-original-id-edit').value);
-            const assignmentNumber = document.getElementById('assignment-number-edit').value;
-            const title = document.getElementById('assignment-title-edit').value;
-            let postedDate = document.getElementById('assignment-posted-date-edit').value;
-             if (!postedDate) postedDate = new Date().toISOString().split('T')[0];
-
-            const assignmentDoc = assignments.find(a => a.id === originalId);
-            if (assignmentDoc) {
-                await updateDoc(doc(assignmentsCol, assignmentDoc.fbId), {
-                    assignmentNumber: Number(assignmentNumber),
-                    title,
-                    postedDate
-                });
-                showSuccessMessage('Assignment updated successfully.');
-            }
-            closeModal('edit-assignment-modal');
-        });
-        
-        document.getElementById('score-assignment-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const assignmentFbId = document.getElementById('score-assignment-id').value;
-            const studentScoreDivs = document.querySelectorAll('#student-scores-list > div');
-
-            const assignmentRef = doc(assignmentsCol, assignmentFbId);
-            const updates = {};
+            document.getElementById('confirmation-title').textContent = 'Delete Student?';
+            document.getElementById('confirmation-message').textContent = `Are you sure you want to delete ${student.firstName} ${student.lastName}? This will remove them from the roster and seating chart. This action cannot be undone.`;
             
-            studentScoreDivs.forEach(div => {
-                const studentId = div.dataset.studentId;
-                const selectedRadio = div.querySelector(`input[name="score-${studentId}"]:checked`);
-                if (selectedRadio) {
-                    const score = selectedRadio.value;
-                    const scoreToSave = score === 'Excused' ? 'Excused' : Number(score);
-                    updates[`scores.${studentId}`] = scoreToSave;
+            confirmAction = async () => {
+                const studentDocRef = doc(db, studentsCol.path, fbId);
+                await deleteDoc(studentDocRef);
+                // Also remove student from seating chart
+                const newSeatingChart = seatingChart.map(id => id === student.id ? null : id);
+                if (JSON.stringify(newSeatingChart) !== JSON.stringify(seatingChart)) {
+                    seatingChart = newSeatingChart;
+                    await saveSeatingChart();
                 }
-            });
 
-            await updateDoc(assignmentRef, updates);
-            showSuccessMessage("Scores saved successfully!");
-            closeModal('score-assignment-modal');
-        });
+                closeModal('confirmation-modal');
+                showSuccessMessage('Student deleted.');
+            };
 
-        document.getElementById('student-login-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const periodId = document.getElementById('student-period-select').value;
-            if (!periodId) {
-                document.getElementById('login-error').textContent = 'Please select a period.';
-                return;
-            }
-            await switchPeriod(periodId);
-
-            const id = Number(document.getElementById('student-id-login').value);
-            const student = students.find(s => s.id === id);
-            const errorEl = document.getElementById('login-error');
-
-            if (student) {
-                currentStudentId = id;
-                if (errorEl) errorEl.textContent = '';
-                switchView('student');
-            } else {
-                if (errorEl) errorEl.textContent = 'Student ID not found in this period.';
-            }
-        });
-        
-        document.getElementById('bulk-upload-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const data = document.getElementById('bulk-student-data').value;
-            const lines = data.split('\n').filter(line => line.trim() !== '');
-            const existingIds = new Set(students.map(s => s.id));
-            const batch = writeBatch(db);
-            let addedCount = 0;
-
-            lines.forEach(line => {
-                const [idStr, firstName, lastName] = line.split(',').map(s => s.trim());
-                const id = Number(idStr);
-                if (id && firstName && lastName && !existingIds.has(id)) {
-                    const newStudentRef = doc(studentsCol);
-                    batch.set(newStudentRef, { id, firstName, lastName });
-                    existingIds.add(id); // Prevent adding duplicates from the textarea itself
-                    addedCount++;
-                }
-            });
-            
-            await batch.commit();
-            if (addedCount > 0) {
-                 showSuccessMessage(`${addedCount} student(s) added successfully.`);
-            } else {
-                 showSuccessMessage(`No new students were added.`);
-            }
-            closeModal('bulk-upload-modal');
-            e.target.reset();
-        });
-
-        document.getElementById('add-period-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const newPeriodName = document.getElementById('new-period-name').value;
-            if (newPeriodName) {
-                await addDoc(periodsCol, { name: newPeriodName });
-                e.target.reset();
-            }
-        });
-        
-        // --- DRAG AND DROP ---
-        let draggedItem = null;
-
-        function handleDragStart(e, type, id, index) {
-            draggedItem = { type, id, index };
-            e.dataTransfer.effectAllowed = 'move';
-            e.target.classList.add('dragging');
-        }
-
-        function handleDragEnd(e) {
-            e.target.classList.remove('dragging');
-            draggedItem = null;
-        }
-
-        function handleDragOver(e) {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            e.target.closest('.seat').classList.add('dragging-over');
-        }
-
-        function handleDragLeave(e) {
-            e.target.closest('.seat').classList.remove('dragging-over');
-        }
-
-        async function handleDrop(e) {
-            e.preventDefault();
-            if (!draggedItem) return;
-
-            const targetSeat = e.target.closest('.seat');
-            targetSeat.classList.remove('dragging-over');
-            const targetIndex = Number(targetSeat.dataset.seatIndex);
-
-            // Logic to handle the drop
-            const sourceIndex = draggedItem.index;
-            const studentId = draggedItem.id;
-
-            if (draggedItem.type === 'roster_student') {
-                const currentContent = seatingChart[targetIndex];
-                seatingChart[targetIndex] = studentId;
-                if (currentContent) { // If seat was occupied, move that student back to unseated
-                     const unseatedStudentList = document.getElementById('unseated-student-list');
-                     const studentToUnseat = students.find(s => s.id === currentContent);
-                     if (studentToUnseat) {
-                        const li = document.createElement('li');
-                        li.textContent = `${studentToUnseat.firstName} ${studentToUnseat.lastName}`;
-                        // Add necessary attributes and event listeners for the new unseated student item
-                        unseatedStudentList.appendChild(li);
-                     }
-                }
-            } else if (draggedItem.type === 'grid_seat') {
-                // Swap seats
-                const sourceContent = seatingChart[sourceIndex];
-                const targetContent = seatingChart[targetIndex];
-                seatingChart[targetIndex] = sourceContent;
-                seatingChart[sourceIndex] = targetContent;
-            } else if (draggedItem.type === 'blank_seat') {
-                 seatingChart[targetIndex] = 'BLANK';
-            }
-
-
-            await saveSeatingChart(); // Save the new chart layout to Firebase
-            // Re-render is handled by onSnapshot, but we can force it for immediate feedback if needed
-            renderSeatingChart();
-            renderUnseatedStudentList();
-        }
-
-        document.getElementById('add-blank-seat').addEventListener('dragstart', (e) => handleDragStart(e, 'blank_seat'));
-
-        // --- CONFIRMATION MODAL ---
-        function showConfirmation(title, message, onConfirm) {
-            document.getElementById('confirmation-title').textContent = title;
-            document.getElementById('confirmation-message').textContent = message;
-            confirmAction = onConfirm;
             openModal('confirmation-modal');
         }
         
-        document.getElementById('confirm-button').addEventListener('click', () => {
-            if (confirmAction) confirmAction();
-            closeModal('confirmation-modal');
-            confirmAction = null;
-        });
-        
-        document.getElementById('cancel-button').addEventListener('click', () => {
-            closeModal('confirmation-modal');
-            confirmAction = null;
-        });
-
-        // --- DELETION ---
-        function confirmDeleteStudent(studentFbId) {
-            showConfirmation('Delete Student?', 'This will permanently remove the student and all their scores.', async () => {
-                await deleteDoc(doc(studentsCol, studentFbId));
-                showSuccessMessage('Student deleted.');
-            });
-        }
-        
-        function confirmDeleteAssignment(assignmentFbId) {
-            showConfirmation('Delete Assignment?', 'This will permanently remove this assignment for all students.', async () => {
-                await deleteDoc(doc(assignmentsCol, assignmentFbId));
-                showSuccessMessage('Assignment deleted.');
-            });
-        }
-
         function confirmDeleteSelectedStudents() {
-            const selectedIds = getSelectedStudentIds();
+            const selectedIds = Array.from(document.querySelectorAll('.student-checkbox:checked')).map(cb => parseInt(cb.dataset.studentId));
             if (selectedIds.length === 0) return;
             
-            showConfirmation(`Delete ${selectedIds.length} Students?`, 'This will permanently remove the selected students and their scores.', async () => {
+            const studentsToDelete = students.filter(s => selectedIds.includes(s.id));
+            
+            document.getElementById('confirmation-title').textContent = `Delete ${selectedIds.length} Students?`;
+            document.getElementById('confirmation-message').textContent = `Are you sure you want to delete these students? This action cannot be undone.`;
+            
+            confirmAction = async () => {
                 const batch = writeBatch(db);
-                selectedIds.forEach(id => {
-                     const studentDoc = students.find(s => s.id === id);
-                     if(studentDoc) {
-                        batch.delete(doc(studentsCol, studentDoc.fbId));
-                     }
+                studentsToDelete.forEach(student => {
+                    batch.delete(doc(db, studentsCol.path, student.fbId));
                 });
                 await batch.commit();
-                showSuccessMessage(`${selectedIds.length} student(s) deleted.`);
+
+                const newSeatingChart = seatingChart.map(id => selectedIds.includes(id) ? null : id);
+                 if (JSON.stringify(newSeatingChart) !== JSON.stringify(seatingChart)) {
+                    seatingChart = newSeatingChart;
+                    await saveSeatingChart();
+                }
+
+                closeModal('confirmation-modal');
+                showSuccessMessage(`${selectedIds.length} students deleted.`);
                 document.getElementById('select-all-students').checked = false;
-                updateDeleteSelectedButtonState();
-            });
-        }
-        
-        // --- HELPERS ---
-        function logout() {
-            currentStudentId = null;
-            document.getElementById('student-login-form').reset();
-            switchView('login-type-selection');
-        }
-        
-        function showSuccessMessage(message) {
-            const el = document.getElementById('success-message');
-            el.textContent = message;
-            el.classList.remove('opacity-0', 'translate-y-20');
-            setTimeout(() => {
-                el.classList.add('opacity-0', 'translate-y-20');
-            }, 3000);
+            };
+
+            openModal('confirmation-modal');
         }
 
         function toggleSelectAll(checkbox) {
-            document.querySelectorAll('.student-checkbox').forEach(cb => {
-                cb.checked = checkbox.checked;
-            });
+            document.querySelectorAll('.student-checkbox').forEach(cb => cb.checked = checkbox.checked);
             updateDeleteSelectedButtonState();
         }
-        
-        function getSelectedStudentIds() {
-            return Array.from(document.querySelectorAll('.student-checkbox:checked')).map(cb => Number(cb.dataset.studentId));
-        }
-        
+
         function updateDeleteSelectedButtonState() {
-            const anySelected = getSelectedStudentIds().length > 0;
+            const anySelected = document.querySelectorAll('.student-checkbox:checked').length > 0;
             document.getElementById('delete-selected-btn').classList.toggle('hidden', !anySelected);
-            const allChecked = document.querySelectorAll('.student-checkbox:checked').length === students.length && students.length > 0;
-            document.getElementById('select-all-students').checked = allChecked;
         }
 
+        async function bulkUploadStudents(event) {
+            event.preventDefault();
+            const data = document.getElementById('bulk-student-data').value.trim();
+            if (!data) return;
 
-        // --- BULK ASSIGNMENTS ---
-function parseBulkAssignmentLine(line) {
-  if (!line || !line.trim()) return null;
-  const separator = line.includes('|') ? '|' : ',';
-  const parts = line.split(separator).map(s => s.trim());
-  const title = parts[0];
-  const date = parts.length > 1 ? parts[1] : null;
-  if (!title) return null;
-  return { title, date };
-}
+            const lines = data.split('\n');
+            const batch = writeBatch(db);
+            const existingIds = new Set(students.map(s => s.id));
+            let addedCount = 0;
 
-function isValidYYYYMMDD(str) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(str)) return false;
-  const d = new Date(str);
-  return d instanceof Date && !isNaN(d) && d.toISOString().slice(0, 10) === str;
-}
-
-document.getElementById('bulk-assignment-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const textarea = document.getElementById('bulk-assignment-data');
-  const useTodayIfMissing = document.getElementById('bulk-assignment-default-today').checked;
-  const lines = (textarea.value || '').split('\n');
-  const items = [];
-  const today = new Date().toISOString().split('T')[0];
-  for (const line of lines) {
-    const parsed = parseBulkAssignmentLine(line);
-    if (!parsed) continue;
-    let postedDate = parsed.date && isValidYYYYMMDD(parsed.date) ? parsed.date : null;
-    if (!postedDate && useTodayIfMissing) postedDate = today;
-    items.push({ title: parsed.title, postedDate });
-  }
-
-  if (items.length === 0) {
-    showSuccessMessage("No valid assignments found.");
-    closeModal('bulk-assignment-modal');
-    e.target.reset();
-    return;
-  }
-
-  try {
-    const batch = writeBatch(db);
-    let i = 0;
-    for (const item of items) {
-      const ref = doc(assignmentsCol);
-      batch.set(ref, {
-        title: item.title,
-        postedDate: item.postedDate || today,
-        scores: {},
-        id: Date.now() + i,
-        assignmentNumber: assignments.length + i + 1,
-      });
-      i++;
-    }
-    await batch.commit();
-    showSuccessMessage(`${items.length} assignment(s) added successfully.`);
-  } catch (err) {
-    console.error("Bulk add assignments failed:", err);
-    showSuccessMessage("Bulk add failed. See console for details.");
-  } finally {
-    closeModal('bulk-assignment-modal');
-    e.target.reset();
-  }
-});
-
-        // --- CSV EXPORT ---
-        function escapeCSV(str) {
-            if (str === null || str === undefined) return '';
-            str = String(str);
-            if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-                return `"${str.replace(/"/g, '""')}"`;
-            }
-            return str;
-        }
-
-        function exportAllDataAsCSV() {
-            let csvContent = "";
-
-            // Students
-            csvContent += "Students\n";
-            csvContent += "ID,First Name,Last Name\n";
-            students.forEach(s => {
-                csvContent += `${s.id},${escapeCSV(s.firstName)},${escapeCSV(s.lastName)}\n`;
-            });
-            csvContent += "\n";
-
-            // Assignments and Scores
-            csvContent += "Assignments and Scores\n";
-            const studentHeaders = students.map(s => `"${s.firstName} ${s.lastName} (ID: ${s.id})"`).join(',');
-            csvContent += `Assignment Number,Title,Posted Date,${studentHeaders}\n`;
-            assignments.forEach(a => {
-                const scoresRow = students.map(s => a.scores[s.id] || '').join(',');
-                csvContent += `${a.assignmentNumber},${escapeCSV(a.title)},${a.postedDate},${scoresRow}\n`;
-            });
-            csvContent += "\n";
-            
-            // Seating Chart
-            csvContent += "Seating Chart\n";
-            for (let i = 0; i < CLASSROOM_ROWS; i++) {
-                let row = [];
-                for (let j = 0; j < CLASSROOM_COLS; j++) {
-                    const seatIndex = i * CLASSROOM_COLS + j;
-                    const seatContent = seatingChart[seatIndex];
-                    if (seatContent === 'BLANK') {
-                        row.push('BLANK');
-                    } else if (typeof seatContent === 'number') {
-                        const student = students.find(s => s.id === seatContent);
-                        row.push(student ? `${student.firstName} ${student.lastName}` : `ID ${seatContent}`);
-                    } else {
-                        row.push('');
+            lines.forEach(line => {
+                const parts = line.split(/[,\t]/).map(p => p.trim()); // Split by comma or tab
+                if (parts.length === 3) {
+                    const id = parseInt(parts[0], 10);
+                    const firstName = parts[1];
+                    const lastName = parts[2];
+                    if (!isNaN(id) && firstName && lastName && !existingIds.has(id)) {
+                        const newStudentRef = doc(studentsCol);
+                        batch.set(newStudentRef, { id, firstName, lastName, scores: {} });
+                        existingIds.add(id); // Prevent adding duplicate ID from the same bulk list
+                        addedCount++;
                     }
                 }
-                csvContent += row.map(escapeCSV).join(',') + '\n';
+            });
+
+            await batch.commit();
+            closeModal('bulk-upload-modal');
+            document.getElementById('bulk-upload-form').reset();
+            showSuccessMessage(`${addedCount} students added!`);
+        }
+
+        async function addAssignment(event) {
+            event.preventDefault();
+            const number = parseInt(document.getElementById('assignment-number').value, 10);
+            const title = document.getElementById('assignment-title').value;
+            const description = document.getElementById('assignment-description').value;
+            let postedDate = document.getElementById('assignment-posted-date').value;
+
+            if (!postedDate) {
+                postedDate = new Date().toISOString().split('T')[0];
             }
+
+            await addDoc(assignmentsCol, { number, title, description, postedDate });
+            closeModal('add-assignment-modal');
+            document.getElementById('add-assignment-form').reset();
+            showSuccessMessage('Assignment added!');
+        }
+
+        async function updateAssignment(event) {
+            event.preventDefault();
+            const fbId = document.getElementById('assignment-original-id-edit').value;
+            const number = parseInt(document.getElementById('assignment-number-edit').value, 10);
+            const title = document.getElementById('assignment-title-edit').value;
+            const description = document.getElementById('assignment-description-edit').value;
+            let postedDate = document.getElementById('assignment-posted-date-edit').value;
+
+            if (!postedDate) {
+                postedDate = new Date().toISOString().split('T')[0];
+            }
+
+            const assignmentDocRef = doc(db, assignmentsCol.path, fbId);
+            await updateDoc(assignmentDocRef, { number, title, description, postedDate });
+
+            closeModal('edit-assignment-modal');
+            showSuccessMessage('Assignment updated!');
+        }
+        
+        function confirmDeleteAssignment(fbId) {
+            const assignment = assignments.find(a => a.fbId === fbId);
+            if (!assignment) return;
+
+            document.getElementById('confirmation-title').textContent = 'Delete Assignment?';
+            document.getElementById('confirmation-message').textContent = `Are you sure you want to delete "${assignment.title}"? All associated scores will be removed. This action cannot be undone.`;
+            
+            confirmAction = async () => {
+                // Delete the assignment itself
+                const assignmentDocRef = doc(db, assignmentsCol.path, fbId);
+                await deleteDoc(assignmentDocRef);
+
+                // Remove scores for this assignment from all students
+                const batch = writeBatch(db);
+                students.forEach(student => {
+                    if (student.scores && student.scores[fbId] !== undefined) {
+                        const studentDocRef = doc(db, studentsCol.path, student.fbId);
+                        const newScores = { ...student.scores };
+                        delete newScores[fbId];
+                        batch.update(studentDocRef, { scores: newScores });
+                    }
+                });
+                await batch.commit();
+
+                closeModal('confirmation-modal');
+                showSuccessMessage('Assignment deleted.');
+            };
+            openModal('confirmation-modal');
+        }
+        
+        async function saveScores(event) {
+            event.preventDefault();
+            const assignmentId = document.getElementById('score-assignment-id').value;
+            const inputs = document.querySelectorAll('#student-scores-list input[type="number"]');
+            
+            const batch = writeBatch(db);
+
+            inputs.forEach(input => {
+                const studentId = parseInt(input.dataset.studentId, 10);
+                let score = input.value;
+                 if (score.trim() === '') score = 'Not Graded';
+                const student = students.find(s => s.id === studentId);
+                if (student) {
+                    const studentDocRef = doc(db, studentsCol.path, student.fbId);
+                    const newScores = { ...student.scores, [assignmentId]: score };
+                    batch.update(studentDocRef, { scores: newScores });
+                }
+            });
+
+            await batch.commit();
+            closeModal('score-assignment-modal');
+            showSuccessMessage('Scores saved!');
+        }
+        
+        async function bulkAddAssignments(event) {
+            event.preventDefault();
+            const data = document.getElementById('bulk-assignment-data').value.trim();
+            const useTodayForMissing = document.getElementById('bulk-assignment-default-today').checked;
+            if (!data) return;
+
+            const lines = data.split('\n');
+            const batch = writeBatch(db);
+            let addedCount = 0;
+
+            const maxNumber = assignments.length > 0 ? Math.max(...assignments.map(a => a.number)) : 0;
+            
+            lines.forEach((line, index) => {
+                const parts = line.split(/[|,]/);
+                const title = parts[0]?.trim();
+                let postedDate = parts[1]?.trim();
+
+                if (title) {
+                    if (!postedDate && useTodayForMissing) {
+                        postedDate = new Date().toISOString().split('T')[0];
+                    }
+                    
+                    const newAssignmentRef = doc(assignmentsCol);
+                    batch.set(newAssignmentRef, { 
+                        number: maxNumber + index + 1, 
+                        title: title, 
+                        postedDate: postedDate || new Date().toISOString().split('T')[0]
+                    });
+                    addedCount++;
+                }
+            });
+
+            await batch.commit();
+            closeModal('bulk-assignment-modal');
+            document.getElementById('bulk-assignment-form').reset();
+            showSuccessMessage(`${addedCount} assignments added.`);
+        }
+
+        // --- AUTH & LOGIN ---
+        document.getElementById('student-login-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const id = parseInt(document.getElementById('student-id-login').value, 10);
+            const student = students.find(s => s.id === id);
+            if (student) {
+                currentStudentId = id;
+                document.getElementById('login-error').textContent = '';
+                switchView('student');
+            } else {
+                document.getElementById('login-error').textContent = 'Student ID not found.';
+            }
+        });
+
+        function logout() {
+            currentStudentId = null;
+            switchView('login-type-selection');
+        }
+        
+        // --- STUDENT REQUESTS ---
+        async function requestHelp() {
+            if (!currentStudentId) return;
+            // Prevent duplicate requests
+            if (helpRequests.some(r => r.studentId === currentStudentId)) {
+                showSuccessMessage("You already have a help request active.");
+                return;
+            }
+            await addDoc(helpRequestsCol, { studentId: currentStudentId, timestamp: serverTimestamp() });
+            showSuccessMessage("Help requested! The teacher will be with you shortly.");
+        }
+
+        async function requestCheck() {
+            if (!currentStudentId) return;
+            if (checkRequests.some(r => r.studentId === currentStudentId)) {
+                showSuccessMessage("You already have a check request active.");
+                return;
+            }
+            await addDoc(checkRequestsCol, { studentId: currentStudentId, timestamp: serverTimestamp() });
+             showSuccessMessage("Check requested! The teacher will be with you shortly.");
+        }
+
+        async function resolveRequest(fbId, type) {
+            const col = type === 'help' ? helpRequestsCol : checkRequestsCol;
+            await deleteDoc(doc(db, col.path, fbId));
+            showSuccessMessage("Request resolved.");
+        }
+        
+         async function cancelRequest(type) {
+            if (!currentStudentId) return;
+            const col = type === 'help' ? helpRequestsCol : checkRequestsCol;
+            const request = (type === 'help' ? helpRequests : checkRequests).find(r => r.studentId === currentStudentId);
+            if (request) {
+                await deleteDoc(doc(db, col.path, request.fbId));
+                showSuccessMessage("Request cancelled.");
+            }
+        }
+        
+        // --- UTILITIES ---
+        function showSuccessMessage(message) {
+            const el = document.getElementById('success-message');
+            el.textContent = message;
+            el.classList.remove('translate-y-20', 'opacity-0');
+            el.classList.add('translate-y-0', 'opacity-100');
+            setTimeout(() => {
+                el.classList.remove('translate-y-0', 'opacity-100');
+                el.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+        
+        function exportAllDataAsCSV() {
+            let csvContent = "data:text/csv;charset=utf-8,";
+            
+            // Students
+            csvContent += "Students\nID,First Name,Last Name\n";
+            students.forEach(s => {
+                csvContent += `${s.id},${s.firstName},${s.lastName}\n`;
+            });
             csvContent += "\n";
 
-            // Help Requests
-            csvContent += "Help Requests\n";
-            csvContent += "Student ID,Student Name,Timestamp\n";
-            helpRequests.forEach(r => {
-                const student = students.find(s => s.id === r.studentId);
-                const name = student ? `${student.firstName} ${student.lastName}` : '';
-                csvContent += `${r.studentId},${escapeCSV(name)},${new Date(r.timestamp.seconds * 1000).toLocaleString()}\n`;
+            // Assignments
+            csvContent += "Assignments\nNumber,Title,Posted Date\n";
+            assignments.forEach(a => {
+                csvContent += `${a.number},"${a.title}",${a.postedDate}\n`;
             });
-             csvContent += "\n";
+            csvContent += "\n";
 
-            // Check Requests
-            csvContent += "Check Requests\n";
-            csvContent += "Student ID,Student Name,Timestamp\n";
-            checkRequests.forEach(r => {
-                const student = students.find(s => s.id === r.studentId);
-                const name = student ? `${student.firstName} ${student.lastName}` : '';
-                csvContent += `${r.studentId},${escapeCSV(name)},${new Date(r.timestamp.seconds * 1000).toLocaleString()}\n`;
+            // Scores
+            csvContent += "Scores\nStudent ID,Assignment Number,Score\n";
+            students.forEach(student => {
+                if (student.scores) {
+                    for (const assignmentId in student.scores) {
+                        const assignment = assignments.find(a => a.fbId === assignmentId);
+                        if (assignment) {
+                             csvContent += `${student.id},${assignment.number},${student.scores[assignmentId]}\n`;
+                        }
+                    }
+                }
             });
+            csvContent += "\n";
 
+            // Seating Chart
+            csvContent += "Seating Chart\nSeat Index,Student ID\n";
+            seatingChart.forEach((studentId, index) => {
+                 csvContent += `${index},${studentId || ''}\n`;
+            });
+            csvContent += "\n";
 
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const encodedUri = encodeURI(csvContent);
             const link = document.createElement("a");
-            const url = URL.createObjectURL(blob);
-            link.setAttribute("href", url);
-            const date = new Date().toISOString().split('T')[0];
-            link.setAttribute("download", `classroom_backup_${date}.csv`);
-            link.style.visibility = 'hidden';
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "classroom_data_export.csv");
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
         }
 
-        async function requestHelp(assignmentId, assignmentTitle) {
-            const existingRequest = helpRequests.some(r => r.studentId === currentStudentId && r.assignmentId === assignmentId);
-            if (existingRequest) {
-                showSuccessMessage("You already have a help request for this assignment.");
-                return;
-            }
-            await addDoc(helpRequestsCol, {
-                studentId: currentStudentId,
-                assignmentId,
-                assignmentTitle,
-                timestamp: serverTimestamp()
-            });
-            showSuccessMessage("Help request sent!");
-        }
-
-        async function requestCheck(assignmentId, assignmentTitle) {
-            const existingRequest = checkRequests.some(r => r.studentId === currentStudentId && r.assignmentId === assignmentId);
-            if (existingRequest) {
-                showSuccessMessage("You already have a check request for this assignment.");
-                return;
-            }
-            await addDoc(checkRequestsCol, {
-                studentId: currentStudentId,
-                assignmentId,
-                assignmentTitle,
-                timestamp: serverTimestamp()
-            });
-            showSuccessMessage("Check request sent!");
-        }
+        // --- EVENT LISTENERS & GLOBAL ACCESS ---
+        document.getElementById('add-student-form').addEventListener('submit', addStudent);
+        document.getElementById('edit-student-form').addEventListener('submit', updateStudent);
+        document.getElementById('add-assignment-form').addEventListener('submit', addAssignment);
+        document.getElementById('edit-assignment-form').addEventListener('submit', updateAssignment);
+        document.getElementById('score-assignment-form').addEventListener('submit', saveScores);
+        document.getElementById('bulk-upload-form').addEventListener('submit', bulkUploadStudents);
+        document.getElementById('bulk-assignment-form').addEventListener('submit', bulkAddAssignments);
+        document.getElementById('confirm-button').addEventListener('click', () => confirmAction && confirmAction());
+        document.getElementById('cancel-button').addEventListener('click', () => closeModal('confirmation-modal'));
         
-        async function cancelRequest(type, fbId) {
-            const collectionName = type === 'help' ? 'helpRequests' : 'checkRequests';
-            const docRef = doc(db, `artifacts/${appId}/public/data/periods/${currentPeriodId}/${collectionName}`, fbId);
-            await deleteDoc(docRef);
-            showSuccessMessage('Request cancelled.');
-        }
-
-        function renderPeriodSelectors() {
-            const teacherSelect = document.getElementById('teacher-period-select');
-            const studentSelect = document.getElementById('student-period-select');
-            teacherSelect.innerHTML = periods.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-            studentSelect.innerHTML = periods.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-        }
-
-        function renderPeriodsList() {
-            const list = document.getElementById('periods-list');
-            list.innerHTML = periods.map(p => `
-                <div class="flex justify-between items-center p-2 bg-gray-100 rounded">
-                    <span>${p.name}</span>
-                    <button onclick="deletePeriod('${p.id}')" class="text-red-500 hover:text-red-700">Delete</button>
-                </div>
-            `).join('');
-        }
-
-        async function deletePeriod(periodId) {
-            if (confirm(`Are you sure you want to delete this period and all of its data? This cannot be undone.`)) {
-                await deleteDoc(doc(periodsCol, periodId));
-                // Optionally, also delete all subcollections. For simplicity, we'll leave them for now.
-                // A more robust solution would use a cloud function to recursively delete subcollections.
-                if (currentPeriodId === periodId) {
-                    currentPeriodId = null;
-                }
-            }
-        }
-
-        document.getElementById('teacher-period-select').addEventListener('change', (e) => {
-            switchPeriod(e.target.value);
-        });
-
-        
-        // --- GLOBAL ATTACHMENTS ---
+        // Make functions globally accessible for inline event handlers
         window.switchView = switchView;
         window.switchTeacherTab = switchTeacherTab;
         window.openModal = openModal;
@@ -1652,7 +1385,6 @@ document.getElementById('bulk-assignment-form').addEventListener('submit', async
         window.requestCheck = requestCheck;
         window.resolveRequest = resolveRequest;
         window.cancelRequest = cancelRequest;
-        window.deletePeriod = deletePeriod;
 
         // --- INITIALIZATION ---
         initFirebase();
