@@ -242,6 +242,10 @@
                     <input type="text" id="assignment-title" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
                 </div>
                 <div>
+                    <label for="assignment-description" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <textarea id="assignment-description" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"></textarea>
+                </div>
+                <div>
                     <label for="assignment-posted-date" class="block text-sm font-medium text-gray-700 mb-1">Posted Date</label>
                     <input type="date" id="assignment-posted-date" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
                     <p class="text-xs text-gray-500 mt-1">Leave blank to use today's date.</p>
@@ -275,6 +279,10 @@
                 <div>
                     <label for="assignment-title-edit" class="block text-sm font-medium text-gray-700 mb-1">Title</label>
                     <input type="text" id="assignment-title-edit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
+                </div>
+                <div>
+                    <label for="assignment-description-edit" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <textarea id="assignment-description-edit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"></textarea>
                 </div>
                 <div>
                     <label for="assignment-posted-date-edit" class="block text-sm font-medium text-gray-700 mb-1">Posted Date</label>
@@ -824,6 +832,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                         <div>
                             <h3 class="font-semibold text-lg">#${a.assignmentNumber}: ${a.title}</h3>
                             <p class="text-sm text-gray-500">Posted: ${new Date(a.postedDate).toLocaleDateString()}</p>
+<p class="text-gray-600 text-sm mt-1">${a.description || ""}</p>
                         </div>
                         <div class="flex items-center gap-4">
                             <button onclick="openScoreAssignmentModal('${a.fbId}')" class="text-sm text-green-600 hover:text-green-800 font-medium py-2 px-4 bg-green-100 rounded-full">Score</button>
@@ -834,6 +843,20 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                 </div>
             `).join('');
         }
+
+        
+function getScoreClass(score) {
+    switch (String(score)) {
+        case "4": return "bg-green-100 text-green-800";
+        case "3": return "bg-yellow-100 text-yellow-800";
+        case "2": return "bg-orange-100 text-orange-800";
+        case "1": return "bg-red-100 text-red-800";
+        case "0": return "bg-gray-200 text-gray-700";
+        case "Excused": return "bg-blue-100 text-blue-800";
+        case "Not Graded": return "bg-gray-100 text-gray-500";
+        default: return "bg-gray-100 text-gray-500";
+    }
+}
 
         function renderStudentAssignmentList(student) {
             const list = document.getElementById('student-assignment-list');
@@ -871,6 +894,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                             <div>
                                 <h3 class="font-semibold text-lg">#${a.assignmentNumber}: ${a.title}</h3>
                                 <p class="text-sm text-gray-500">Posted: ${new Date(a.postedDate).toLocaleDateString()}</p>
+<p class="text-gray-600 text-sm mt-1">${a.description || ""}</p>
                             </div>
                              <div class="flex items-center gap-2 mt-3 sm:mt-0">
                                 ${helpRequest ? 
@@ -889,7 +913,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                                         Program ready to check
                                     </button>`
                                 }
-                                <span class="font-bold text-lg ${score === 'Not Graded' ? 'text-gray-500' : 'text-blue-600'}">${score}</span>
+                                <span class="font-bold text-lg px-3 py-1 rounded ${getScoreClass(score)}">${score}</span>
                             </div>
                         </div>
                     </div>
@@ -1103,10 +1127,12 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
             let postedDate = document.getElementById('assignment-posted-date').value;
             if (!postedDate) postedDate = new Date().toISOString().split('T')[0];
 
+            const description = document.getElementById('assignment-description').value;
             await addDoc(assignmentsCol, { 
                 id: Date.now(),
                 assignmentNumber: Number(assignmentNumber),
-                title, 
+                title,
+                description,
                 postedDate,
                 scores: {}
             });
@@ -1120,6 +1146,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
             const originalId = Number(document.getElementById('assignment-original-id-edit').value);
             const assignmentNumber = document.getElementById('assignment-number-edit').value;
             const title = document.getElementById('assignment-title-edit').value;
+            const description = document.getElementById('assignment-description-edit').value;
             let postedDate = document.getElementById('assignment-posted-date-edit').value;
              if (!postedDate) postedDate = new Date().toISOString().split('T')[0];
 
@@ -1128,6 +1155,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                 await updateDoc(doc(assignmentsCol, assignmentDoc.fbId), {
                     assignmentNumber: Number(assignmentNumber),
                     title,
+                    description,
                     postedDate
                 });
                 showSuccessMessage('Assignment updated successfully.');
