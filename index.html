@@ -99,6 +99,9 @@
                     <button onclick="switchTeacherTab('seating-chart')" id="tab-seating-chart" class="tab-btn whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
                         Seating Chart
                     </button>
+                    <button onclick="switchTeacherTab('gradebook')" id="tab-gradebook" class="tab-btn whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                        Gradebook
+                    </button>
                     <button onclick="switchTeacherTab('backup')" id="tab-backup" class="tab-btn whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
                         Backup
                     </button>
@@ -180,6 +183,26 @@
                 </div>
             </div>
             
+            
+            <div id="content-gradebook" class="tab-content">
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-2xl font-bold">Gradebook</h2>
+                        <div class="text-sm text-gray-500">Tip: Use <code>;</code> to separate multiple scores (e.g., <code>2;Excused</code>).</div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full border border-gray-300 bg-white text-sm">
+                            <thead id="gradebook-header" class="bg-gray-100"></thead>
+                            <tbody id="gradebook-body"></tbody>
+                        </table>
+                    </div>
+                    <div class="mt-4 flex items-center gap-3">
+                        <button onclick="saveGradebookChanges()" class="bg-green-600 text-white font-semibold py-2 px-4 rounded hover:bg-green-700">Save Changes</button>
+                        <span id="gradebook-save-status" class="text-sm text-gray-500"></span>
+                    </div>
+                </div>
+            </div>
+
             <div id="content-backup" class="tab-content">
                 <div class="bg-white p-6 rounded-xl shadow-md">
                     <h2 class="text-2xl font-bold mb-4">Data Backup</h2>
@@ -659,7 +682,9 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
              document.getElementById(`tab-${tabName}`).classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
              currentTeacherTab = tabName;
 
-             if(tabName === 'seating-chart') {
+             if(tabName === 'gradebook') {
+                renderGradebook();
+             } else if(tabName === 'seating-chart') {
                 renderSeatingChart();
                 renderUnseatedStudentList();
                 renderStudentRequests();
@@ -1470,7 +1495,77 @@ function getScoreClass(score) {
     }
 }
 
-// --- CSV EXPORT ---
+
+// --- GRADEBOOK (Teacher-only) ---
+function renderGradebook() {
+    const header = document.getElementById("gradebook-header");
+    const body = document.getElementById("gradebook-body");
+    if (!header || !body) return;
+
+    header.innerHTML = "";
+    body.innerHTML = "";
+
+    // Sort a copy by assignment number
+    const sortedAssignments = [...assignments].sort((a, b) => a.assignmentNumber - b.assignmentNumber);
+
+    // Header row
+    let headerHTML = "<tr>";
+    headerHTML += "<th class='border px-2 py-1 text-left sticky left-0 bg-gray-100 z-10'>Student</th>";
+    sortedAssignments.forEach(a => {
+        headerHTML += `<th class="border px-2 py-1 text-left">#${a.assignmentNumber}: ${a.title}</th>`;
+    });
+    headerHTML += "</tr>";
+    header.innerHTML = headerHTML;
+
+    // Body rows
+    const sortedStudents = [...students].sort((a, b) => String(a.lastName).localeCompare(String(b.lastName)) || String(a.firstName).localeCompare(String(b.firstName)));
+    sortedStudents.forEach(s => {
+        let rowHTML = `<tr>`;
+        rowHTML += `<td class="border px-2 py-1 font-semibold sticky left-0 bg-white z-10">${s.lastName}, ${s.firstName}</td>`;
+        sortedAssignments.forEach(a => {
+            let score = a.scores ? a.scores[s.id] : "";
+            let val = Array.isArray(score) ? score.join(";") : (score ?? "");
+            rowHTML += `<td class="border px-2 py-1"><input type="text" class="w-28 px-2 py-1 border rounded text-center"
+                        data-student="${s.id}" data-assignment="${a.fbId}" value="${String(val).replace(/"/g,'&quot;')}"></td>`;
+        });
+        rowHTML += `</tr>`;
+        body.insertAdjacentHTML("beforeend", rowHTML);
+    });
+}
+
+async function saveGradebookChanges() {
+    const inputs = document.querySelectorAll("#gradebook-body input[data-student][data-assignment]");
+    const byAssignment = new Map(); // fbId -> object of scores
+
+    inputs.forEach(inp => {
+        const fbId = inp.dataset.assignment;
+        const studentId = inp.dataset.student;
+        const raw = inp.value.trim();
+        let parsed = "";
+        if (raw.length > 0) {
+            parsed = raw.includes(";") ? raw.split(";").map(s => s.trim()).filter(Boolean) : (isNaN(raw) ? raw : Number(raw));
+        }
+        if (!byAssignment.has(fbId)) byAssignment.set(fbId, {});
+        byAssignment.get(fbId)[studentId] = parsed;
+    });
+
+    let updated = 0;
+    for (const [fbId, scoresObj] of byAssignment.entries()) {
+        const ref = doc(assignmentsCol, fbId);
+        await updateDoc(ref, { scores: scoresObj });
+        updated++;
+    }
+
+    const status = document.getElementById("gradebook-save-status");
+    if (status) {
+        status.textContent = `Saved ${updated} assignment${updated===1?"":"s"}.`;
+        setTimeout(() => status.textContent = "", 3000);
+    }
+    showSuccessMessage("Gradebook updated.");
+}
+window.saveGradebookChanges = saveGradebookChanges;
+
+        // --- CSV EXPORT ---
 async function updateAssignmentDescription(assignmentId, newDescription) {
     try {
         const assignmentRef = doc(assignmentsCol, assignmentId);
