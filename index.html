@@ -4,19 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Classroom Management App</title>
-    <script src="https://cdn.tailwindcss.com">
-function refreshGradebookMissing() {
-  document.querySelectorAll("#gradebook-body input[data-student][data-assignment]").forEach(inp => {
-    if (inp.value.trim() === "") {
-      inp.classList.add("gradebook-missing");
-    } else {
-      inp.classList.remove("gradebook-missing");
-    }
-  });
-}
-window.refreshGradebookMissing = refreshGradebookMissing;
-
-</script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
@@ -64,13 +52,6 @@ window.refreshGradebookMissing = refreshGradebookMissing;
   left: 0;
   background: white;
   z-index: 30;
-}
-</style>
-
-
-<style>
-.gradebook-missing {
-  background-color: #fecaca !important; /* Tailwind red-200 */
 }
 </style>
 
@@ -1274,18 +1255,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
         });
 
         
-        
-function refreshGradebookMissing() {
-  document.querySelectorAll("#gradebook-body input[data-student][data-assignment]").forEach(inp => {
-    if (inp.value.trim() === "") {
-      inp.classList.add("gradebook-missing");
-    } else {
-      inp.classList.remove("gradebook-missing");
-    }
-  });
-}
-
-// --- DRAG AND DROP ---
+        // --- DRAG AND DROP ---
         let draggedItem = null;
 
         function handleDragStart(e, type, id, index) {
@@ -1544,9 +1514,6 @@ function getScoreClass(score) {
 
 // --- GRADEBOOK (Teacher-only) ---
 function renderGradebook() {
-    // after gradebook renders, refresh highlights
-    setTimeout(refreshGradebookMissing, 50);
- {
     const header = document.getElementById("gradebook-header");
     const body = document.getElementById("gradebook-body");
     if (!header || !body) return;
@@ -1670,14 +1637,10 @@ async function saveGradebookChanges() {
             const now = new Date();
             const timeStr = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
             status.textContent = `Saved ${updated} assignment${updated === 1 ? "" : "s"} at ${timeStr}.`;
-            refreshGradebookMissing();
-            refreshGradebookMissing();
             status.style.color = "green";
             setTimeout(() => { status.textContent = ""; status.style.color = ""; }, 4000);
         }
         showSuccessMessage("Gradebook updated.");
-        refreshGradebookMissing();
-        refreshGradebookMissing();
     } catch (err) {
         console.error("Bulk save failed", err);
         const status = document.getElementById("gradebook-save-status");
@@ -1720,8 +1683,6 @@ async function autoSaveGradebookCell(input) {
             const now = new Date();
             const timeStr = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
             status.textContent = `Auto-saved ${studentName} – ${assignmentLabel} at ${timeStr}`;
-            refreshGradebookMissing();
-            refreshGradebookMissing();
             status.style.color = "green";
             setTimeout(() => { status.textContent = ""; status.style.color = ""; }, 3000);
         }
