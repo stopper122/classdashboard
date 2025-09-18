@@ -1551,7 +1551,6 @@ function renderGradebook() {
     header.innerHTML = headerHTML;
 
     // Body rows
-    refreshGradebookMissing();
     const sortedStudents = [...students].sort((a, b) => String(a.lastName).localeCompare(String(b.lastName)) || String(a.firstName).localeCompare(String(b.firstName)));
     sortedStudents.forEach(s => {
         let rowHTML = `<tr>`;
