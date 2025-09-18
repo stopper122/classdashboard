@@ -994,7 +994,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                 const currentScore = assignment.scores && assignment.scores[s.id] !== undefined ? String(assignment.scores[s.id]) : '';
                 const radioButtons = scoreOptions.map(option => `
                     <label class="flex items-center">
-                        <input type="radio" name="score-${s.id}" value="${option}" ${currentScore === option ? 'checked' : ''} class="mr-1">
+                        <input type="checkbox" name="score-${s.id}" value="${option}" ${currentScore === option ? 'checked' : ''} class="mr-1">
                         ${option}
                     </label>
                 `).join('');
@@ -1027,7 +1027,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                 const currentScore = a.scores && a.scores[student.id] !== undefined ? String(a.scores[student.id]) : '';
                 const radioButtons = scoreOptions.map(option => `
                     <label class="flex items-center">
-                        <input type="radio" name="score-${a.fbId}-${student.id}" value="${option}" ${currentScore === option ? 'checked' : ''} class="mr-1">
+                        <input type="checkbox" name="score-${a.fbId}-${student.id}" value="${option}" ${currentScore === option ? 'checked' : ''} class="mr-1">
                         ${option}
                     </label>
                 `).join('');
@@ -1434,7 +1434,29 @@ document.getElementById('bulk-assignment-form').addEventListener('submit', async
   }
 });
 
-        // --- CSV EXPORT ---
+        
+async function updateScore(studentId, assignmentNumber, score) {
+    try {
+        // Get all checked boxes for this student + assignment
+        const checked = Array.from(document.querySelectorAll(
+            `input[name="score-${studentId}-${assignmentNumber}"]:checked`
+        )).map(cb => cb.value);
+
+        // Save as array (or empty array if none checked)
+        const assignmentDoc = assignments.find(a => a.assignmentNumber === assignmentNumber);
+        if (!assignmentDoc) return;
+        const assignmentRef = doc(assignmentsCol, assignmentDoc.fbId);
+        await updateDoc(assignmentRef, { [`scores.${studentId}`]: checked });
+
+        showSuccessMessage("Scores updated.");
+    } catch (err) {
+        console.error("Failed to update scores", err);
+        alert("Error saving scores. Please try again.");
+    }
+}
+window.updateScore = updateScore;
+
+// --- CSV EXPORT ---
 async function updateAssignmentDescription(assignmentId, newDescription) {
     try {
         const assignmentRef = doc(assignmentsCol, assignmentId);
@@ -1556,7 +1578,7 @@ async function importAllDataFromCSV() {
                 const studentId = h.match(/\(ID: (\d+)\)/)?.[1];
                 if (studentId) {
                     const val = parts[idx + 3];
-                    if (val) scores[studentId] = isNaN(val) ? val : Number(val);
+                    if (val) scores[studentId] = val.includes(";") ? val.split(";") : (isNaN(val) ? val : Number(val));
                 }
             });
             batch.set(ref, { assignmentNumber, title, postedDate, scores });
