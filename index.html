@@ -55,14 +55,6 @@
 }
 </style>
 
-
-<style>
-.gradebook-missing {
-  border-color: #fca5a5 !important; /* Tailwind red-300 */
-  background-color: #fef2f2 !important; /* Tailwind red-50 */
-}
-</style>
-
 </head>
 <body class="bg-gray-100 text-gray-800">
 
@@ -1641,9 +1633,9 @@ async function autoSaveGradebookCell(input) {
 
         // Toggle red background if empty
         if (input.value.trim() === "") {
-            input.classList.add("gradebook-missing");
+            input.classList.add("bg-red-100");
         } else {
-            input.classList.remove("gradebook-missing");
+            input.classList.remove("bg-red-100");
         }
 
         const status = document.getElementById("gradebook-save-status");
@@ -1699,9 +1691,9 @@ async function saveGradebookChanges() {
         // Refresh red highlights after save
         document.querySelectorAll("#gradebook-body input[data-student][data-assignment]").forEach(inp => {
             if (inp.value.trim() === "") {
-                inp.classList.add("gradebook-missing");
+                inp.classList.add("bg-red-100");
             } else {
-                inp.classList.remove("gradebook-missing");
+                inp.classList.remove("bg-red-100");
             }
         });
 
