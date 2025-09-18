@@ -1542,7 +1542,7 @@ function renderGradebook() {
             let score = a.scores ? a.scores[s.id] : "";
             let val = Array.isArray(score) ? score.join(";") : (score ?? "");
             rowHTML += `<td class="border px-2 py-1"><input type="text" class="w-28 px-2 py-1 border rounded text-center"
-                        data-student="${s.id}" data-assignment="${a.fbId}" value="${String(val).replace(/"/g,'&quot;')}" class="w-28 px-2 py-1 border rounded text-center ${val === "" ? \"bg-red-100\" : \"\"}" onblur="autoSaveGradebookCell(this)"></td>`;
+                        data-student="${s.id}" data-assignment="${a.fbId}" value="${String(val).replace(/"/g,'&quot;')}" onblur="autoSaveGradebookCell(this)"></td>`;
         });
         rowHTML += `</tr>`;
         body.insertAdjacentHTML("beforeend", rowHTML);
@@ -1608,61 +1608,6 @@ document.addEventListener("keydown", function(e) {
 
 
 
-
-
-
-
-
-
-// --- GRADEBOOK AUTO-SAVE ---
-async function autoSaveGradebookCell(input) {
-    const fbId = input.dataset.assignment;
-    const studentId = input.dataset.student;
-    const raw = input.value.trim();
-    let parsed = "";
-
-    if (raw.length > 0) {
-        parsed = raw.includes(";")
-            ? raw.split(";").map(s => s.trim()).filter(Boolean)
-            : (isNaN(raw) ? raw : Number(raw));
-    }
-
-    try {
-        const ref = doc(assignmentsCol, fbId);
-        await updateDoc(ref, { [`scores.${studentId}`]: parsed });
-
-        // Toggle red background if empty
-        if (input.value.trim() === "") {
-            input.classList.add("bg-red-100");
-        } else {
-            input.classList.remove("bg-red-100");
-        }
-
-        const status = document.getElementById("gradebook-save-status");
-        const student = students.find(s => s.id == studentId);
-        const studentName = student ? `${student.firstName} ${student.lastName}` : studentId;
-        const assignment = assignments.find(a => a.fbId == fbId);
-        const assignmentLabel = assignment ? `Assignment #${assignment.assignmentNumber}` : "";
-        if (status) {
-            const now = new Date();
-            const timeStr = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-            status.textContent = `Auto-saved ${studentName} – ${assignmentLabel} at ${timeStr}`;
-            status.style.color = "green";
-            setTimeout(() => { status.textContent = ""; status.style.color = ""; }, 3000);
-        }
-    } catch (err) {
-        console.error("Auto-save failed", err);
-        const status = document.getElementById("gradebook-save-status");
-        if (status) {
-            status.textContent = "Auto-save failed!";
-            status.style.color = "red";
-            setTimeout(() => { status.textContent = ""; status.style.color = ""; }, 4000);
-        }
-    }
-}
-window.autoSaveGradebookCell = autoSaveGradebookCell;
-
-
 async function saveGradebookChanges() {
     const inputs = document.querySelectorAll("#gradebook-body input[data-student][data-assignment]");
     const byAssignment = new Map();
@@ -1687,16 +1632,6 @@ async function saveGradebookChanges() {
             await updateDoc(ref, { scores: scoresObj });
             updated++;
         }
-
-        // Refresh red highlights after save
-        document.querySelectorAll("#gradebook-body input[data-student][data-assignment]").forEach(inp => {
-            if (inp.value.trim() === "") {
-                inp.classList.add("bg-red-100");
-            } else {
-                inp.classList.remove("bg-red-100");
-            }
-        });
-
         const status = document.getElementById("gradebook-save-status");
         if (status) {
             const now = new Date();
@@ -1717,6 +1652,51 @@ async function saveGradebookChanges() {
     }
 }
 window.saveGradebookChanges = saveGradebookChanges;
+
+
+// --- GRADEBOOK AUTO-SAVE ---
+async function autoSaveGradebookCell(input) {
+    const fbId = input.dataset.assignment;
+    const studentId = input.dataset.student;
+    const raw = input.value.trim();
+    let parsed = "";
+
+    if (raw.length > 0) {
+        parsed = raw.includes(";")
+            ? raw.split(";").map(s => s.trim()).filter(Boolean)
+            : (isNaN(raw) ? raw : Number(raw));
+    }
+
+    try {
+        const ref = doc(assignmentsCol, fbId);
+        await updateDoc(ref, { [`scores.${studentId}`]: parsed });
+
+        const status = document.getElementById("gradebook-save-status");
+
+        // Lookup student + assignment names for better message
+        const student = students.find(s => s.id == studentId);
+        const studentName = student ? `${student.firstName} ${student.lastName}` : studentId;
+        const assignment = assignments.find(a => a.fbId == fbId);
+        const assignmentLabel = assignment ? `Assignment #${assignment.assignmentNumber}` : "";
+
+        if (status) {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            status.textContent = `Auto-saved ${studentName} – ${assignmentLabel} at ${timeStr}`;
+            status.style.color = "green";
+            setTimeout(() => { status.textContent = ""; status.style.color = ""; }, 3000);
+        }
+    } catch (err) {
+        console.error("Auto-save failed", err);
+        const status = document.getElementById("gradebook-save-status");
+        if (status) {
+            status.textContent = "Auto-save failed!";
+            status.style.color = "red";
+            setTimeout(() => { status.textContent = ""; status.style.color = ""; }, 4000);
+        }
+    }
+}
+window.autoSaveGradebookCell = autoSaveGradebookCell;
 
 // --- CSV EXPORT ---
 async function updateAssignmentDescription(assignmentId, newDescription) {
