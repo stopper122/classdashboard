@@ -4,7 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Classroom Management App</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com">
+function refreshGradebookMissing() {
+  document.querySelectorAll("#gradebook-body input[data-student][data-assignment]").forEach(inp => {
+    if (inp.value.trim() === "") {
+      inp.classList.add("gradebook-missing");
+    } else {
+      inp.classList.remove("gradebook-missing");
+    }
+  });
+}
+window.refreshGradebookMissing = refreshGradebookMissing;
+
+</script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
@@ -1263,7 +1275,11 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
 
         
         
- else {
+function refreshGradebookMissing() {
+  document.querySelectorAll("#gradebook-body input[data-student][data-assignment]").forEach(inp => {
+    if (inp.value.trim() === "") {
+      inp.classList.add("gradebook-missing");
+    } else {
       inp.classList.remove("gradebook-missing");
     }
   });
@@ -1720,17 +1736,6 @@ async function autoSaveGradebookCell(input) {
     }
 }
 window.autoSaveGradebookCell = autoSaveGradebookCell;
-
-
-function refreshGradebookMissing() {
-  document.querySelectorAll("#gradebook-body input[data-student][data-assignment]").forEach(inp => {
-    if (inp.value.trim() === "") {
-      inp.classList.add("gradebook-missing");
-    } else {
-      inp.classList.remove("gradebook-missing");
-    }
-  });
-}
 
 // --- CSV EXPORT ---
 async function updateAssignmentDescription(assignmentId, newDescription) {
