@@ -1263,11 +1263,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
 
         
         
-function refreshGradebookMissing() {
-  document.querySelectorAll("#gradebook-body input[data-student][data-assignment]").forEach(inp => {
-    if (inp.value.trim() === "") {
-      inp.classList.add("gradebook-missing");
-    } else {
+ else {
       inp.classList.remove("gradebook-missing");
     }
   });
@@ -1555,6 +1551,7 @@ function renderGradebook() {
     header.innerHTML = headerHTML;
 
     // Body rows
+    refreshGradebookMissing();
     const sortedStudents = [...students].sort((a, b) => String(a.lastName).localeCompare(String(b.lastName)) || String(a.firstName).localeCompare(String(b.firstName)));
     sortedStudents.forEach(s => {
         let rowHTML = `<tr>`;
@@ -1659,10 +1656,12 @@ async function saveGradebookChanges() {
             const timeStr = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
             status.textContent = `Saved ${updated} assignment${updated === 1 ? "" : "s"} at ${timeStr}.`;
             refreshGradebookMissing();
+            refreshGradebookMissing();
             status.style.color = "green";
             setTimeout(() => { status.textContent = ""; status.style.color = ""; }, 4000);
         }
         showSuccessMessage("Gradebook updated.");
+        refreshGradebookMissing();
         refreshGradebookMissing();
     } catch (err) {
         console.error("Bulk save failed", err);
@@ -1707,6 +1706,7 @@ async function autoSaveGradebookCell(input) {
             const timeStr = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
             status.textContent = `Auto-saved ${studentName} – ${assignmentLabel} at ${timeStr}`;
             refreshGradebookMissing();
+            refreshGradebookMissing();
             status.style.color = "green";
             setTimeout(() => { status.textContent = ""; status.style.color = ""; }, 3000);
         }
@@ -1721,6 +1721,17 @@ async function autoSaveGradebookCell(input) {
     }
 }
 window.autoSaveGradebookCell = autoSaveGradebookCell;
+
+
+function refreshGradebookMissing() {
+  document.querySelectorAll("#gradebook-body input[data-student][data-assignment]").forEach(inp => {
+    if (inp.value.trim() === "") {
+      inp.classList.add("gradebook-missing");
+    } else {
+      inp.classList.remove("gradebook-missing");
+    }
+  });
+}
 
 // --- CSV EXPORT ---
 async function updateAssignmentDescription(assignmentId, newDescription) {
