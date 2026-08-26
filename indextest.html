@@ -764,7 +764,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                 renderUnseatedStudentList();
                 renderStudentRequests();
              } else if(tabName === 'messages') {
-                renderTeacherMessagesTab();
+                updateUnreadBadges();
              }
         }
         
@@ -776,9 +776,8 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                 renderSeatingChart();
                 renderUnseatedStudentList();
             } else if (currentTeacherTab === 'messages') {
-                renderTeacherMessagesTab();
+                updateUnreadBadges();
             }
-            updateUnreadBadges();
         }
         
         function renderStudentView() {
@@ -1171,11 +1170,19 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
 
             studentListEl.innerHTML = students.map(s => {
                 const unreadCount = unreadMap[s.id] || 0;
+                let bgClass = "bg-gray-50 hover:bg-blue-50";
+                
+                if (activeStudentChatId === s.id) {
+                    bgClass = "bg-blue-100 border border-blue-400";
+                } else if (unreadCount > 0) {
+                    bgClass = "bg-yellow-100 border-2 border-yellow-400 hover:bg-yellow-200 font-bold";
+                }
+
                 return `
-                    <li onclick="selectTeacherChatStudent(${s.id})" class="p-3 bg-gray-50 hover:bg-blue-50 cursor-pointer rounded-lg font-medium flex justify-between items-center ${activeStudentChatId === s.id ? 'bg-blue-100 border border-blue-400' : ''}">
+                    <li onclick="selectTeacherChatStudent(${s.id})" class="p-3 cursor-pointer rounded-lg font-medium flex justify-between items-center transition ${bgClass}">
                         <div class="flex items-center gap-2">
                             <span>${s.firstName} ${s.lastName}</span>
-                            ${unreadCount > 0 ? `<span class="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">${unreadCount}</span>` : ''}
+                            ${unreadCount > 0 ? `<span class="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-bold animate-pulse">${unreadCount} New</span>` : ''}
                         </div>
                         <span class="text-xs text-gray-400">ID: ${s.id}</span>
                     </li>
@@ -1185,7 +1192,6 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
 
         function selectTeacherChatStudent(studentId) {
             activeStudentChatId = studentId;
-            renderTeacherMessagesTab();
 
             const student = students.find(s => s.id === studentId);
             const headerEl = document.getElementById('teacher-chat-header');
