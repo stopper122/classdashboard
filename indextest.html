@@ -118,8 +118,9 @@
                     <button onclick="switchTeacherTab('gradebook')" id="tab-gradebook" class="tab-btn whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
                         Gradebook
                     </button>
-                    <button onclick="switchTeacherTab('messages')" id="tab-messages" class="tab-btn whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
-                        Messages
+                    <button onclick="switchTeacherTab('messages')" id="tab-messages" class="tab-btn whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 flex items-center gap-1">
+                        <span>Messages</span>
+                        <span id="teacher-total-unread-badge" class="hidden bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">0</span>
                     </button>
                     <button onclick="switchTeacherTab('backup')" id="tab-backup" class="tab-btn whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
                         Backup
@@ -229,7 +230,10 @@
                         <ul id="teacher-chat-student-list" class="space-y-2 overflow-y-auto flex-1"></ul>
                     </div>
                     <div class="w-full md:w-2/3 flex flex-col justify-between">
-                        <div id="teacher-chat-header" class="font-bold text-lg border-b pb-2 mb-2 text-gray-700">Select a student to start chatting</div>
+                        <div class="flex justify-between items-center border-b pb-2 mb-2">
+                            <div id="teacher-chat-header" class="font-bold text-lg text-gray-700">Select a student to start chatting</div>
+                            <button id="clear-chat-history-btn" onclick="clearTeacherChatHistory()" class="bg-red-100 text-red-600 hover:bg-red-200 font-semibold text-xs px-3 py-1.5 rounded-lg hidden">Clear History</button>
+                        </div>
                         <div id="teacher-chat-box" class="flex-1 overflow-y-auto space-y-3 p-3 bg-gray-50 rounded-lg mb-4"></div>
                         <form id="teacher-chat-form" class="flex gap-2">
                             <input type="text" id="teacher-chat-input" placeholder="Type a message..." class="flex-1 border rounded-lg px-4 py-2 focus:ring-blue-500 focus:border-blue-500" disabled required>
@@ -267,7 +271,10 @@
                     <p class="text-gray-500">Welcome, <span id="student-name" class="font-semibold"></span>!</p>
                 </div>
                  <div class="flex items-center gap-3">
-                    <button onclick="openModal('student-chat-modal')" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition">Message Teacher</button>
+                    <button onclick="openStudentChatModal()" class="relative bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition flex items-center gap-2">
+                        <span>Message Teacher</span>
+                        <span id="student-unread-badge" class="hidden bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">New</span>
+                    </button>
                     <button onclick="logout()" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Logout</button>
                  </div>
             </header>
@@ -587,10 +594,11 @@ window.checkTeacherPassword = checkTeacherPassword;
         let helpRequests = [];
         let checkRequests = [];
         let seatingChart = [];
-        let messages = [];
+        let allMessages = [];
         let activeStudentChatId = null;
         let studentMessagesUnsub = null;
         let teacherMessagesUnsub = null;
+        let globalMessagesUnsub = null;
         let studentsLoaded = false;
         let seatingLoaded = false;
         
@@ -686,6 +694,12 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                 if (currentView === 'student') renderStudentView();
             });
 
+            if (globalMessagesUnsub) globalMessagesUnsub();
+            globalMessagesUnsub = onSnapshot(query(messagesCol), (snapshot) => {
+                allMessages = snapshot.docs.map(doc => ({ fbId: doc.id, ...doc.data() }));
+                updateUnreadBadges();
+            });
+
              onSnapshot(seatingChartDoc, async (docSnap) => {
                 if (docSnap.exists()) {
                     seatingChart = docSnap.data().chart || Array(TOTAL_SEATS).fill(null);
@@ -764,6 +778,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
             } else if (currentTeacherTab === 'messages') {
                 renderTeacherMessagesTab();
             }
+            updateUnreadBadges();
         }
         
         function renderStudentView() {
@@ -774,6 +789,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
             } else {
                  logout();
             }
+            updateUnreadBadges();
         }
 
         function sortStudents(key) {
@@ -1041,6 +1057,63 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
 
         
         // --- CHAT SYSTEM ---
+        function updateUnreadBadges() {
+            // Teacher Unread Count
+            const unreadByStudent = {};
+            let totalTeacherUnread = 0;
+
+            allMessages.forEach(m => {
+                if (m.sender === 'student' && !m.read) {
+                    unreadByStudent[m.studentId] = (unreadByStudent[m.studentId] || 0) + 1;
+                    totalTeacherUnread++;
+                }
+            });
+
+            const totalBadge = document.getElementById('teacher-total-unread-badge');
+            if (totalBadge) {
+                if (totalTeacherUnread > 0) {
+                    totalBadge.textContent = totalTeacherUnread;
+                    totalBadge.classList.remove('hidden');
+                } else {
+                    totalBadge.classList.add('hidden');
+                }
+            }
+
+            if (currentTeacherTab === 'messages') {
+                renderTeacherMessagesTab(unreadByStudent);
+            }
+
+            // Student Unread Count
+            if (currentStudentId) {
+                const studentUnread = allMessages.some(m => m.studentId === currentStudentId && m.sender === 'teacher' && !m.read);
+                const studentBadge = document.getElementById('student-unread-badge');
+                if (studentBadge) {
+                    if (studentUnread) {
+                        studentBadge.classList.remove('hidden');
+                    } else {
+                        studentBadge.classList.add('hidden');
+                    }
+                }
+            }
+        }
+
+        async function markMessagesAsRead(studentId, recipientType) {
+            const unreadMsgs = allMessages.filter(m => m.studentId === studentId && m.sender !== recipientType && !m.read);
+            if (unreadMsgs.length === 0) return;
+
+            const batch = writeBatch(db);
+            unreadMsgs.forEach(m => {
+                const ref = doc(messagesCol, m.fbId);
+                batch.update(ref, { read: true });
+            });
+            await batch.commit();
+        }
+
+        function openStudentChatModal() {
+            openModal('student-chat-modal');
+            markMessagesAsRead(currentStudentId, 'student');
+        }
+
         function listenToStudentMessages() {
             if (studentMessagesUnsub) studentMessagesUnsub();
             if (!currentStudentId) return;
@@ -1085,22 +1158,29 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                 studentId: currentStudentId,
                 sender: 'student',
                 text,
+                read: false,
                 timestamp: serverTimestamp()
             });
 
             input.value = '';
         });
 
-        function renderTeacherMessagesTab() {
+        function renderTeacherMessagesTab(unreadMap = {}) {
             const studentListEl = document.getElementById('teacher-chat-student-list');
             if (!studentListEl) return;
 
-            studentListEl.innerHTML = students.map(s => `
-                <li onclick="selectTeacherChatStudent(${s.id})" class="p-3 bg-gray-50 hover:bg-blue-50 cursor-pointer rounded-lg font-medium flex justify-between items-center ${activeStudentChatId === s.id ? 'bg-blue-100 border border-blue-400' : ''}">
-                    <span>${s.firstName} ${s.lastName}</span>
-                    <span class="text-xs text-gray-400">ID: ${s.id}</span>
-                </li>
-            `).join('');
+            studentListEl.innerHTML = students.map(s => {
+                const unreadCount = unreadMap[s.id] || 0;
+                return `
+                    <li onclick="selectTeacherChatStudent(${s.id})" class="p-3 bg-gray-50 hover:bg-blue-50 cursor-pointer rounded-lg font-medium flex justify-between items-center ${activeStudentChatId === s.id ? 'bg-blue-100 border border-blue-400' : ''}">
+                        <div class="flex items-center gap-2">
+                            <span>${s.firstName} ${s.lastName}</span>
+                            ${unreadCount > 0 ? `<span class="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">${unreadCount}</span>` : ''}
+                        </div>
+                        <span class="text-xs text-gray-400">ID: ${s.id}</span>
+                    </li>
+                `;
+            }).join('');
         }
 
         function selectTeacherChatStudent(studentId) {
@@ -1111,10 +1191,14 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
             const headerEl = document.getElementById('teacher-chat-header');
             const inputEl = document.getElementById('teacher-chat-input');
             const btnEl = document.getElementById('teacher-chat-send-btn');
+            const clearBtn = document.getElementById('clear-chat-history-btn');
 
             if (headerEl) headerEl.textContent = `Chatting with ${student ? `${student.firstName} ${student.lastName}` : `ID: ${studentId}`}`;
             if (inputEl) inputEl.disabled = false;
             if (btnEl) btnEl.disabled = false;
+            if (clearBtn) clearBtn.classList.remove('hidden');
+
+            markMessagesAsRead(studentId, 'teacher');
 
             if (teacherMessagesUnsub) teacherMessagesUnsub();
 
@@ -1158,11 +1242,27 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                 studentId: activeStudentChatId,
                 sender: 'teacher',
                 text,
+                read: false,
                 timestamp: serverTimestamp()
             });
 
             input.value = '';
         });
+
+        async function clearTeacherChatHistory() {
+            if (!activeStudentChatId) return;
+            const student = students.find(s => s.id === activeStudentChatId);
+            const name = student ? `${student.firstName} ${student.lastName}` : `ID ${activeStudentChatId}`;
+
+            showConfirmation(`Clear Chat History?`, `This will permanently delete all messages with ${name}.`, async () => {
+                const q = query(messagesCol, where("studentId", "==", activeStudentChatId));
+                const snapshot = await getDocs(q);
+                const batch = writeBatch(db);
+                snapshot.docs.forEach(docSnap => batch.delete(doc(messagesCol, docSnap.id)));
+                await batch.commit();
+                showSuccessMessage('Chat history cleared.');
+            });
+        }
 
         
         // --- MODALS ---
@@ -2165,6 +2265,8 @@ window.importAllDataFromCSV = importAllDataFromCSV;
         window.resolveRequest = resolveRequest;
         window.cancelRequest = cancelRequest;
         window.selectTeacherChatStudent = selectTeacherChatStudent;
+        window.clearTeacherChatHistory = clearTeacherChatHistory;
+        window.openStudentChatModal = openStudentChatModal;
 
         // --- INITIALIZATION ---
         initFirebase();
