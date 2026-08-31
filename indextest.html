@@ -279,6 +279,16 @@
                  </div>
             </header>
 
+            <div class="bg-white p-6 rounded-xl shadow-md mb-6">
+                <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <div>
+                        <h2 class="text-xl font-bold">Need Immediate Help?</h2>
+                        <p class="text-sm text-gray-500">Click below to ask your teacher for help anytime, even if no assignment is active.</p>
+                    </div>
+                    <div id="general-help-btn-container"></div>
+                </div>
+            </div>
+
             <div class="bg-white p-6 rounded-xl shadow-md">
                 <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
                     <h2 class="text-2xl font-bold">Your Assignments</h2>
@@ -948,7 +958,31 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
 
         function renderStudentAssignmentList(student) {
             const list = document.getElementById('student-assignment-list');
-            
+            const generalHelpContainer = document.getElementById('general-help-btn-container');
+
+            const sortedHelpRequests = [...helpRequests].sort((a, b) => a.timestamp?.seconds - b.timestamp?.seconds);
+            const sortedCheckRequests = [...checkRequests].sort((a, b) => a.timestamp?.seconds - b.timestamp?.seconds);
+
+            // Render General Help Request Button
+            if (generalHelpContainer) {
+                const generalHelpRequest = sortedHelpRequests.find(r => r.studentId === student.id && r.assignmentId === 'general');
+                const generalHelpPosition = generalHelpRequest ? sortedHelpRequests.indexOf(generalHelpRequest) + 1 : -1;
+
+                if (generalHelpRequest) {
+                    generalHelpContainer.innerHTML = `
+                        <button onclick="cancelRequest('help', '${generalHelpRequest.fbId}')" class="text-sm font-semibold py-2.5 px-6 rounded-lg bg-yellow-200 text-yellow-800 hover:bg-yellow-300 shadow transition">
+                            Cancel Help Request (#${generalHelpPosition})
+                        </button>
+                    `;
+                } else {
+                    generalHelpContainer.innerHTML = `
+                        <button onclick="requestHelp('general', 'General Question')" class="text-sm font-semibold py-2.5 px-6 rounded-lg bg-red-600 text-white hover:bg-red-700 shadow transition">
+                            I Need Help (General)
+                        </button>
+                    `;
+                }
+            }
+
             let sortedAssignments = [...assignments];
 
             sortedAssignments.sort((a, b) => {
@@ -965,9 +999,6 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                     default: return 0;
                 }
             });
-
-            const sortedHelpRequests = [...helpRequests].sort((a, b) => a.timestamp?.seconds - b.timestamp?.seconds);
-            const sortedCheckRequests = [...checkRequests].sort((a, b) => a.timestamp?.seconds - b.timestamp?.seconds);
 
             list.innerHTML = sortedAssignments.map(a => {
                 const score = a.scores && a.scores[student.id] !== undefined ? a.scores[student.id] : 'Not Graded';
@@ -1031,7 +1062,7 @@ seatingChartDoc = doc(db, basePath, "seatingChart", "main");
                 const bgColor = req.type === 'help' ? 'bg-red-100' : 'bg-sky-100';
                 const textColor = req.type === 'help' ? 'text-red-800' : 'text-sky-800';
                 const buttonColor = req.type === 'help' ? 'bg-red-200 hover:bg-red-300' : 'bg-sky-200 hover:bg-sky-300';
-                const assignmentTitle = req.assignmentTitle ? `for "${req.assignmentTitle}"` : '';
+                const assignmentTitle = req.assignmentTitle ? (req.assignmentId === 'general' ? 'General Help' : `for "${req.assignmentTitle}"`) : '';
 
                 return `
                     <li class="${bgColor} ${textColor} p-3 rounded-lg flex justify-between items-center">
@@ -2207,7 +2238,7 @@ window.importAllDataFromCSV = importAllDataFromCSV;
         async function requestHelp(assignmentId, assignmentTitle) {
             const existingRequest = helpRequests.some(r => r.studentId === currentStudentId && r.assignmentId === assignmentId);
             if (existingRequest) {
-                showSuccessMessage("You already have a help request for this assignment.");
+                showSuccessMessage("You already have a help request active.");
                 return;
             }
             await addDoc(helpRequestsCol, {
